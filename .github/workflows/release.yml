@@ -1,0 +1,219 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+env:
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
+  NUGET_XMLDOC_MODE: skip
+  GO_VERSION: '1.21'
+
+jobs:
+  # -----------------------------------------------------------------------
+  # Build the C# bridge for all supported Revit versions
+  # -----------------------------------------------------------------------
+  build-bridge:
+    runs-on: windows-latest
+    strategy:
+      matrix:
+        revit-version: [2019, 2020, 2021, 2022]
+      fail-fast: false
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            6.0.x
+            7.0.x
+
+      - name: Build bridge (Revit ${{ matrix.revit-version }})
+        working-directory: bridge
+        shell: pwsh
+        run: |
+          $configTag = switch ("${{ matrix.revit-version }}") {
+            "2019" { "R19" }
+            "2020" { "R20" }
+            "2021" { "R21" }
+            "2022" { "R22" }
+          }
+          $buildConfig = "Release $configTag"
+          $outputDir = "dist/Revit${{ matrix.revit-version }}"
+          dotnet build RevitCliBridge\RevitCliBridge.csproj -p:Configuration="$buildConfig" -p:Platform=x64 -o "$outputDir"
+
+      - name: Generate version-specific config
+        working-directory: bridge
+        shell: pwsh
+        run: |
+          $version = [int]"${{ matrix.revit-version }}"
+          $port = 5000 + ($version - 2018) * 10 + 1
+          $configDir = "dist/Revit${{ matrix.revit-version }}/.config"
+          New-Item -ItemType Directory -Path $configDir -Force | Out-Null
+          $setting = @{
+            enabled               = $true
+            port                  = $port
+            auto_port             = $true
+            timeout_seconds       = 180
+            max_command_queue_size = 100
+            allow_raw_execution   = $true
+          } | ConvertTo-Json -Depth 10
+          Set-Content -Path "$configDir/cli_bridge_setting.json" -Value $setting -Encoding UTF8
+
+      - name: Upload bridge artifact (Revit ${{ matrix.revit-version }})
+        uses: actions/upload-artifact@v4
+        with:
+          name: bridge-Revit${{ matrix.revit-version }}
+          path: bridge/dist/Revit${{ matrix.revit-version }}/
+          retention-days: 1
+
+  # -----------------------------------------------------------------------
+  # Build the Go client
+  # -----------------------------------------------------------------------
+  build-client:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Build client
+        working-directory: client
+        run: |
+          go vet ./...
+          go build -o revit-cli.exe ./cmd/revit-cli
+
+      - name: Upload client artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: client-windows
+          path: client/revit-cli.exe
+          retention-days: 1
+
+  # -----------------------------------------------------------------------
+  # Package and create GitHub Release
+  # -----------------------------------------------------------------------
+  release:
+    needs: [build-bridge, build-client]
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: List downloaded artifacts
+        run: Get-ChildItem -Path artifacts -Recurse | Select-Object FullName
+
+      - name: Create distribution packages
+        shell: pwsh
+        run: |
+          $tag = "${{ github.ref_name }}"
+          $version = $tag -replace '^v', ''
+          $bridgeVersions = @(2019, 2020, 2021, 2022)
+
+          # --- Primary package: revit-cli + bridge bundled together ---
+          # Users download this single zip and run configure setup — done.
+          $stagingDir = "staging/revit-cli"
+          New-Item -ItemType Directory -Path $stagingDir -Force | Out-Null
+
+          # CLI client at the root
+          Copy-Item -Path "artifacts/client-windows/revit-cli.exe" -Destination $stagingDir
+
+          # Bridge files under bridge/ — the client's configure setup
+          # discovers them via the bridge/ subdirectory convention
+          $bridgeDir = "$stagingDir/bridge"
+          New-Item -ItemType Directory -Path $bridgeDir -Force | Out-Null
+          foreach ($v in $bridgeVersions) {
+            $srcDir = "artifacts/bridge-Revit$v"
+            $destDir = "$bridgeDir/Revit$v"
+            New-Item -ItemType Directory -Path $destDir -Force | Out-Null
+            Copy-Item -Path "$srcDir\*" -Destination $destDir -Recurse -Force
+          }
+
+          Compress-Archive -Path "$stagingDir\*" -DestinationPath "revit-cli-$version.zip" -Force
+          Write-Host "Created: revit-cli-$version.zip"
+
+          # --- Secondary packages: per-version bridge zips for users who
+          #      only need the add-in without the CLI client ---
+          foreach ($v in $bridgeVersions) {
+            $srcDir = "artifacts/bridge-Revit$v"
+            $zipName = "RevitCliBridge-Revit$v-$version.zip"
+            Compress-Archive -Path "$srcDir\*" -DestinationPath $zipName -Force
+            Write-Host "Created: $zipName"
+          }
+
+      - name: Generate release notes
+        id: release-notes
+        shell: pwsh
+        run: |
+          $tag = "${{ github.ref_name }}"
+          $version = $tag -replace '^v', ''
+
+          $notes = @"
+          ## Revit CLI $version
+
+          ### Downloads
+
+          | Package | Description |
+          |--------|-------------|
+          | ``revit-cli-$version.zip`` | Complete package — CLI client + bridge for all Revit versions (recommended) |
+          | ``RevitCliBridge-Revit2019-$version.zip`` | Bridge add-in for Revit 2019 only |
+          | ``RevitCliBridge-Revit2020-$version.zip`` | Bridge add-in for Revit 2020 only |
+          | ``RevitCliBridge-Revit2021-$version.zip`` | Bridge add-in for Revit 2021 only |
+          | ``RevitCliBridge-Revit2022-$version.zip`` | Bridge add-in for Revit 2022 only |
+
+          ### Quick Start
+
+          1. Download ``revit-cli-$version.zip`` and extract to any directory.
+          2. Open a terminal in the extracted folder.
+          3. Run ``revit-cli.exe configure setup`` — this detects installed Revit versions and installs the bridge add-in automatically.
+          4. Restart Revit — the bridge will load and listen for commands.
+
+          ### Supported Revit Versions
+
+          | Version | .NET Framework | Base Port |
+          |---------|---------------|-----------|
+          | 2019    | 4.7           | 5011      |
+          | 2020    | 4.7           | 5021      |
+          | 2021    | 4.8           | 5031      |
+          | 2022    | 4.8           | 5041      |
+
+          ### Package Contents
+
+          ``revit-cli-$version.zip`` includes:
+          - ``revit-cli.exe`` — CLI client for sending commands to the bridge
+          - ``bridge/Revit20XX/`` — Version-specific bridge DLLs and configuration
+          - Each bridge version includes:
+            - ``RevitCliBridge.dll``
+            - ``RevitCliBridge.Abstractions.dll``
+            - ``RevitCliBridge.addin``
+            - ``.config/cli_bridge_setting.json``
+          "@
+
+          Set-Content -Path "release-notes.md" -Value $notes -Encoding UTF8
+          Write-Host "Release notes generated."
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          body_path: release-notes.md
+          files: |
+            *.zip
+          draft: false
+          prerelease: ${{ contains(github.ref_name, '-rc') || contains(github.ref_name, '-beta') || contains(github.ref_name, '-alpha') }}

@@ -1,0 +1,50 @@
+# Go
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+bin/
+vendor/
+
+# Go workspace
+go.work
+go.work.sum
+
+# C# / .NET
+bin/
+obj/
+*.user
+*.suo
+*.userprefs
+*.cache
+*.pidb
+*.swp
+
+# Visual Studio
+.vs/
+*.vspscc
+*.vssscc
+
+# Build artifacts
+*.log
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+[Bb]in/
+[Oo]bj/
+
+# OS files
+Thumbs.db
+.DS_Store
+
+# IDE
+.idea/
+*.swp
+*~
+
+# CLI Client skill folder
+client/skills/

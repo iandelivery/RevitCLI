@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+	<PropertyGroup>
+		<TargetFramework>netstandard2.0</TargetFramework>
+		<LangVersion>latest</LangVersion>
+		<Nullable>enable</Nullable>
+		<RootNamespace>RevitCliBridge.Abstractions</RootNamespace>
+		<Description>Plugin interfaces for RevitCliBridge — enables third-party command handler development without Revit API dependency</Description>
+		<Major>1</Major>
+		<Minor>0</Minor>
+		<Patch>0</Patch>
+		<Version>$(Major).$(Minor).$(Patch)</Version>
+		<AssemblyVersion>$(Major).0.0.0</AssemblyVersion>
+		<FileVersion>$(Major).$(Minor).$(Patch).0</FileVersion>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+	</ItemGroup>
+</Project>
