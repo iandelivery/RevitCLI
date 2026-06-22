@@ -135,6 +135,9 @@ jobs:
           # CLI client at the root
           Copy-Item -Path "artifacts/client-windows/revit-cli.exe" -Destination $stagingDir
 
+          # SKILL.md — AI agent integration instructions
+          Copy-Item -Path "client/skills/revit-cli/SKILL.md" -Destination $stagingDir
+
           # Bridge files under bridge/ — the client's configure setup
           # discovers them via the bridge/ subdirectory convention
           $bridgeDir = "$stagingDir/bridge"
