@@ -1,6 +1,6 @@
 ---
-name: "{{SkillName}}"
-description: "Go CLI client that drives Autodesk Revit via the CLI Bridge HTTP API. Invoke when user needs to execute Revit commands from the command line or when AI agents need to control Revit programmatically."
+name: "Revit-CLI"
+description: "CLI client that drives Autodesk Revit via the CLI Bridge HTTP API. Invoke when user needs to execute Revit commands from the command line or when AI agents need to control Revit programmatically."
 ---
 
 # Revit CLI Client
@@ -53,6 +53,19 @@ revit-cli.exe create_wall --start-x 0 --start-y 0 --end-x 5000 --end-y 0 -l 3001
 # Send raw JSON command
 revit-cli.exe raw -j '{"command":"ping"}'
 ``````
+
+### Important Actions Require Confirmation
+
+Always ask for confirmation before performing actions below:
+
+- Open, close, save, save as file
+- Batch operations
+- Interacting with central Revit file
+   - Syncynchronize with central file
+   - Load latest worksets
+- Modifying links
+   - Unload link
+   - Reload link with different file
 
 ## Built-in Commands
 
