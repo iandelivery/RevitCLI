@@ -53,31 +53,34 @@
 
 ## 快速开始
 
-### 1. 安装桥接器（Revit 插件）
+### 方式 1 — 下载 release
 
-**方式 A：自动安装（推荐）**
+1. 从 [Releases](../../releases) 页面下载最新的 `revit-cli-<version>.zip`。
+2. 解压到任意目录（例如 `C:\revit-cli\`）。压缩包内含 `revit-cli.exe` 客户端、供 AI 代理使用的 `SKILL.md`，以及包含全部 4 个 Revit 版本桥接器的 `bridge/` 文件夹。
+3. 为本机所有 Revit 安装桥接器：
+   ```powershell
+   cd C:\revit-cli
+   .\revit-cli.exe configure setup
+   ```
+   命令会扫描 Windows 注册表，然后把每个版本对应的桥接器文件复制到对应 Revit 版本的插件目录，并写入正确的端口。
+4. 启动 Revit，点击 **Revit CLI Bridge** 功能区选项卡中的 **AI Mode Toggle** 按钮。
+5. 测试连接：
+   ```powershell
+   .\revit-cli.exe ping
+   ```
 
-先编译好 Go 客户端（见下方步骤 2），得到 `revit-cli.exe`，然后运行：
+### 方式 2 — 从源码编译
 
-```bash
-revit-cli.exe configure setup
+**编译 Bridge（C# 插件，覆盖所有 Revit 版本）：**
+
+```powershell
+cd bridge
+.\build.ps1
 ```
 
-命令会扫描 Windows 注册表找到所有已安装的 Revit 版本，然后从 `bridge/Revit<年份>/` 子目录中复制对应版本的桥接器文件到每个版本的插件目录，并写入正确的端口配置。
+产物会按版本输出到 `bridge/dist/Revit20XX/`。加 `-Deploy` 参数可自动安装到所有检测到的 Revit；加 `-Clean` 会在编译前清空 `dist/` 和 `obj/`。
 
-**方式 B：手动安装**
-
-1. 编译所有支持的 Revit 版本：
-   ```powershell
-   cd bridge
-   .\build.ps1
-   ```
-   产物会按版本输出到 `bridge/dist/Revit20XX/`。加 `-Deploy` 参数可以自动将插件安装到所有检测到的 Revit。
-2. 将输出的 DLL 和 `RevitCliBridge.addin` 复制到 Revit 插件目录：
-   - `%APPDATA%\Autodesk\Revit\Addins\<version>\RevitCliBridge\`
-3. 启动 Revit，点击 "Revit CLI Bridge" 功能区选项卡中的 "AI Mode Toggle" 按钮
-
-### 2. 编译 Go 客户端
+**编译 Go 客户端：**
 
 ```bash
 cd client
@@ -87,7 +90,13 @@ go build -o revit-cli.exe ./cmd/revit-cli
 ./build.sh --all
 ```
 
-### 3. 运行命令
+**手动安装桥接器**（如果没用 `-Deploy`）：
+
+1. 把 `bridge/dist/Revit<年份>/` 下的 DLL 和 `RevitCliBridge.addin` 复制到：
+   - `%APPDATA%\Autodesk\Revit\Addins\<version>\RevitCliBridge\`
+2. 启动 Revit，点击 **Revit CLI Bridge** 功能区选项卡中的 **AI Mode Toggle** 按钮。
+
+### 运行命令
 
 ```bash
 # 列出运行中的 Revit 实例

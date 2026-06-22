@@ -56,31 +56,34 @@ Multiple Revit instances (different versions or same version) can run simultaneo
 
 ## Quick Start
 
-### 1. Install the Bridge (Revit Add-in)
+### Option 1 — Download a pre-built release
 
-**Option A: Automated setup (recommended)**
+1. Download the latest `revit-cli-<version>.zip` from the [Releases](../../releases) page.
+2. Extract it anywhere (e.g. `C:\revit-cli\`). The zip contains the `revit-cli.exe` client, the `SKILL.md` for AI agents, and a `bridge/` folder with all four supported Revit versions.
+3. Install the bridge for every Revit on this machine:
+   ```powershell
+   cd C:\revit-cli
+   .\revit-cli.exe configure setup
+   ```
+   This scans the Windows registry, then copies the matching bridge files to each Revit version's addins folder with the correct port assignment.
+4. Start Revit. Click the **AI Mode Toggle** button in the **Revit CLI Bridge** ribbon tab.
+5. Test the connection:
+   ```powershell
+   .\revit-cli.exe ping
+   ```
 
-After building both the bridge and the Go client (see steps 2 and 3 below for the `revit-cli.exe` binary), run:
+### Option 2 — Build from source
 
-```bash
-revit-cli.exe configure setup
+**Build the bridge (C# add-in, all Revit versions):**
+
+```powershell
+cd bridge
+.\build.ps1
 ```
 
-The command scans the Windows registry for installed Revit versions, then copies the matching bridge files from the bundled `bridge/Revit<year>/` subdirectories to each version's addins folder with the correct port assignment.
+This produces version-specific output under `bridge/dist/Revit20XX/`. Add `-Deploy` to also install the add-in to every detected Revit automatically. Or add `-Clean` to wipe `dist/` and `obj/` first.
 
-**Option B: Manual installation**
-
-1. Build all supported Revit versions:
-   ```powershell
-   cd bridge
-   .\build.ps1
-   ```
-   This produces version-specific output under `bridge/dist/Revit20XX/`. Add `-Deploy` to also install the add-in to every detected Revit installation automatically.
-2. Copy the output DLLs and `RevitCliBridge.addin` to your Revit addins folder:
-   - `%APPDATA%\Autodesk\Revit\Addins\<version>\RevitCliBridge\`
-3. Start Revit and click the "AI Mode Toggle" button in the "Revit CLI Bridge" ribbon tab
-
-### 2. Build the Go Client
+**Build the Go client:**
 
 ```bash
 cd client
@@ -90,7 +93,13 @@ go build -o revit-cli.exe ./cmd/revit-cli
 ./build.sh --all
 ```
 
-### 3. Run Commands
+**Install the bridge manually** if you did not pass `-Deploy`:
+
+1. Copy the DLLs and `RevitCliBridge.addin` from `bridge/dist/Revit<year>/` to:
+   - `%APPDATA%\Autodesk\Revit\Addins\<version>\RevitCliBridge\`
+2. Start Revit and click the **AI Mode Toggle** button in the **Revit CLI Bridge** ribbon tab.
+
+### Run Commands
 
 ```bash
 # List running Revit instances
