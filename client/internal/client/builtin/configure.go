@@ -1,15 +1,19 @@
 package builtin
 
 import (
+	"bufio"
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"sort"
+	"strings"
 	"text/tabwriter"
 
 	"revit-cli/internal/abstractions"
@@ -69,30 +73,64 @@ func configureSetup(args []string) int {
 	installations := detectRevitInstallations()
 	if len(installations) == 0 {
 		fmt.Fprintln(os.Stderr, "No Revit installations found.")
+		fmt.Fprintln(os.Stderr, "Searched HKLM\\SOFTWARE\\Autodesk\\Revit and %APPDATA%\\Autodesk\\Revit\\Addins.")
 		return 1
 	}
 
+	// Ensure every detected installation has an AddinsDir derived from
+	// APPDATA. The registry-detected entries only know the version, so
+	// the per-user addins folder is computed here.
+	appData := os.Getenv("APPDATA")
+	if appData == "" {
+		fmt.Fprintln(os.Stderr, "APPDATA environment variable not set.")
+		return 1
+	}
+	addinsRoot := filepath.Join(appData, "Autodesk", "Revit", "Addins")
+	for i := range installations {
+		inst := &installations[i]
+		if inst.AddinsDir == "" {
+			inst.AddinsDir = filepath.Join(addinsRoot, fmt.Sprintf("%d", inst.Version))
+		}
+	}
+
 	for _, inst := range installations {
-		fmt.Printf("  [✓] Revit %d — %s\n", inst.Version, inst.InstallPath)
+		fmt.Printf("  [✓] Revit %d — %s\n", inst.Version, inst.AddinsDir)
 	}
 
 	fmt.Println("\nInstalling Revit CLI Bridge...")
 
-	// Find the bridge files relative to the executable.
-	bridgeDir := findBridgeFiles()
-	if bridgeDir == "" {
+	// Find the bridge distribution root.  For a bundled release this is
+	// the "bridge" directory containing Revit20XX/ subfolders; for a flat
+	// distribution it is the directory holding RevitCliBridge.dll.
+	bridgeRoot := findBridgeFiles()
+	if bridgeRoot == "" {
 		fmt.Fprintln(os.Stderr, "Error: Cannot find bridge files (RevitCliBridge.dll, .addin).")
 		fmt.Fprintln(os.Stderr, "Ensure the bridge distribution is in the same directory as revit-cli, or set BRIDGE_DIR.")
 		return 1
 	}
 
+	skipped := 0
 	for _, inst := range installations {
-		err := installBridgeForVersion(bridgeDir, inst)
+		// Resolve the version-specific bridge source directory.
+		srcDir := findBridgeFilesForVersion(bridgeRoot, inst.Version)
+		if srcDir == "" {
+			fmt.Printf("  [✗] Revit %d: no bridge files for this version in distribution\n", inst.Version)
+			fmt.Printf("         expected at %s\\Revit%d\\\n", bridgeRoot, inst.Version)
+			skipped++
+			continue
+		}
+
+		err := installBridgeForVersion(srcDir, inst)
 		if err != nil {
 			fmt.Printf("  [✗] Revit %d: %v\n", inst.Version, err)
 		} else {
 			fmt.Printf("  [✓] Revit %d — base port %d\n", inst.Version, portForVersion(inst.Version))
 		}
+	}
+
+	if skipped > 0 && skipped == len(installations) {
+		fmt.Fprintln(os.Stderr, "\nNo versions could be installed. The bridge distribution must contain Revit<year>/ subfolders matching the installed Revit versions.")
+		return 1
 	}
 
 	fmt.Println("\nVerifying...")
@@ -247,40 +285,49 @@ type revitInstallation struct {
 	AddinsDir   string
 }
 
-// detectRevitInstallations scans the Windows registry for installed Revit versions.
-// Returns installations sorted by version.
+// detectRevitInstallations scans the Windows registry and the addins
+// directory for installed Revit versions.  Returns installations sorted
+// by version.  Only versions in the supported range (2019+) are returned.
 func detectRevitInstallations() []revitInstallation {
-	// This is a placeholder — on Windows, the actual implementation would
-	// scan HKLM\SOFTWARE\Autodesk\Revit\* registry keys.
-	// For now, we check the well-known addins directory.
 	if runtime.GOOS != "windows" {
 		return nil
 	}
 
-	appData := os.Getenv("APPDATA")
-	if appData == "" {
-		return nil
-	}
-
 	var installations []revitInstallation
-	revitAddinsRoot := filepath.Join(appData, "Autodesk", "Revit", "Addins")
+	seen := map[int]bool{}
 
-	entries, err := os.ReadDir(revitAddinsRoot)
-	if err != nil {
-		return nil
+	// 1. Primary source: Windows registry (HKLM\SOFTWARE\Autodesk\Revit\<version>)
+	//    This is the authoritative list of installed Revit products.
+	regPaths := []string{
+		`HKLM\SOFTWARE\Autodesk\Revit`,
+		`HKLM\SOFTWARE\WOW6432Node\Autodesk\Revit`,
+	}
+	for _, regPath := range regPaths {
+		collectRevitVersionsFromRegistry(regPath, &installations, seen)
 	}
 
-	for _, entry := range entries {
-		if !entry.IsDir() {
-			continue
-		}
-		version := 0
-		fmt.Sscanf(entry.Name(), "%d", &version)
-		if version >= 2019 && version <= 2099 {
-			installations = append(installations, revitInstallation{
-				Version:   version,
-				AddinsDir: filepath.Join(revitAddinsRoot, entry.Name()),
-			})
+	// 2. Fallback: %APPDATA%\Autodesk\Revit\Addins\<version>
+	//    This catches installations where the registry hive is inaccessible
+	//    (e.g. limited user perms) but the addins directory exists.
+	appData := os.Getenv("APPDATA")
+	if appData != "" {
+		revitAddinsRoot := filepath.Join(appData, "Autodesk", "Revit", "Addins")
+		entries, err := os.ReadDir(revitAddinsRoot)
+		if err == nil {
+			for _, entry := range entries {
+				if !entry.IsDir() {
+					continue
+				}
+				v := 0
+				fmt.Sscanf(entry.Name(), "%d", &v)
+				if v >= 2019 && v <= 2099 && !seen[v] {
+					seen[v] = true
+					installations = append(installations, revitInstallation{
+						Version:   v,
+						AddinsDir: filepath.Join(revitAddinsRoot, entry.Name()),
+					})
+				}
+			}
 		}
 	}
 
@@ -291,29 +338,101 @@ func detectRevitInstallations() []revitInstallation {
 	return installations
 }
 
+// collectRevitVersionsFromRegistry enumerates subkeys of a Revit registry
+// path and appends any version-numbered entries to the installations list.
+// Requires Windows; the caller's GOOS check guards the entry point.
+func collectRevitVersionsFromRegistry(regPath string, installations *[]revitInstallation, seen map[int]bool) {
+	cmd := exec.Command("reg", "query", regPath)
+	output, err := cmd.Output()
+	if err != nil {
+		return
+	}
+
+	scanner := bufio.NewScanner(bytes.NewReader(output))
+	for scanner.Scan() {
+		// Each registry subkey is printed on its own line as "<full path>".
+		// The last path segment is the version number (e.g. "2022").
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" {
+			continue
+		}
+		parts := strings.Split(line, `\`)
+		name := parts[len(parts)-1]
+		v := 0
+		fmt.Sscanf(name, "%d", &v)
+		if v >= 2019 && v <= 2099 && !seen[v] {
+			seen[v] = true
+			*installations = append(*installations, revitInstallation{
+				Version: v,
+			})
+		}
+	}
+}
+
 // portForVersion returns the base port for a given Revit version.
 func portForVersion(version int) int {
 	return 5000 + (version-2018)*10 + 1
 }
 
-// findBridgeFiles locates the bridge DLL and .addin manifest.
+// findBridgeFiles locates the bridge distribution root.  It supports two
+// layouts:
+//
+//   1. Flat layout — revit-cli.exe sits next to RevitCliBridge.dll
+//   2. Bundled layout — revit-cli.exe sits next to a "bridge" directory
+//      that contains version-specific subfolders named "Revit<year>"
+//      (e.g. bridge/Revit2022/RevitCliBridge.dll)
+//
+// The bundled layout is what release zip packages produce.
 func findBridgeFiles() string {
-	// Check BRIDGE_DIR env var first.
+	// Check BRIDGE_DIR env var first — points directly to a flat layout.
 	if dir := os.Getenv("BRIDGE_DIR"); dir != "" && fileExists(filepath.Join(dir, "RevitCliBridge.dll")) {
 		return dir
 	}
 
-	// Check relative to executable.
 	exePath, err := os.Executable()
-	if err == nil {
-		dir := filepath.Dir(exePath)
-		if fileExists(filepath.Join(dir, "RevitCliBridge.dll")) {
-			return dir
+	if err != nil {
+		return ""
+	}
+	exeDir := filepath.Dir(exePath)
+
+	// Flat layout: bridge DLL next to revit-cli.exe.
+	if fileExists(filepath.Join(exeDir, "RevitCliBridge.dll")) {
+		return exeDir
+	}
+
+	// Bundled layout: bridge/<something>/RevitCliBridge.dll.
+	// We return the bridge root (parent of the version subdirs) so callers
+	// can resolve version-specific subdirs themselves via findBridgeFilesForVersion.
+	bridgeRoot := filepath.Join(exeDir, "bridge")
+	if entries, err := os.ReadDir(bridgeRoot); err == nil {
+		for _, entry := range entries {
+			if !entry.IsDir() {
+				continue
+			}
+			candidate := filepath.Join(bridgeRoot, entry.Name(), "RevitCliBridge.dll")
+			if fileExists(candidate) {
+				return bridgeRoot
+			}
 		}
-		// Check bridge/ subdirectory.
-		if fileExists(filepath.Join(dir, "bridge", "RevitCliBridge.dll")) {
-			return filepath.Join(dir, "bridge")
-		}
+	}
+
+	return ""
+}
+
+// findBridgeFilesForVersion returns the directory containing bridge files
+// for a specific Revit version.  Used together with findBridgeFiles() to
+// resolve the bundled layout.  For a flat layout, the same directory is
+// returned for every version (acceptable for single-version distributions).
+func findBridgeFilesForVersion(root string, version int) string {
+	// Bundled layout: <root>/Revit<year>/
+	versioned := filepath.Join(root, fmt.Sprintf("Revit%d", version))
+	if fileExists(filepath.Join(versioned, "RevitCliBridge.dll")) {
+		return versioned
+	}
+
+	// Flat layout: DLLs are directly in the root.
+	if fileExists(filepath.Join(root, "RevitCliBridge.dll")) {
+		return root
 	}
 
 	return ""

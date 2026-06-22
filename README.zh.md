@@ -57,15 +57,22 @@
 
 **方式 A：自动安装（推荐）**
 
+先编译好 Go 客户端（见下方步骤 2），得到 `revit-cli.exe`，然后运行：
+
 ```bash
 revit-cli.exe configure setup
 ```
 
-自动扫描 Revit 安装、复制插件文件、生成版本特定的配置和端口分配。
+命令会扫描 Windows 注册表找到所有已安装的 Revit 版本，然后从 `bridge/Revit<年份>/` 子目录中复制对应版本的桥接器文件到每个版本的插件目录，并写入正确的端口配置。
 
 **方式 B：手动安装**
 
-1. 在 Visual Studio 中编译 `bridge/RevitCliBridge.sln`（支持 Revit 2019-2022）
+1. 编译所有支持的 Revit 版本：
+   ```powershell
+   cd bridge
+   .\build.ps1
+   ```
+   产物会按版本输出到 `bridge/dist/Revit20XX/`。加 `-Deploy` 参数可以自动将插件安装到所有检测到的 Revit。
 2. 将输出的 DLL 和 `RevitCliBridge.addin` 复制到 Revit 插件目录：
    - `%APPDATA%\Autodesk\Revit\Addins\<version>\RevitCliBridge\`
 3. 启动 Revit，点击 "Revit CLI Bridge" 功能区选项卡中的 "AI Mode Toggle" 按钮

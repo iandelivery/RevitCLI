@@ -60,15 +60,22 @@ Multiple Revit instances (different versions or same version) can run simultaneo
 
 **Option A: Automated setup (recommended)**
 
+After building both the bridge and the Go client (see steps 2 and 3 below for the `revit-cli.exe` binary), run:
+
 ```bash
 revit-cli.exe configure setup
 ```
 
-This scans for Revit installations, copies add-in files, and generates version-specific configs with correct port assignments.
+The command scans the Windows registry for installed Revit versions, then copies the matching bridge files from the bundled `bridge/Revit<year>/` subdirectories to each version's addins folder with the correct port assignment.
 
 **Option B: Manual installation**
 
-1. Build `bridge/RevitCliBridge.sln` in Visual Studio (targets Revit 2019-2022)
+1. Build all supported Revit versions:
+   ```powershell
+   cd bridge
+   .\build.ps1
+   ```
+   This produces version-specific output under `bridge/dist/Revit20XX/`. Add `-Deploy` to also install the add-in to every detected Revit installation automatically.
 2. Copy the output DLLs and `RevitCliBridge.addin` to your Revit addins folder:
    - `%APPDATA%\Autodesk\Revit\Addins\<version>\RevitCliBridge\`
 3. Start Revit and click the "AI Mode Toggle" button in the "Revit CLI Bridge" ribbon tab

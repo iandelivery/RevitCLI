@@ -88,7 +88,7 @@ func parseArgs(args []string) (string, int) {
 	var explicitURL string
 	var pidFlag int
 	var revitFlag int
-	cmdIndex := 0
+	cmdIndex := -1
 
 	for i := 0; i < len(args); i++ {
 		switch args[i] {
@@ -96,7 +96,6 @@ func parseArgs(args []string) (string, int) {
 			if i+1 < len(args) {
 				explicitURL = strings.TrimRight(args[i+1], "/")
 				i++
-				cmdIndex = i + 1
 			}
 		case "--pid":
 			if i+1 < len(args) {
@@ -107,7 +106,6 @@ func parseArgs(args []string) (string, int) {
 				}
 				pidFlag = v
 				i++
-				cmdIndex = i + 1
 			}
 		case "--revit":
 			if i+1 < len(args) {
@@ -118,14 +116,17 @@ func parseArgs(args []string) (string, int) {
 					os.Exit(1)
 				}
 				i++
-				cmdIndex = i + 1
 			}
 		default:
 			// First non-flag argument is the command.
-			if !strings.HasPrefix(args[i], "-") && cmdIndex == 0 {
+			if !strings.HasPrefix(args[i], "-") && cmdIndex == -1 {
 				cmdIndex = i
 			}
 		}
+	}
+
+	if cmdIndex == -1 {
+		cmdIndex = len(args)
 	}
 
 	baseURL := instance.ResolveURL(explicitURL, pidFlag, revitFlag)
