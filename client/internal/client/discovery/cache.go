@@ -120,13 +120,65 @@ func (c *SchemaCache) SaveEtag(etag string) {
 	}
 }
 
-// cacheDir returns the cache root directory under %AppData%/revit-cli.
-func cacheDir() string {
-	base, err := os.UserConfigDir() // %AppData% on Windows
-	if err != nil || base == "" {
-		base = "."
+// CacheDir exposes the resolved cache directory so other packages
+// (e.g. configure check) can report which path is in use.
+func CacheDir() string {
+	return filepath.Join(DataDir(), "cache")
+}
+
+// InstancesDir returns the directory where instance registry files are stored.
+// Uses the same cascading strategy as the cache directory.
+func InstancesDir() string {
+	return filepath.Join(DataDir(), "instances")
+}
+
+// DataDir returns the base revit-cli data directory using a cascading strategy:
+//
+//  1. REVIT_CLI_DATA_DIR environment variable (explicit override for
+//     headless/CI contexts)
+//  2. %LOCALAPPDATA%\revit-cli (best Windows practice for local app data)
+//  3. %USERPROFILE%\.revit-cli (standard CLI dot-folder fallback)
+//  4. <executable directory>\.revit-cli (portable mode)
+func DataDir() string {
+	// 1. Explicit override.
+	if dir := os.Getenv("REVIT_CLI_DATA_DIR"); dir != "" {
+		return dir
 	}
-	return filepath.Join(base, "revit-cli")
+
+	// 2. Local AppData — best Windows practice for local app data.
+	if localAppData := os.Getenv("LOCALAPPDATA"); localAppData != "" {
+		dir := filepath.Join(localAppData, "revit-cli")
+		if tryCreateDir(dir) {
+			return dir
+		}
+	}
+
+	// 3. User profile dot-folder — standard CLI convention.
+	if userProfile := os.Getenv("USERPROFILE"); userProfile != "" {
+		dir := filepath.Join(userProfile, ".revit-cli")
+		if tryCreateDir(dir) {
+			return dir
+		}
+	}
+
+	// 4. Portable mode — next to the executable.
+	if exePath, err := os.Executable(); err == nil {
+		return filepath.Join(filepath.Dir(exePath), ".revit-cli")
+	}
+
+	return ".revit-cli"
+}
+
+// cacheDir returns the cache root directory.
+// Kept for internal use by SchemaCache.
+func cacheDir() string {
+	return CacheDir()
+}
+
+// tryCreateDir attempts to create the directory and returns true on success.
+func tryCreateDir(dir string) bool {
+	err := os.MkdirAll(dir, 0o755)
+	return err == nil
 }
 
 // computeServerKey derives a filesystem-safe key from a server URL.

@@ -127,7 +127,7 @@ If only one Revit instance is running, it is auto-selected. If multiple instance
 | `--revit <version>` | — | Connect to a specific Revit version (e.g. 2022) |
 | `--help`, `-h` | — | Show help |
 
-Server-side config is read from `.config/cli_bridge_setting.json`. The client also reads instance registry files from `%AppData%\revit-cli\instances\` for auto-discovery.
+Server-side config is read from `.config/cli_bridge_setting.json`. The client also reads instance registry files from the revit-cli data directory (see cascading strategy below) for auto-discovery.
 
 ## Built-in Commands
 
@@ -174,7 +174,7 @@ revit-cli.exe execute_raw --lang csharp --code "return doc.Title;"
 The CLI client mirrors the C# `RevitCliClient` architecture:
 
 - **Built-in commands** (11) — always available without server contact
-- **Instance discovery** — reads registry files from `%AppData%\revit-cli\instances\`
+- **Instance discovery** — reads registry files from the revit-cli data directory (resolved via cascading strategy)
 - **Lazy schema discovery** — schema fetched only when a non-built-in command is invoked
 - **Local cache** — schema cached with 30-min TTL, stale fallback on network error
 - **SSE streaming** — real-time progress via Server-Sent Events with polling fallback

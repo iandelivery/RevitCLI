@@ -1,5 +1,5 @@
 // Package instance provides discovery of running Revit bridge instances
-// by reading registry files from %AppData%\revit-cli\instances\.
+// by reading registry files from the revit-cli data directory.
 package instance
 
 import (
@@ -10,6 +10,8 @@ import (
 	"runtime"
 	"sort"
 	"strconv"
+
+	"revit-cli/internal/client/discovery"
 )
 
 // InstanceInfo mirrors the C# InstanceRegistry.InstanceInfo struct.
@@ -24,14 +26,9 @@ type InstanceInfo struct {
 }
 
 // InstancesDir returns the path to the instances registry directory.
-// On Windows: %AppData%\revit-cli\instances
-// On other platforms: ~/.config/revit-cli/instances
+// Uses the same cascading strategy as the schema cache.
 func InstancesDir() string {
-	base, err := os.UserConfigDir()
-	if err != nil || base == "" {
-		base = "."
-	}
-	return filepath.Join(base, "revit-cli", "instances")
+	return discovery.InstancesDir()
 }
 
 // Discover reads all instance registry files and returns the alive instances.

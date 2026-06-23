@@ -7,15 +7,13 @@ using System.Linq;
 namespace RevitCliBridge
 {
     /// <summary>
-    /// Manages instance registry files in %AppData%\revit-cli\instances\.
+    /// Manages instance registry files in the revit-cli data directory.
     /// Each running bridge writes a JSON file on startup and deletes it on shutdown.
     /// Enables the CLI client to discover running Revit instances.
     /// </summary>
     public static class InstanceRegistry
     {
-        private static readonly string InstancesDir = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-            "revit-cli", "instances");
+        private static readonly string InstancesDir = ResolveInstancesDir();
 
         private static string? _currentRegistryFile;
 
@@ -175,6 +173,54 @@ namespace RevitCliBridge
             {
                 return false;
             }
+        }
+
+        /// <summary>
+        /// Resolves the instances directory using a cascading strategy that
+        /// mirrors the Go client's DataDir() logic so both sides agree on
+        /// the same path:
+        ///   1. REVIT_CLI_DATA_DIR environment variable (explicit override)
+        ///   2. %LOCALAPPDATA%\revit-cli\instances (best Windows practice)
+        ///   3. %USERPROFILE%\.revit-cli\instances (CLI dot-folder fallback)
+        ///   4. %APPDATA%\revit-cli\instances (legacy fallback)
+        /// </summary>
+        private static string ResolveInstancesDir()
+        {
+            // 1. Explicit override.
+            var envOverride = Environment.GetEnvironmentVariable("REVIT_CLI_DATA_DIR");
+            if (!string.IsNullOrEmpty(envOverride))
+                return Path.Combine(envOverride, "instances");
+
+            // 2. Local AppData — best Windows practice for local app data.
+            try
+            {
+                var localAppData = Environment.GetEnvironmentVariable("LOCALAPPDATA");
+                if (!string.IsNullOrEmpty(localAppData))
+                {
+                    var dir = Path.Combine(localAppData, "revit-cli", "instances");
+                    Directory.CreateDirectory(dir);
+                    return dir;
+                }
+            }
+            catch { /* suppress and fallback */ }
+
+            // 3. User profile dot-folder — standard CLI convention.
+            try
+            {
+                var userProfile = Environment.GetEnvironmentVariable("USERPROFILE");
+                if (!string.IsNullOrEmpty(userProfile))
+                {
+                    var dir = Path.Combine(userProfile, ".revit-cli", "instances");
+                    Directory.CreateDirectory(dir);
+                    return dir;
+                }
+            }
+            catch { /* suppress and fallback */ }
+
+            // 4. Legacy fallback — %AppData%\revit-cli\instances.
+            return Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                "revit-cli", "instances");
         }
     }
 }

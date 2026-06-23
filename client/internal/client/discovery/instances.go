@@ -23,15 +23,6 @@ type InstanceInfo struct {
 	CommandsCount int    `json:"commands_count"`
 }
 
-// InstancesDir returns the directory where instance registry files are stored.
-func InstancesDir() string {
-	base, err := os.UserConfigDir() // %AppData% on Windows
-	if err != nil || base == "" {
-		base = "."
-	}
-	return filepath.Join(base, "revit-cli", "instances")
-}
-
 // DiscoverInstances reads all instance registry files and returns
 // information about running Revit instances. Stale entries (PID not alive)
 // are filtered out.

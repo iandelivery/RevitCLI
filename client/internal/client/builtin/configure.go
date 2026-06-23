@@ -17,6 +17,7 @@ import (
 	"text/tabwriter"
 
 	"revit-cli/internal/abstractions"
+	"revit-cli/internal/client/discovery"
 	"revit-cli/internal/instance"
 )
 
@@ -227,6 +228,12 @@ func configureCheck(args []string) int {
 		resp.Body.Close()
 		fmt.Printf("  [✓] PID %d (port %d): healthy\n", inst.Pid, inst.Port)
 	}
+	fmt.Println()
+
+	// 4. Print the resolved data directories.
+	fmt.Printf("Data directory:        %s\n", discovery.DataDir())
+	fmt.Printf("Schema cache:          %s\n", discovery.CacheDir())
+	fmt.Printf("Instance registry:     %s\n", discovery.InstancesDir())
 
 	return 0
 }

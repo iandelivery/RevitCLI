@@ -23,7 +23,7 @@ A command-line interface toolkit that enables AI agents and automation scripts t
 
 ### Multi-Instance Architecture
 
-Multiple Revit instances (different versions or same version) can run simultaneously. Each bridge auto-selects a port from its version's range and registers itself in `%AppData%\revit-cli\instances\`.
+Multiple Revit instances (different versions or same version) can run simultaneously. Each bridge auto-selects a port from its version's range and registers itself in the revit-cli data directory.
 
 ```
 ┌──────────────┐     ┌──────────────┐     ┌──────────────┐
@@ -34,7 +34,7 @@ Multiple Revit instances (different versions or same version) can run simultaneo
        │                    │                     │
        └────────────────────┴─────────────────────┘
                             │
-                   %AppData%\revit-cli\instances\
+                   %LOCALAPPDATA%\revit-cli\instances\
                      ├── revit-2020-1234.json
                      ├── revit-2022-5678.json
                      └── revit-2022-9012.json
@@ -45,6 +45,42 @@ Multiple Revit instances (different versions or same version) can run simultaneo
                    │  --revit 2022   │
                    │  --pid 5678     │
                    └─────────────────┘
+```
+
+## Local Storage Locations
+
+Revit CLI stores runtime state on disk using a **cascading directory strategy**. Both the instance registry and the schema cache share the same base directory, resolved by this priority order:
+
+| Priority | Base Directory | When it is used |
+|----------|---------------|-----------------|
+| 1 | `%REVIT_CLI_DATA_DIR%` | Explicit override (headless, CI, custom mount points) |
+| 2 | `%LOCALAPPDATA%\revit-cli\` | Best Windows practice for local app data |
+| 3 | `%USERPROFILE%\.revit-cli\` | Standard CLI dot-folder fallback (bypasses most group policies) |
+| 4 | `<exe directory>\.revit-cli\` | Portable mode — no user profile required |
+
+The bridge and CLI both try each path in order, create it on first use, and fall through to the next if creation fails. To verify which path is in use, run `revit-cli.exe configure check`.
+
+### Instance Registry (written by the bridge)
+
+Each running bridge writes a JSON descriptor to `<data-dir>/instances/` so the CLI can discover it:
+
+```
+%LOCALAPPDATA%\revit-cli\instances\
+  ├── revit-2020-1234.json   # one file per running Revit
+  ├── revit-2022-5678.json
+  └── revit-2022-9012.json
+```
+
+Use `revit-cli.exe list` to see the current contents.
+
+### Schema Cache (written by the CLI client)
+
+The CLI caches the command schema (fetched from `GET /api/commands`) locally with a 30-minute TTL and ETag-based conditional revalidation. Falls back to the stale cache when the bridge is unreachable.
+
+```
+%LOCALAPPDATA%\revit-cli\cache\
+  ├── localhost_5041_schema.json
+  └── localhost_5041_schema.etag
 ```
 
 ## Projects

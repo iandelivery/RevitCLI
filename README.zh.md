@@ -20,7 +20,7 @@
 
 ### 多实例架构
 
-多个 Revit 实例（不同版本或相同版本）可以同时运行。每个桥接器从其版本对应的端口范围中自动选择端口，并在 `%AppData%\revit-cli\instances\` 中注册自身。
+多个 Revit 实例（不同版本或相同版本）可以同时运行。每个桥接器从其版本对应的端口范围中自动选择端口，并在 revit-cli 数据目录中注册自身。
 
 ```
 ┌──────────────┐     ┌──────────────┐     ┌──────────────┐
@@ -31,7 +31,7 @@
        │                    │                     │
        └────────────────────┴─────────────────────┘
                             │
-                   %AppData%\revit-cli\instances\
+                   %LOCALAPPDATA%\revit-cli\instances\
                      ├── revit-2020-1234.json
                      ├── revit-2022-5678.json
                      └── revit-2022-9012.json
@@ -42,6 +42,42 @@
                    │  --revit 2022   │
                    │  --pid 5678     │
                    └─────────────────┘
+```
+
+## 本地存储位置
+
+Revit CLI 使用**级联目录策略**在本地保存运行期状态。实例注册表和 Schema 缓存共享相同的基础目录，按以下优先级解析：
+
+| 优先级 | 基础目录 | 适用场景 |
+|--------|---------|----------|
+| 1 | `%REVIT_CLI_DATA_DIR%` | 显式覆盖（无头、CI、自定义挂载点） |
+| 2 | `%LOCALAPPDATA%\revit-cli\` | Windows 本地应用数据最佳实践 |
+| 3 | `%USERPROFILE%\.revit-cli\` | 符合 CLI 工具惯例的点文件夹（可绕过大多数组策略） |
+| 4 | `<exe 所在目录>\.revit-cli\` | 便携模式——无需用户配置目录 |
+
+桥接器和 CLI 都按顺序尝试每个路径，首次使用时自动创建，失败则继续尝试下一个。如需确认实际使用的路径，运行 `revit-cli.exe configure check`。
+
+### 实例注册表（由桥接器写入）
+
+每个运行中的桥接器都会向 `<数据目录>/instances/` 写入一个 JSON 描述文件，供 CLI 客户端发现：
+
+```
+%LOCALAPPDATA%\revit-cli\instances\
+  ├── revit-2020-1234.json   # 每个运行中的 Revit 一个文件
+  ├── revit-2022-5678.json
+  └── revit-2022-9012.json
+```
+
+可用 `revit-cli.exe list` 查看当前内容。
+
+### Schema 缓存（由 CLI 客户端写入）
+
+CLI 客户端会把命令 schema（通过 `GET /api/commands` 获取）在本地缓存起来，TTL 为 30 分钟，并使用 ETag 实现条件请求。桥接器不可达时会回退到陈旧缓存。
+
+```
+%LOCALAPPDATA%\revit-cli\cache\
+  ├── localhost_5041_schema.json
+  └── localhost_5041_schema.etag
 ```
 
 ## 项目
