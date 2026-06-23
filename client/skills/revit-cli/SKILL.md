@@ -7,6 +7,8 @@ description: "CLI client that drives Autodesk Revit via the CLI Bridge HTTP API.
 
 A standalone command-line client written in Go that enables AI agents and users to drive Autodesk Revit through the Revit CLI Bridge HTTP API. Communicates with the bridge server running inside Revit via HTTP, converting CLI commands into Revit API operations with real-time SSE progress streaming.
 
+The `revit-cli.exe` is located in the same directory as this markdown file.
+
 ## When to Invoke
 
 Invoke this skill when:
@@ -14,6 +16,16 @@ Invoke this skill when:
 - An AI agent needs to execute Revit API operations (create, query, modify, transform elements)
 - The user asks to automate Revit tasks via CLI
 - Real-time progress feedback for long-running Revit operations is needed
+
+## Execution Strategy
+
+To optimize performance and maintain system stability, agents must follow a two-tier execution strategy:
+
+1. **Step 1: Dynamic Discovery**
+   Always run `revit-cli.exe commands` first to check the available high-level commands, or check specific command schemas via `revit-cli.exe schema <name>`. If a high-level command exists for the task, **always use it**.
+   
+2. **Step 2: Raw Code Fallback**
+   Only if the discovered high-level commands **cannot** solve the requested task, proceed to search the API reference (`revit-cli.exe llms`) and execute C# or Python scripts directly using `revit-cli.exe execute_raw`.
 
 ## Prerequisites
 
@@ -87,9 +99,9 @@ Always ask for confirmation before performing actions below:
 
 Non-built-in commands are auto-discovered from the bridge server's schema endpoint (`GET /api/commands`). The schema is cached locally (30-min TTL) under `%AppData%/revit-cli/` with ETag-based conditional requests and stale-cache fallback for offline resilience.
 
-## API Reference (llms.txt)
+## API Reference (llms.txt) & Raw Execution
 
-The bridge exposes a `GET /api/llms.txt` endpoint that returns a text index of raw Revit API elements, parameters, and classes. If your high-level commands don't cover a specific need:
+The bridge exposes a `GET /api/llms.txt` endpoint that returns a text index of raw Revit API elements, parameters, and classes. If and only if your high-level discovered commands do not cover a specific need:
 
 1. Run `revit-cli.exe llms` to see the full reference
 2. Find the relevant element class, parameter, or filter
