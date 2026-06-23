@@ -90,9 +90,15 @@ jobs:
 
       - name: Build client
         working-directory: client
+        env:
+          GOOS: windows
+          GOARCH: amd64
+          CGO_ENABLED: '0'
         run: |
           go vet ./...
-          go build -o revit-cli.exe ./cmd/revit-cli
+          go build -trimpath -ldflags="-s -w" -o revit-cli.exe ./cmd/revit-cli
+          Get-ChildItem revit-cli.exe | Format-List Name,Length,LastWriteTime
+          & .\revit-cli.exe --version
 
       - name: Upload client artifact
         uses: actions/upload-artifact@v4
@@ -152,6 +158,18 @@ jobs:
           Compress-Archive -Path "$stagingDir\*" -DestinationPath "revit-cli-$version.zip" -Force
           Write-Host "Created: revit-cli-$version.zip"
 
+          # --- Secondary package: CLI client + SKILL.md only ---
+          # For users who only need the Go client and AI agent skill
+          # documentation, without any bridge binaries. Useful when the
+          # user plans to build the bridge themselves or will obtain the
+          # bridge files from a separate source.
+          $clientOnlyDir = "staging/revit-cli-client"
+          New-Item -ItemType Directory -Path $clientOnlyDir -Force | Out-Null
+          Copy-Item -Path "artifacts/client-windows/revit-cli.exe" -Destination $clientOnlyDir
+          Copy-Item -Path "client/skills/revit-cli/SKILL.md" -Destination $clientOnlyDir
+          Compress-Archive -Path "$clientOnlyDir\*" -DestinationPath "revit-cli-client-$version.zip" -Force
+          Write-Host "Created: revit-cli-client-$version.zip"
+
           # --- Secondary packages: per-version bridge zips for users who
           #      only need the add-in without the CLI client ---
           foreach ($v in $bridgeVersions) {
@@ -160,6 +178,22 @@ jobs:
             Compress-Archive -Path "$srcDir\*" -DestinationPath $zipName -Force
             Write-Host "Created: $zipName"
           }
+
+      - name: Verify release packages
+        shell: pwsh
+        run: |
+          # List every zip with its contents so failures here are obvious
+          # in the run log, and confirm revit-cli.exe is actually inside.
+          Get-ChildItem -Filter *.zip | ForEach-Object {
+            Write-Host "=== $($_.Name) ==="
+            Expand-Archive -Path $_.FullName -DestinationPath "verify/$($_.BaseName)" -Force
+            Get-ChildItem -Path "verify/$($_.BaseName)" -Recurse | Select-Object FullName,Length
+            $hasExe = (Get-ChildItem -Path "verify/$($_.BaseName)" -Filter revit-cli.exe -Recurse).Count -gt 0
+            if ($_.Name -like "revit-cli-client-*") {
+              if (-not $hasExe) { throw "revit-cli.exe missing in $($_.Name)" }
+            }
+          }
+          Remove-Item -Recurse -Force verify
 
       - name: Generate release notes
         id: release-notes
@@ -176,6 +210,7 @@ jobs:
           | Package | Description |
           |--------|-------------|
           | ``revit-cli-$version.zip`` | Complete package — CLI client + bridge for all Revit versions (recommended) |
+          | ``revit-cli-client-$version.zip`` | CLI client and ``SKILL.md`` only — no bridge |
           | ``RevitCliBridge-Revit2019-$version.zip`` | Bridge add-in for Revit 2019 only |
           | ``RevitCliBridge-Revit2020-$version.zip`` | Bridge add-in for Revit 2020 only |
           | ``RevitCliBridge-Revit2021-$version.zip`` | Bridge add-in for Revit 2021 only |
@@ -201,12 +236,17 @@ jobs:
 
           ``revit-cli-$version.zip`` includes:
           - ``revit-cli.exe`` — CLI client for sending commands to the bridge
+          - ``SKILL.md`` — AI agent integration instructions
           - ``bridge/Revit20XX/`` — Version-specific bridge DLLs and configuration
           - Each bridge version includes:
             - ``RevitCliBridge.dll``
             - ``RevitCliBridge.Abstractions.dll``
             - ``RevitCliBridge.addin``
             - ``.config/cli_bridge_setting.json``
+
+          ``revit-cli-client-$version.zip`` includes:
+          - ``revit-cli.exe`` — CLI client only
+          - ``SKILL.md`` — AI agent integration instructions
           "@
 
           Set-Content -Path "release-notes.md" -Value $notes -Encoding UTF8
