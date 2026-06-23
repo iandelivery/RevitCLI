@@ -10,6 +10,23 @@ namespace RevitCliBridge.Handlers
     public class ApplyViewTemplateHandler : DocumentCommandBase
     {
         public override string CommandName => "apply_view_template";
+        public override string Description => "Applies a view template to one or more views";
+        public override string Category => "Modify";
+        public override bool SupportsDryRun => true;
+
+        public override CommandParamSchema[] Parameters => new[]
+        {
+            new CommandParamSchema { Name = "template_id", Type = "int", Required = true, Description = "View template element ID" },
+            new CommandParamSchema { Name = "view_ids", Type = "int[]", Required = false, Description = "View element IDs to apply template to" },
+            new CommandParamSchema { Name = "all_non_template", Type = "bool", Required = false, Description = "Apply to all non-template views" }
+        };
+
+        public override string[] Examples => new[]
+        {
+            "{ \"command\": \"apply_view_template\", \"parameters\": { \"template_id\": 12345, \"view_ids\": [678, 789] } }",
+            "{ \"command\": \"apply_view_template\", \"parameters\": { \"template_id\": 12345, \"all_non_template\": true } }"
+        };
+
         protected override string Execute(UIApplication app, Document doc, Dictionary<string, object> parameters, QueuedCommand cmd)
         {
 

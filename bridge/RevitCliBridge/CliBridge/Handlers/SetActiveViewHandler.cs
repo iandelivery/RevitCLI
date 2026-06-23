@@ -11,6 +11,19 @@ namespace RevitCliBridge.Handlers
     public class SetActiveViewHandler : DocumentCommandBase
     {
         public override string CommandName => "set_active_view";
+        public override string Description => "Sets the active view in Revit";
+        public override string Category => "UI";
+
+        public override CommandParamSchema[] Parameters => new[]
+        {
+            new CommandParamSchema { Name = "view_id", Type = "int", Required = true, Description = "View element ID to activate" }
+        };
+
+        public override string[] Examples => new[]
+        {
+            "{ \"command\": \"set_active_view\", \"parameters\": { \"view_id\": 12345 } }"
+        };
+
         protected override string Execute(UIApplication app, Document doc, Dictionary<string, object> parameters, QueuedCommand cmd)
         {
             var uiDoc = app.ActiveUIDocument;

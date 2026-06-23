@@ -9,6 +9,24 @@ namespace RevitCliBridge.Handlers
     public class DocSyncHandler : DocumentCommandBase
     {
         public override string CommandName => "doc_sync";
+        public override string Description => "Synchronizes the active document with the central model";
+        public override string Category => "Document";
+
+        public override CommandParamSchema[] Parameters => new[]
+        {
+            new CommandParamSchema { Name = "comment", Type = "string", Required = false, Description = "Synchronize comment" },
+            new CommandParamSchema { Name = "compact", Type = "bool", Required = false, Description = "Compact the central model" },
+            new CommandParamSchema { Name = "save_local_before", Type = "bool", Required = false, Description = "Save local file before synchronizing", Default = true },
+            new CommandParamSchema { Name = "save_local_after", Type = "bool", Required = false, Description = "Save local file after synchronizing", Default = true },
+            new CommandParamSchema { Name = "relinquish", Type = "bool", Required = false, Description = "Relinquish borrowed elements after sync" }
+        };
+
+        public override string[] Examples => new[]
+        {
+            "{ \"command\": \"doc_sync\", \"parameters\": {} }",
+            "{ \"command\": \"doc_sync\", \"parameters\": { \"comment\": \"Updated walls\", \"relinquish\": true } }"
+        };
+
         protected override string Execute(UIApplication app, Document doc, Dictionary<string, object> parameters, QueuedCommand cmd)
         {
 

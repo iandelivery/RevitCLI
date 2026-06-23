@@ -10,6 +10,21 @@ namespace RevitCliBridge.Handlers
     public class GetSymbolInstancesHandler : DocumentCommandBase
     {
         public override string CommandName => "get_symbol_instances";
+        public override string Description => "Retrieves all instances of a specific family symbol";
+        public override string Category => "Query";
+
+        public override CommandParamSchema[] Parameters => new[]
+        {
+            new CommandParamSchema { Name = "symbol_id", Type = "int", Required = true, Description = "FamilySymbol element ID" },
+            new CommandParamSchema { Name = "view_id", Type = "int", Required = false, Description = "View element ID to scope the search" }
+        };
+
+        public override string[] Examples => new[]
+        {
+            "{ \"command\": \"get_symbol_instances\", \"parameters\": { \"symbol_id\": 12345 } }",
+            "{ \"command\": \"get_symbol_instances\", \"parameters\": { \"symbol_id\": 12345, \"view_id\": 67890 } }"
+        };
+
         protected override string Execute(UIApplication app, Document doc, Dictionary<string, object> parameters, QueuedCommand cmd)
         {
 

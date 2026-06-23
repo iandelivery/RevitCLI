@@ -10,6 +10,23 @@ namespace RevitCliBridge.Handlers
     public class SetOffsetHandler : DocumentCommandBase
     {
         public override string CommandName => "set_offset";
+        public override string Description => "Sets base and/or top offset on a wall or family instance";
+        public override string Category => "Modify";
+        public override bool SupportsDryRun => true;
+
+        public override CommandParamSchema[] Parameters => new[]
+        {
+            new CommandParamSchema { Name = "element_id", Type = "int", Required = true, Description = "Element ID (wall or family instance)" },
+            new CommandParamSchema { Name = "base_offset", Type = "double", Required = false, Description = "Base offset in millimeters" },
+            new CommandParamSchema { Name = "top_offset", Type = "double", Required = false, Description = "Top offset in millimeters" }
+        };
+
+        public override string[] Examples => new[]
+        {
+            "{ \"command\": \"set_offset\", \"parameters\": { \"element_id\": 12345, \"base_offset\": -50 } }",
+            "{ \"command\": \"set_offset\", \"parameters\": { \"element_id\": 12345, \"base_offset\": 0, \"top_offset\": 500 } }"
+        };
+
         protected override string Execute(UIApplication app, Document doc, Dictionary<string, object> parameters, QueuedCommand cmd)
         {
 

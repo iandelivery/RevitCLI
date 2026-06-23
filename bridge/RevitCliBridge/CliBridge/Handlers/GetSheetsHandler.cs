@@ -9,6 +9,16 @@ namespace RevitCliBridge.Handlers
     public class GetSheetsHandler : DocumentCommandBase
     {
         public override string CommandName => "get_sheets";
+        public override string Description => "Retrieves all sheets in the active document";
+        public override string Category => "Query";
+
+        public override CommandParamSchema[] Parameters => Array.Empty<CommandParamSchema>();
+
+        public override string[] Examples => new[]
+        {
+            "{ \"command\": \"get_sheets\", \"parameters\": {} }"
+        };
+
         protected override string Execute(UIApplication app, Document doc, Dictionary<string, object> parameters, QueuedCommand cmd)
         {
 

@@ -9,6 +9,19 @@ namespace RevitCliBridge.Handlers
     public class GetParametersHandler : DocumentCommandBase
     {
         public override string CommandName => "get_parameters";
+        public override string Description => "Retrieves all parameters of an element with their values and metadata";
+        public override string Category => "Query";
+
+        public override CommandParamSchema[] Parameters => new[]
+        {
+            new CommandParamSchema { Name = "element_id", Type = "int", Required = true, Description = "Element ID to get parameters from" }
+        };
+
+        public override string[] Examples => new[]
+        {
+            "{ \"command\": \"get_parameters\", \"parameters\": { \"element_id\": 12345 } }"
+        };
+
         protected override string Execute(UIApplication app, Document doc, Dictionary<string, object> parameters, QueuedCommand cmd)
         {
 

@@ -10,6 +10,24 @@ namespace RevitCliBridge.Handlers
     public class CreateWindowHandler : DocumentCommandBase
     {
         public override string CommandName => "create_window";
+        public override string Description => "Creates a window instance on a wall at a specified location";
+        public override string Category => "Create";
+        public override bool SupportsDryRun => true;
+
+        public override CommandParamSchema[] Parameters => new[]
+        {
+            new CommandParamSchema { Name = "wall_id", Type = "int", Required = true, Description = "Host wall element ID" },
+            new CommandParamSchema { Name = "family_type_id", Type = "int", Required = true, Description = "FamilySymbol element ID for the window type" },
+            new CommandParamSchema { Name = "location_x", Type = "double", Required = true, Description = "Insertion point X in millimeters" },
+            new CommandParamSchema { Name = "location_y", Type = "double", Required = true, Description = "Insertion point Y in millimeters" },
+            new CommandParamSchema { Name = "sill_height", Type = "double", Required = false, Description = "Sill height in millimeters" }
+        };
+
+        public override string[] Examples => new[]
+        {
+            "{ \"command\": \"create_window\", \"parameters\": { \"wall_id\": 12345, \"family_type_id\": 67890, \"location_x\": 2500, \"location_y\": 0, \"sill_height\": 900 } }"
+        };
+
         protected override string Execute(UIApplication app, Document doc, Dictionary<string, object> parameters, QueuedCommand cmd)
         {
 

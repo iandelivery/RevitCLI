@@ -10,6 +10,25 @@ namespace RevitCliBridge.Handlers
     public class RotateElementHandler : DocumentCommandBase
     {
         public override string CommandName => "rotate_element";
+        public override string Description => "Rotates an element around an axis by a specified angle";
+        public override string Category => "Modify";
+        public override bool SupportsDryRun => true;
+
+        public override CommandParamSchema[] Parameters => new[]
+        {
+            new CommandParamSchema { Name = "element_id", Type = "int", Required = true, Description = "Element ID to rotate" },
+            new CommandParamSchema { Name = "angle", Type = "double", Required = true, Description = "Rotation angle in degrees" },
+            new CommandParamSchema { Name = "axis_x", Type = "double", Required = false, Description = "Axis direction X (default 0)", Default = 0 },
+            new CommandParamSchema { Name = "axis_y", Type = "double", Required = false, Description = "Axis direction Y (default 0)", Default = 0 },
+            new CommandParamSchema { Name = "axis_z", Type = "double", Required = false, Description = "Axis direction Z (default 1 = vertical)", Default = 1 }
+        };
+
+        public override string[] Examples => new[]
+        {
+            "{ \"command\": \"rotate_element\", \"parameters\": { \"element_id\": 12345, \"angle\": 90 } }",
+            "{ \"command\": \"rotate_element\", \"parameters\": { \"element_id\": 12345, \"angle\": 45, \"axis_z\": 1 } }"
+        };
+
         protected override string Execute(UIApplication app, Document doc, Dictionary<string, object> parameters, QueuedCommand cmd)
         {
 

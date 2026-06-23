@@ -12,6 +12,32 @@ namespace RevitCliBridge.Handlers
     public class BatchHandler : DocumentCommandBase
     {
         public override string CommandName => "batch";
+        public override string Description => "Executes multiple commands in a single transaction group with optional rollback on error";
+        public override string Category => "System";
+        public override bool SupportsDryRun => true;
+
+        public override CommandParamSchema[] Parameters => new[]
+        {
+            new CommandParamSchema
+            {
+                Name = "operations", Type = "object", Required = true, Description = "Array of operations to execute",
+                Properties = new[]
+                {
+                    new CommandParamSchema { Name = "command", Type = "string", Required = true, Description = "Command name" },
+                    new CommandParamSchema { Name = "parameters", Type = "object", Required = false, Description = "Command parameters" }
+                }
+            },
+            new CommandParamSchema { Name = "name", Type = "string", Required = false, Description = "Transaction group name", Default = "CLI Batch" },
+            new CommandParamSchema { Name = "rollback_on_error", Type = "bool", Required = false, Description = "Roll back all operations if any fails", Default = true },
+            new CommandParamSchema { Name = "assimilate", Type = "bool", Required = false, Description = "Assimilate transaction group after commit", Default = true }
+        };
+
+        public override string[] Examples => new[]
+        {
+            "{ \"command\": \"batch\", \"parameters\": { \"operations\": [ { \"command\": \"create_wall\", \"parameters\": { \"start_x\": 0, \"start_y\": 0, \"end_x\": 5000, \"end_y\": 0, \"level_id\": 3001 } }, { \"command\": \"create_wall\", \"parameters\": { \"start_x\": 5000, \"start_y\": 0, \"end_x\": 5000, \"end_y\": 4000, \"level_id\": 3001 } } ] } }",
+            "{ \"command\": \"batch\", \"parameters\": { \"operations\": [ { \"command\": \"create_wall\", \"parameters\": { \"start_x\": 0, \"start_y\": 0, \"end_x\": 5000, \"end_y\": 0, \"level_id\": 3001 } }, { \"command\": \"set_parameter\", \"parameters\": { \"element_id\": \"$0\", \"parameter_name\": \"Comments\", \"value\": \"New wall\" } } } ] }"
+        };
+
         protected override string Execute(UIApplication app, Document doc, Dictionary<string, object> parameters, QueuedCommand cmd)
         {
 

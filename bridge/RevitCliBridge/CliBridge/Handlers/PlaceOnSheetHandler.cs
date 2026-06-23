@@ -9,6 +9,31 @@ namespace RevitCliBridge.Handlers
     public class PlaceOnSheetHandler : DocumentCommandBase
     {
         public override string CommandName => "place_on_sheet";
+        public override string Description => "Places views on a sheet at specified locations";
+        public override string Category => "Modify";
+        public override bool SupportsDryRun => true;
+
+        public override CommandParamSchema[] Parameters => new[]
+        {
+            new CommandParamSchema { Name = "sheet_id", Type = "int", Required = true, Description = "Sheet element ID" },
+            new CommandParamSchema
+            {
+                Name = "views", Type = "object", Required = true, Description = "Array of view placements",
+                Properties = new[]
+                {
+                    new CommandParamSchema { Name = "view_id", Type = "int", Required = true, Description = "View element ID to place" },
+                    new CommandParamSchema { Name = "x", Type = "double", Required = false, Description = "Placement X in mm on sheet" },
+                    new CommandParamSchema { Name = "y", Type = "double", Required = false, Description = "Placement Y in mm on sheet" }
+                }
+            }
+        };
+
+        public override string[] Examples => new[]
+        {
+            "{ \"command\": \"place_on_sheet\", \"parameters\": { \"sheet_id\": 12345, \"views\": [ { \"view_id\": 678 } ] } }",
+            "{ \"command\": \"place_on_sheet\", \"parameters\": { \"sheet_id\": 12345, \"views\": [ { \"view_id\": 678, \"x\": 100, \"y\": 200 }, { \"view_id\": 789, \"x\": 400, \"y\": 200 } ] } }"
+        };
+
         protected override string Execute(UIApplication app, Document doc, Dictionary<string, object> parameters, QueuedCommand cmd)
         {
 

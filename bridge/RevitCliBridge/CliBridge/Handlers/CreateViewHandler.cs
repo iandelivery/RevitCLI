@@ -10,6 +10,25 @@ namespace RevitCliBridge.Handlers
     public class CreateViewHandler : DocumentCommandBase
     {
         public override string CommandName => "create_view";
+        public override string Description => "Creates a new view (plan, section, ceiling plan, structural plan, area plan, or 3D)";
+        public override string Category => "Create";
+        public override bool SupportsDryRun => true;
+
+        public override CommandParamSchema[] Parameters => new[]
+        {
+            new CommandParamSchema { Name = "type", Type = "string", Required = true, Description = "View type to create", EnumValues = new[] { "plan", "ceiling_plan", "structural_plan", "area_plan", "section", "3d" } },
+            new CommandParamSchema { Name = "level_id", Type = "int", Required = false, Description = "Level element ID (required for plan/section views)" },
+            new CommandParamSchema { Name = "name", Type = "string", Required = false, Description = "View name" },
+            new CommandParamSchema { Name = "template_id", Type = "int", Required = false, Description = "View template element ID to apply" }
+        };
+
+        public override string[] Examples => new[]
+        {
+            "{ \"command\": \"create_view\", \"parameters\": { \"type\": \"plan\", \"level_id\": 3001, \"name\": \"Level 1 - Floor Plan\" } }",
+            "{ \"command\": \"create_view\", \"parameters\": { \"type\": \"3d\", \"name\": \"3D View 1\" } }",
+            "{ \"command\": \"create_view\", \"parameters\": { \"type\": \"section\", \"level_id\": 3001 } }"
+        };
+
         protected override string Execute(UIApplication app, Document doc, Dictionary<string, object> parameters, QueuedCommand cmd)
         {
 

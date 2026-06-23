@@ -8,7 +8,17 @@ namespace RevitCliBridge.Handlers
 {
     public class DocumentInfoHandler : DocumentCommandBase
     {
-        public override string CommandName => "get_document_info";
+        public override string CommandName => "document_info";
+        public override string Description => "Retrieves metadata about the active document";
+        public override string Category => "Query";
+
+        public override CommandParamSchema[] Parameters => Array.Empty<CommandParamSchema>();
+
+        public override string[] Examples => new[]
+        {
+            "{ \"command\": \"document_info\", \"parameters\": {} }"
+        };
+
         protected override string Execute(UIApplication app, Document doc, Dictionary<string, object> parameters, QueuedCommand cmd)
         {
 

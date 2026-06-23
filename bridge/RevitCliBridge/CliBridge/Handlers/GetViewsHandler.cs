@@ -10,6 +10,23 @@ namespace RevitCliBridge.Handlers
     public class GetViewsHandler : DocumentCommandBase
     {
         public override string CommandName => "get_views";
+        public override string Description => "Retrieves views, optionally filtered by type, template, or template status";
+        public override string Category => "Query";
+
+        public override CommandParamSchema[] Parameters => new[]
+        {
+            new CommandParamSchema { Name = "type", Type = "string", Required = false, Description = "View type filter (e.g. 'FloorPlan', 'Section', 'ThreeD')" },
+            new CommandParamSchema { Name = "template", Type = "string", Required = false, Description = "View template name filter" },
+            new CommandParamSchema { Name = "is_template", Type = "bool", Required = false, Description = "If true, include view templates in results" }
+        };
+
+        public override string[] Examples => new[]
+        {
+            "{ \"command\": \"get_views\", \"parameters\": {} }",
+            "{ \"command\": \"get_views\", \"parameters\": { \"type\": \"FloorPlan\" } }",
+            "{ \"command\": \"get_views\", \"parameters\": { \"is_template\": true } }"
+        };
+
         protected override string Execute(UIApplication app, Document doc, Dictionary<string, object> parameters, QueuedCommand cmd)
         {
 

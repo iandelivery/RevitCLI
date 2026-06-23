@@ -164,10 +164,11 @@ namespace RevitCliBridge.Handlers
             {
                 // Wrap user code in a method signature for compilation
                 var scriptClass = BuildCSharpScriptClass(code);
-                var assembly = CompileCSharp(scriptClass);
+                var (assembly, compileErrors) = CompileCSharp(scriptClass);
 
                 if (assembly == null)
-                    return CommandResponse.Error(cmd.TaskId, "C# compilation failed. Check syntax.").ToJson();
+                    return CommandResponse.Error(cmd.TaskId,
+                        $"C# compilation failed:\n{compileErrors}").ToJson();
 
                 var scriptType = assembly.GetType("ScriptHost");
                 var executeMethod = scriptType?.GetMethod("Execute");
@@ -252,9 +253,19 @@ namespace RevitCliBridge.Handlers
         /// <summary>
         /// Build a compilable C# class wrapping the user's code snippet.
         /// The user code can reference `app` (UIApplication) and `doc` (Document).
+        /// If the user code contains a `return` statement, the trailing
+        /// `return null;` is omitted to avoid unreachable-code warnings/errors.
         /// </summary>
         private static string BuildCSharpScriptClass(string userCode)
         {
+            // Detect if user code already contains a return statement so we
+            // don't append an unreachable `return null;` which can cause
+            // compilation issues with some CodeDOM configurations.
+            var hasReturn = System.Text.RegularExpressions.Regex.IsMatch(
+                userCode, @"\breturn\b");
+
+            var returnFallback = hasReturn ? "" : "    return null;";
+
             return $@"
 using System;
 using Autodesk.Revit.DB;
@@ -268,7 +279,7 @@ public static class ScriptHost
     public static object Execute(UIApplication app, Document doc)
     {{
         {userCode}
-        return null;
+        {returnFallback}
     }}
 }}
 ";
@@ -276,8 +287,11 @@ public static class ScriptHost
 
         /// <summary>
         /// Compile C# source code using Roslyn-less approach (CodeDOM for .NET Framework).
+        /// Returns a tuple of (assembly, errorMessage). If compilation succeeds,
+        /// errorMessage is empty. If it fails, assembly is null and errorMessage
+        /// contains the compilation errors.
         /// </summary>
-        private static Assembly? CompileCSharp(string source)
+        private static (Assembly?, string) CompileCSharp(string source)
         {
             try
             {
@@ -287,7 +301,8 @@ public static class ScriptHost
                 {
                     GenerateInMemory = true,
                     GenerateExecutable = false,
-                    IncludeDebugInformation = false
+                    IncludeDebugInformation = false,
+                    CompilerOptions = "/nowarn:CS0162,CS0219"  // Suppress unreachable code & unused variable warnings
                 };
 
                 // Add Revit API references
@@ -310,15 +325,15 @@ public static class ScriptHost
                             .Where(e => !e.IsWarning)
                             .Select(e => $"Line {e.Line}: {e.ErrorText}"));
                     CliLogger.Error($"C# compilation errors:\n{errors}");
-                    return null;
+                    return (null, errors);
                 }
 
-                return result.CompiledAssembly;
+                return (result.CompiledAssembly, "");
             }
             catch (Exception ex)
             {
                 CliLogger.Error($"C# compilation failed: {ex.Message}");
-                return null;
+                return (null, ex.Message);
             }
         }
 

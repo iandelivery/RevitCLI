@@ -10,6 +10,22 @@ namespace RevitCliBridge.Handlers
     public class HideElementsHandler : DocumentCommandBase
     {
         public override string CommandName => "hide_elements";
+        public override string Description => "Hides or unhides elements in a view";
+        public override string Category => "UI";
+        public override bool SupportsDryRun => true;
+
+        public override CommandParamSchema[] Parameters => new[]
+        {
+            new CommandParamSchema { Name = "element_ids", Type = "int[]", Required = true, Description = "Element IDs to hide/unhide" },
+            new CommandParamSchema { Name = "view_id", Type = "int", Required = false, Description = "View element ID (defaults to active view)" }
+        };
+
+        public override string[] Examples => new[]
+        {
+            "{ \"command\": \"hide_elements\", \"parameters\": { \"element_ids\": [123, 456] } }",
+            "{ \"command\": \"hide_elements\", \"parameters\": { \"element_ids\": [123, 456], \"view_id\": 789 } }"
+        };
+
         protected override string Execute(UIApplication app, Document doc, Dictionary<string, object> parameters, QueuedCommand cmd)
         {
 

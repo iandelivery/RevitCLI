@@ -9,6 +9,26 @@ namespace RevitCliBridge.Handlers
     public class CreateWallHandler : DocumentCommandBase
     {
         public override string CommandName => "create_wall";
+        public override string Description => "Creates a new wall between two points on a specified level";
+        public override string Category => "Create";
+        public override bool SupportsDryRun => true;
+
+        public override CommandParamSchema[] Parameters => new[]
+        {
+            new CommandParamSchema { Name = "start_x", Type = "double", Required = true, Description = "Start X coordinate in millimeters" },
+            new CommandParamSchema { Name = "start_y", Type = "double", Required = true, Description = "Start Y coordinate in millimeters" },
+            new CommandParamSchema { Name = "end_x", Type = "double", Required = true, Description = "End X coordinate in millimeters" },
+            new CommandParamSchema { Name = "end_y", Type = "double", Required = true, Description = "End Y coordinate in millimeters" },
+            new CommandParamSchema { Name = "level_id", Type = "int", Required = true, Description = "Level element ID to place the wall on" },
+            new CommandParamSchema { Name = "height", Type = "double", Required = false, Description = "Wall height in millimeters (optional)", Default = 3000 }
+        };
+
+        public override string[] Examples => new[]
+        {
+            "{ \"command\": \"create_wall\", \"parameters\": { \"start_x\": 0, \"start_y\": 0, \"end_x\": 5000, \"end_y\": 0, \"level_id\": 3001 } }",
+            "{ \"command\": \"create_wall\", \"parameters\": { \"start_x\": 0, \"start_y\": 0, \"end_x\": 0, \"end_y\": 4000, \"level_id\": 3001, \"height\": 2800 } }"
+        };
+
         protected override string Execute(UIApplication app, Document doc, Dictionary<string, object> parameters, QueuedCommand cmd)
         {
 

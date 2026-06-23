@@ -10,6 +10,20 @@ namespace RevitCliBridge.Handlers
     public class GetElementsHandler : DocumentCommandBase
     {
         public override string CommandName => "get_elements";
+        public override string Description => "Retrieves elements from the active document, optionally filtered by category";
+        public override string Category => "Query";
+
+        public override CommandParamSchema[] Parameters => new[]
+        {
+            new CommandParamSchema { Name = "category", Type = "string", Required = false, Description = "BuiltInCategory enum value to filter (e.g. 'OST_Walls', 'OST_Doors')" }
+        };
+
+        public override string[] Examples => new[]
+        {
+            "{ \"command\": \"get_elements\", \"parameters\": {} }",
+            "{ \"command\": \"get_elements\", \"parameters\": { \"category\": \"OST_Walls\" } }"
+        };
+
         protected override string Execute(UIApplication app, Document doc, Dictionary<string, object> parameters, QueuedCommand cmd)
         {
 

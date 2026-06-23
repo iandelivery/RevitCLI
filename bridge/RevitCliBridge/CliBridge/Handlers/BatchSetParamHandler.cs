@@ -10,6 +10,26 @@ namespace RevitCliBridge.Handlers
     public class BatchSetParamHandler : DocumentCommandBase
     {
         public override string CommandName => "batch_set_param";
+        public override string Description => "Sets a parameter value on multiple elements at once";
+        public override string Category => "Modify";
+        public override bool SupportsDryRun => true;
+
+        public override CommandParamSchema[] Parameters => new[]
+        {
+            new CommandParamSchema { Name = "parameter_name", Type = "string", Required = true, Description = "Parameter name to set" },
+            new CommandParamSchema { Name = "value", Type = "string", Required = true, Description = "Value to set (auto-converted to match parameter storage type)" },
+            new CommandParamSchema { Name = "element_ids", Type = "int[]", Required = false, Description = "Array of element IDs" },
+            new CommandParamSchema { Name = "category", Type = "string", Required = false, Description = "BuiltInCategory to target all elements of that category" },
+            new CommandParamSchema { Name = "use_selection", Type = "bool", Required = false, Description = "Use currently selected elements in Revit" }
+        };
+
+        public override string[] Examples => new[]
+        {
+            "{ \"command\": \"batch_set_param\", \"parameters\": { \"parameter_name\": \"Comments\", \"value\": \"Reviewed\", \"element_ids\": [123, 456, 789] } }",
+            "{ \"command\": \"batch_set_param\", \"parameters\": { \"parameter_name\": \"Mark\", \"value\": \"A\", \"category\": \"OST_Doors\" } }",
+            "{ \"command\": \"batch_set_param\", \"parameters\": { \"parameter_name\": \"Comments\", \"value\": \"OK\", \"use_selection\": true } }"
+        };
+
         protected override string Execute(UIApplication app, Document doc, Dictionary<string, object> parameters, QueuedCommand cmd)
         {
             var uiDoc = app.ActiveUIDocument;

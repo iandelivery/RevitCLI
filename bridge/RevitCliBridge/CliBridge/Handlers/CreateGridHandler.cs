@@ -9,6 +9,25 @@ namespace RevitCliBridge.Handlers
     public class CreateGridHandler : DocumentCommandBase
     {
         public override string CommandName => "create_grid";
+        public override string Description => "Creates a grid line between two points";
+        public override string Category => "Create";
+        public override bool SupportsDryRun => true;
+
+        public override CommandParamSchema[] Parameters => new[]
+        {
+            new CommandParamSchema { Name = "start_x", Type = "double", Required = true, Description = "Start X coordinate in millimeters" },
+            new CommandParamSchema { Name = "start_y", Type = "double", Required = true, Description = "Start Y coordinate in millimeters" },
+            new CommandParamSchema { Name = "end_x", Type = "double", Required = true, Description = "End X coordinate in millimeters" },
+            new CommandParamSchema { Name = "end_y", Type = "double", Required = true, Description = "End Y coordinate in millimeters" },
+            new CommandParamSchema { Name = "name", Type = "string", Required = true, Description = "Grid name/label (e.g. 'A', '1')" }
+        };
+
+        public override string[] Examples => new[]
+        {
+            "{ \"command\": \"create_grid\", \"parameters\": { \"start_x\": 0, \"start_y\": -5000, \"end_x\": 0, \"end_y\": 20000, \"name\": \"A\" } }",
+            "{ \"command\": \"create_grid\", \"parameters\": { \"start_x\": -5000, \"start_y\": 0, \"end_x\": 20000, \"end_y\": 0, \"name\": \"1\" } }"
+        };
+
         protected override string Execute(UIApplication app, Document doc, Dictionary<string, object> parameters, QueuedCommand cmd)
         {
 

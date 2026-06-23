@@ -11,6 +11,23 @@ namespace RevitCliBridge.Handlers
     public class GetFamilySymbolHandler : DocumentCommandBase
     {
         public override string CommandName => "get_family_symbol";
+        public override string Description => "Retrieves a family symbol by instance ID or by family name and symbol name";
+        public override string Category => "Query";
+
+        public override CommandParamSchema[] Parameters => new[]
+        {
+            new CommandParamSchema { Name = "instance_id", Type = "int", Required = false, Description = "FamilyInstance element ID to get the symbol from" },
+            new CommandParamSchema { Name = "family_name", Type = "string", Required = false, Description = "Family name (used with symbol_name)" },
+            new CommandParamSchema { Name = "symbol_name", Type = "string", Required = false, Description = "Symbol/type name (used with family_name)" },
+            new CommandParamSchema { Name = "category", Type = "string", Required = false, Description = "BuiltInCategory to narrow search (used with family_name)" }
+        };
+
+        public override string[] Examples => new[]
+        {
+            "{ \"command\": \"get_family_symbol\", \"parameters\": { \"instance_id\": 12345 } }",
+            "{ \"command\": \"get_family_symbol\", \"parameters\": { \"family_name\": \"M_Single-Flush\", \"symbol_name\": \"0915 x 2134mm\" } }"
+        };
+
         protected override string Execute(UIApplication app, Document doc, Dictionary<string, object> parameters, QueuedCommand cmd)
         {
 

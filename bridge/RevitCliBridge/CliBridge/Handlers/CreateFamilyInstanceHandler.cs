@@ -10,6 +10,26 @@ namespace RevitCliBridge.Handlers
     public class CreateFamilyInstanceHandler : DocumentCommandBase
     {
         public override string CommandName => "create_family_instance";
+        public override string Description => "Creates a family instance at a specified point on a level";
+        public override string Category => "Create";
+        public override bool SupportsDryRun => true;
+
+        public override CommandParamSchema[] Parameters => new[]
+        {
+            new CommandParamSchema { Name = "symbol_id", Type = "int", Required = true, Description = "FamilySymbol element ID to instantiate" },
+            new CommandParamSchema { Name = "level_id", Type = "int", Required = true, Description = "Level element ID to place the instance on" },
+            new CommandParamSchema { Name = "x", Type = "double", Required = true, Description = "Insertion point X in millimeters" },
+            new CommandParamSchema { Name = "y", Type = "double", Required = true, Description = "Insertion point Y in millimeters" },
+            new CommandParamSchema { Name = "z", Type = "double", Required = false, Description = "Insertion point Z in millimeters", Default = 0 },
+            new CommandParamSchema { Name = "structural_type", Type = "string", Required = false, Description = "Structural type", EnumValues = new[] { "NonStructural", "Beam", "Column", "Brace", "Footing", "UnknownFraming", "UnknownStructural" }, Default = "NonStructural" }
+        };
+
+        public override string[] Examples => new[]
+        {
+            "{ \"command\": \"create_family_instance\", \"parameters\": { \"symbol_id\": 12345, \"level_id\": 3001, \"x\": 1000, \"y\": 2000 } }",
+            "{ \"command\": \"create_family_instance\", \"parameters\": { \"symbol_id\": 12345, \"level_id\": 3001, \"x\": 1000, \"y\": 2000, \"z\": 500, \"structural_type\": \"Column\" } }"
+        };
+
         protected override string Execute(UIApplication app, Document doc, Dictionary<string, object> parameters, QueuedCommand cmd)
         {
 
