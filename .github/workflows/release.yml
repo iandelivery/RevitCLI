@@ -90,9 +90,15 @@ jobs:
 
       - name: Build client
         working-directory: client
+        env:
+          GOOS: windows
+          GOARCH: amd64
+          CGO_ENABLED: '0'
         run: |
           go vet ./...
-          go build -o revit-cli.exe ./cmd/revit-cli
+          go build -trimpath -ldflags="-s -w" -o revit-cli.exe ./cmd/revit-cli
+          Get-ChildItem revit-cli.exe | Format-List Name,Length,LastWriteTime
+          & .\revit-cli.exe --version
 
       - name: Upload client artifact
         uses: actions/upload-artifact@v4
@@ -172,6 +178,22 @@ jobs:
             Compress-Archive -Path "$srcDir\*" -DestinationPath $zipName -Force
             Write-Host "Created: $zipName"
           }
+
+      - name: Verify release packages
+        shell: pwsh
+        run: |
+          # List every zip with its contents so failures here are obvious
+          # in the run log, and confirm revit-cli.exe is actually inside.
+          Get-ChildItem -Filter *.zip | ForEach-Object {
+            Write-Host "=== $($_.Name) ==="
+            Expand-Archive -Path $_.FullName -DestinationPath "verify/$($_.BaseName)" -Force
+            Get-ChildItem -Path "verify/$($_.BaseName)" -Recurse | Select-Object FullName,Length
+            $hasExe = (Get-ChildItem -Path "verify/$($_.BaseName)" -Filter revit-cli.exe -Recurse).Count -gt 0
+            if ($_.Name -like "revit-cli-client-*") {
+              if (-not $hasExe) { throw "revit-cli.exe missing in $($_.Name)" }
+            }
+          }
+          Remove-Item -Recurse -Force verify
 
       - name: Generate release notes
         id: release-notes
