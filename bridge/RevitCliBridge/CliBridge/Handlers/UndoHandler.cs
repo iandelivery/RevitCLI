@@ -9,6 +9,20 @@ namespace RevitCliBridge.Handlers
     public class UndoHandler : DocumentCommandBase
     {
         public override string CommandName => "undo";
+        public override string Description => "Undoes recent transactions in the document";
+        public override string Category => "Modify";
+
+        public override CommandParamSchema[] Parameters => new[]
+        {
+            new CommandParamSchema { Name = "count", Type = "int", Required = false, Description = "Number of transactions to undo", Default = 1 }
+        };
+
+        public override string[] Examples => new[]
+        {
+            "{ \"command\": \"undo\", \"parameters\": {} }",
+            "{ \"command\": \"undo\", \"parameters\": { \"count\": 3 } }"
+        };
+
         protected override string Execute(UIApplication app, Document doc, Dictionary<string, object> parameters, QueuedCommand cmd)
         {
 

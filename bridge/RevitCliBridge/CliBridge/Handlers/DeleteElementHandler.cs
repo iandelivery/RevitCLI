@@ -9,6 +9,20 @@ namespace RevitCliBridge.Handlers
     public class DeleteElementHandler : DocumentCommandBase
     {
         public override string CommandName => "delete_element";
+        public override string Description => "Deletes an element from the document";
+        public override string Category => "Modify";
+        public override bool SupportsDryRun => true;
+
+        public override CommandParamSchema[] Parameters => new[]
+        {
+            new CommandParamSchema { Name = "element_id", Type = "int", Required = true, Description = "Element ID to delete" }
+        };
+
+        public override string[] Examples => new[]
+        {
+            "{ \"command\": \"delete_element\", \"parameters\": { \"element_id\": 12345 } }"
+        };
+
         protected override string Execute(UIApplication app, Document doc, Dictionary<string, object> parameters, QueuedCommand cmd)
         {
 

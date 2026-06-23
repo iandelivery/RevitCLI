@@ -12,6 +12,32 @@ namespace RevitCliBridge.Handlers
     public class CreateWallsHandler : DocumentCommandBase
     {
         public override string CommandName => "create_walls";
+        public override string Description => "Creates multiple walls in a single transaction from an array of wall definitions";
+        public override string Category => "Create";
+        public override bool SupportsDryRun => true;
+
+        public override CommandParamSchema[] Parameters => new[]
+        {
+            new CommandParamSchema
+            {
+                Name = "walls", Type = "object", Required = true, Description = "Array of wall definitions",
+                Properties = new[]
+                {
+                    new CommandParamSchema { Name = "start_x", Type = "double", Required = true, Description = "Start X in mm" },
+                    new CommandParamSchema { Name = "start_y", Type = "double", Required = true, Description = "Start Y in mm" },
+                    new CommandParamSchema { Name = "end_x", Type = "double", Required = true, Description = "End X in mm" },
+                    new CommandParamSchema { Name = "end_y", Type = "double", Required = true, Description = "End Y in mm" },
+                    new CommandParamSchema { Name = "level_id", Type = "int", Required = true, Description = "Level element ID" },
+                    new CommandParamSchema { Name = "height", Type = "double", Required = false, Description = "Wall height in mm", Default = 3000 }
+                }
+            }
+        };
+
+        public override string[] Examples => new[]
+        {
+            "{ \"command\": \"create_walls\", \"parameters\": { \"walls\": [ { \"start_x\": 0, \"start_y\": 0, \"end_x\": 5000, \"end_y\": 0, \"level_id\": 3001 }, { \"start_x\": 5000, \"start_y\": 0, \"end_x\": 5000, \"end_y\": 4000, \"level_id\": 3001 } ] } }"
+        };
+
         protected override string Execute(UIApplication app, Document doc, Dictionary<string, object> parameters, QueuedCommand cmd)
         {
 

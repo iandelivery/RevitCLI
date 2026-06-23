@@ -11,6 +11,24 @@ namespace RevitCliBridge.Handlers
     public class CreateRoomHandler : DocumentCommandBase
     {
         public override string CommandName => "create_room";
+        public override string Description => "Creates a new room on a specified level";
+        public override string Category => "Create";
+        public override bool SupportsDryRun => true;
+
+        public override CommandParamSchema[] Parameters => new[]
+        {
+            new CommandParamSchema { Name = "level_id", Type = "int", Required = true, Description = "Level element ID to place the room on" },
+            new CommandParamSchema { Name = "x", Type = "double", Required = true, Description = "Room location X in millimeters" },
+            new CommandParamSchema { Name = "y", Type = "double", Required = true, Description = "Room location Y in millimeters" },
+            new CommandParamSchema { Name = "name", Type = "string", Required = false, Description = "Room name" },
+            new CommandParamSchema { Name = "number", Type = "string", Required = false, Description = "Room number" }
+        };
+
+        public override string[] Examples => new[]
+        {
+            "{ \"command\": \"create_room\", \"parameters\": { \"level_id\": 3001, \"x\": 2500, \"y\": 2000, \"name\": \"Living Room\", \"number\": \"101\" } }"
+        };
+
         protected override string Execute(UIApplication app, Document doc, Dictionary<string, object> parameters, QueuedCommand cmd)
         {
 

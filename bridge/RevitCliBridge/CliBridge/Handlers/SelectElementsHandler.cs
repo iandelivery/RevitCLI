@@ -14,6 +14,20 @@ namespace RevitCliBridge.Handlers
     public class SelectElementsHandler : DocumentCommandBase
     {
         public override string CommandName => "select_elements";
+        public override string Description => "Gets or sets the selected elements in Revit";
+        public override string Category => "UI";
+
+        public override CommandParamSchema[] Parameters => new[]
+        {
+            new CommandParamSchema { Name = "element_ids", Type = "int[]", Required = false, Description = "Element IDs to select (omit to get current selection)" }
+        };
+
+        public override string[] Examples => new[]
+        {
+            "{ \"command\": \"select_elements\", \"parameters\": {} }",
+            "{ \"command\": \"select_elements\", \"parameters\": { \"element_ids\": [123, 456, 789] } }"
+        };
+
         protected override string Execute(UIApplication app, Document doc, Dictionary<string, object> parameters, QueuedCommand cmd)
         {
             var uiDoc = app.ActiveUIDocument;

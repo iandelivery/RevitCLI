@@ -10,6 +10,27 @@ namespace RevitCliBridge.Handlers
     public class MirrorElementHandler : DocumentCommandBase
     {
         public override string CommandName => "mirror_element";
+        public override string Description => "Mirrors an element across a plane defined by origin and normal";
+        public override string Category => "Modify";
+        public override bool SupportsDryRun => true;
+
+        public override CommandParamSchema[] Parameters => new[]
+        {
+            new CommandParamSchema { Name = "element_id", Type = "int", Required = true, Description = "Element ID to mirror" },
+            new CommandParamSchema { Name = "normal_x", Type = "double", Required = false, Description = "Mirror plane normal X" },
+            new CommandParamSchema { Name = "normal_y", Type = "double", Required = false, Description = "Mirror plane normal Y" },
+            new CommandParamSchema { Name = "normal_z", Type = "double", Required = false, Description = "Mirror plane normal Z" },
+            new CommandParamSchema { Name = "origin_x", Type = "double", Required = false, Description = "Mirror plane origin X in mm (defaults to element location)" },
+            new CommandParamSchema { Name = "origin_y", Type = "double", Required = false, Description = "Mirror plane origin Y in mm (defaults to element location)" },
+            new CommandParamSchema { Name = "origin_z", Type = "double", Required = false, Description = "Mirror plane origin Z in mm (defaults to 0)" }
+        };
+
+        public override string[] Examples => new[]
+        {
+            "{ \"command\": \"mirror_element\", \"parameters\": { \"element_id\": 12345, \"normal_x\": 1, \"normal_y\": 0, \"normal_z\": 0 } }",
+            "{ \"command\": \"mirror_element\", \"parameters\": { \"element_id\": 12345, \"normal_x\": 0, \"normal_y\": 1, \"normal_z\": 0, \"origin_x\": 5000, \"origin_y\": 0 } }"
+        };
+
         protected override string Execute(UIApplication app, Document doc, Dictionary<string, object> parameters, QueuedCommand cmd)
         {
 

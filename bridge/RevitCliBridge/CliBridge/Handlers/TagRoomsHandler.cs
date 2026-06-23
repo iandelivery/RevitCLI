@@ -11,6 +11,23 @@ namespace RevitCliBridge.Handlers
     public class TagRoomsHandler : DocumentCommandBase
     {
         public override string CommandName => "tag_rooms";
+        public override string Description => "Tags rooms in a view";
+        public override string Category => "Modify";
+        public override bool SupportsDryRun => true;
+
+        public override CommandParamSchema[] Parameters => new[]
+        {
+            new CommandParamSchema { Name = "view_id", Type = "int", Required = false, Description = "View element ID (defaults to active view)" },
+            new CommandParamSchema { Name = "tag_type_id", Type = "int", Required = false, Description = "RoomTagType element ID (uses default if omitted)" }
+        };
+
+        public override string[] Examples => new[]
+        {
+            "{ \"command\": \"tag_rooms\", \"parameters\": {} }",
+            "{ \"command\": \"tag_rooms\", \"parameters\": { \"view_id\": 12345 } }",
+            "{ \"command\": \"tag_rooms\", \"parameters\": { \"view_id\": 12345, \"tag_type_id\": 67890 } }"
+        };
+
         protected override string Execute(UIApplication app, Document doc, Dictionary<string, object> parameters, QueuedCommand cmd)
         {
 

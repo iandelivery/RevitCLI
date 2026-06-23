@@ -9,6 +9,21 @@ namespace RevitCliBridge.Handlers
     public class DocSaveHandler : DocumentCommandBase
     {
         public override string CommandName => "doc_save";
+        public override string Description => "Saves the active document";
+        public override string Category => "Document";
+
+        public override CommandParamSchema[] Parameters => new[]
+        {
+            new CommandParamSchema { Name = "compact", Type = "bool", Required = false, Description = "Compact the file on save" },
+            new CommandParamSchema { Name = "preview_view_id", Type = "int", Required = false, Description = "View element ID for preview thumbnail" }
+        };
+
+        public override string[] Examples => new[]
+        {
+            "{ \"command\": \"doc_save\", \"parameters\": {} }",
+            "{ \"command\": \"doc_save\", \"parameters\": { \"compact\": true } }"
+        };
+
         protected override string Execute(UIApplication app, Document doc, Dictionary<string, object> parameters, QueuedCommand cmd)
         {
 

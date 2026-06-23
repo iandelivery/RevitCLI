@@ -10,6 +10,26 @@ namespace RevitCliBridge.Handlers
     public class ExportViewHandler : DocumentCommandBase
     {
         public override string CommandName => "export_view";
+        public override string Description => "Exports the active view to an image file";
+        public override string Category => "Export";
+
+        public override CommandParamSchema[] Parameters => new[]
+        {
+            new CommandParamSchema { Name = "output_path", Type = "string", Required = false, Description = "Output file path (defaults to temp directory)" },
+            new CommandParamSchema { Name = "file_type", Type = "string", Required = false, Description = "Image format", EnumValues = new[] { "png", "bmp", "jpeg", "tiff", "targa" }, Default = "png" },
+            new CommandParamSchema { Name = "dpi", Type = "string", Required = false, Description = "DPI resolution", EnumValues = new[] { "72", "150", "300", "600" }, Default = "300" },
+            new CommandParamSchema { Name = "fit_direction", Type = "string", Required = false, Description = "Fit direction", EnumValues = new[] { "horizontal", "vertical" }, Default = "horizontal" },
+            new CommandParamSchema { Name = "zoom_type", Type = "string", Required = false, Description = "Zoom type", EnumValues = new[] { "fit", "zoom" }, Default = "fit" },
+            new CommandParamSchema { Name = "resolution", Type = "int", Required = false, Description = "Pixel resolution for fit-to-page mode" },
+            new CommandParamSchema { Name = "zoom_value", Type = "double", Required = false, Description = "Zoom percentage (for zoom mode)", Default = 100 }
+        };
+
+        public override string[] Examples => new[]
+        {
+            "{ \"command\": \"export_view\", \"parameters\": {} }",
+            "{ \"command\": \"export_view\", \"parameters\": { \"output_path\": \"C:\\\\output\\\\view.png\", \"file_type\": \"png\", \"dpi\": \"300\" } }"
+        };
+
         protected override string Execute(UIApplication app, Document doc, Dictionary<string, object> parameters, QueuedCommand cmd)
         {
 

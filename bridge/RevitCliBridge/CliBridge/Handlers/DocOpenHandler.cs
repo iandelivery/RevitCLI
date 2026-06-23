@@ -10,6 +10,22 @@ namespace RevitCliBridge.Handlers
     public class DocOpenHandler : DocumentCommandBase
     {
         public override string CommandName => "doc_open";
+        public override string Description => "Opens a Revit document (.rvt, .rte, .rfa)";
+        public override string Category => "Document";
+
+        public override CommandParamSchema[] Parameters => new[]
+        {
+            new CommandParamSchema { Name = "path", Type = "string", Required = true, Description = "File path to open (.rvt, .rte, or .rfa)" },
+            new CommandParamSchema { Name = "detach", Type = "bool", Required = false, Description = "Detach from central" },
+            new CommandParamSchema { Name = "audit", Type = "bool", Required = false, Description = "Audit the document on open" }
+        };
+
+        public override string[] Examples => new[]
+        {
+            "{ \"command\": \"doc_open\", \"parameters\": { \"path\": \"C:\\\\Projects\\\\Building.rvt\" } }",
+            "{ \"command\": \"doc_open\", \"parameters\": { \"path\": \"C:\\\\Projects\\\\Building.rvt\", \"detach\": true } }"
+        };
+
         protected override string Execute(UIApplication app, Document doc, Dictionary<string, object> parameters, QueuedCommand cmd)
         {
 

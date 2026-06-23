@@ -10,6 +10,16 @@ namespace RevitCliBridge.Handlers
     public class DocListHandler : BridgeCommandBase
     {
         public override string CommandName => "doc_list";
+        public override string Description => "Lists all open documents in Revit";
+        public override string Category => "Document";
+
+        public override CommandParamSchema[] Parameters => Array.Empty<CommandParamSchema>();
+
+        public override string[] Examples => new[]
+        {
+            "{ \"command\": \"doc_list\", \"parameters\": {} }"
+        };
+
         protected override string Execute(UIApplication app, QueuedCommand cmd)
         {
             var activeDoc = app.ActiveUIDocument?.Document;

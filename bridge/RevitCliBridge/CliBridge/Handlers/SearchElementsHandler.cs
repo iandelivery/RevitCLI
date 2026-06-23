@@ -10,6 +10,25 @@ namespace RevitCliBridge.Handlers
     public class SearchElementsHandler : DocumentCommandBase
     {
         public override string CommandName => "search_elements";
+        public override string Description => "Searches elements by category and parameter value with various comparison operators";
+        public override string Category => "Query";
+
+        public override CommandParamSchema[] Parameters => new[]
+        {
+            new CommandParamSchema { Name = "category", Type = "string", Required = true, Description = "BuiltInCategory enum value (e.g. 'OST_Walls')" },
+            new CommandParamSchema { Name = "param_name", Type = "string", Required = true, Description = "Parameter name to search on" },
+            new CommandParamSchema { Name = "param_value", Type = "string", Required = false, Description = "Parameter value to compare (not required for 'empty' operator)" },
+            new CommandParamSchema { Name = "param_operator", Type = "string", Required = false, Description = "Comparison operator", EnumValues = new[] { "eq", "neq", "contains", "gt", "lt", "empty", "notempty" }, Default = "eq" },
+            new CommandParamSchema { Name = "limit", Type = "int", Required = false, Description = "Maximum number of results", Default = 500 }
+        };
+
+        public override string[] Examples => new[]
+        {
+            "{ \"command\": \"search_elements\", \"parameters\": { \"category\": \"OST_Walls\", \"param_name\": \"Comments\", \"param_value\": \"Review\", \"param_operator\": \"contains\" } }",
+            "{ \"command\": \"search_elements\", \"parameters\": { \"category\": \"OST_Doors\", \"param_name\": \"Mark\", \"param_value\": \"A-1\", \"param_operator\": \"eq\" } }",
+            "{ \"command\": \"search_elements\", \"parameters\": { \"category\": \"OST_Walls\", \"param_name\": \"Comments\", \"param_operator\": \"empty\" } }"
+        };
+
         protected override string Execute(UIApplication app, Document doc, Dictionary<string, object> parameters, QueuedCommand cmd)
         {
 

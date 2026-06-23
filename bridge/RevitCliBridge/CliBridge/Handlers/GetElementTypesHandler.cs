@@ -10,6 +10,22 @@ namespace RevitCliBridge.Handlers
     public class GetElementTypesHandler : DocumentCommandBase
     {
         public override string CommandName => "get_element_types";
+        public override string Description => "Retrieves element types (excluding FamilySymbol), optionally filtered by category or name";
+        public override string Category => "Query";
+
+        public override CommandParamSchema[] Parameters => new[]
+        {
+            new CommandParamSchema { Name = "type_name", Type = "string", Required = false, Description = "Filter by type name (contains match)" },
+            new CommandParamSchema { Name = "category", Type = "string", Required = false, Description = "BuiltInCategory enum value to filter" }
+        };
+
+        public override string[] Examples => new[]
+        {
+            "{ \"command\": \"get_element_types\", \"parameters\": {} }",
+            "{ \"command\": \"get_element_types\", \"parameters\": { \"category\": \"OST_Walls\" } }",
+            "{ \"command\": \"get_element_types\", \"parameters\": { \"type_name\": \"Concrete\" } }"
+        };
+
         protected override string Execute(UIApplication app, Document doc, Dictionary<string, object> parameters, QueuedCommand cmd)
         {
 

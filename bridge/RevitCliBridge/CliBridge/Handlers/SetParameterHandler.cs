@@ -9,6 +9,23 @@ namespace RevitCliBridge.Handlers
     public class SetParameterHandler : DocumentCommandBase
     {
         public override string CommandName => "set_parameter";
+        public override string Description => "Sets a parameter value on an element by parameter name";
+        public override string Category => "Modify";
+        public override bool SupportsDryRun => true;
+
+        public override CommandParamSchema[] Parameters => new[]
+        {
+            new CommandParamSchema { Name = "element_id", Type = "int", Required = true, Description = "Element ID" },
+            new CommandParamSchema { Name = "parameter_name", Type = "string", Required = true, Description = "Parameter name to set" },
+            new CommandParamSchema { Name = "value", Type = "string", Required = true, Description = "Value to set (auto-converted to match parameter storage type)" }
+        };
+
+        public override string[] Examples => new[]
+        {
+            "{ \"command\": \"set_parameter\", \"parameters\": { \"element_id\": 12345, \"parameter_name\": \"Comments\", \"value\": \"Approved\" } }",
+            "{ \"command\": \"set_parameter\", \"parameters\": { \"element_id\": 12345, \"parameter_name\": \"Mark\", \"value\": \"A-1\" } }"
+        };
+
         protected override string Execute(UIApplication app, Document doc, Dictionary<string, object> parameters, QueuedCommand cmd)
         {
 

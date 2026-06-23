@@ -11,6 +11,27 @@ namespace RevitCliBridge.Handlers
     public class BatchExportHandler : DocumentCommandBase
     {
         public override string CommandName => "batch_export";
+        public override string Description => "Batch exports views/sheets to PDF, DWG, or image format";
+        public override string Category => "Export";
+
+        public override CommandParamSchema[] Parameters => new[]
+        {
+            new CommandParamSchema { Name = "format", Type = "string", Required = true, Description = "Export format", EnumValues = new[] { "pdf", "dwg", "img" } },
+            new CommandParamSchema { Name = "output_dir", Type = "string", Required = false, Description = "Output directory (defaults to temp directory)" },
+            new CommandParamSchema { Name = "view_ids", Type = "int[]", Required = false, Description = "View element IDs to export" },
+            new CommandParamSchema { Name = "sheet_ids", Type = "int[]", Required = false, Description = "Sheet element IDs to export" },
+            new CommandParamSchema { Name = "all_sheets", Type = "bool", Required = false, Description = "Export all sheets" },
+            new CommandParamSchema { Name = "pdf_setup", Type = "string", Required = false, Description = "PDF export setup name" },
+            new CommandParamSchema { Name = "dwg_setup", Type = "string", Required = false, Description = "DWG export setup name" }
+        };
+
+        public override string[] Examples => new[]
+        {
+            "{ \"command\": \"batch_export\", \"parameters\": { \"format\": \"img\", \"sheet_ids\": [123, 456] } }",
+            "{ \"command\": \"batch_export\", \"parameters\": { \"format\": \"pdf\", \"all_sheets\": true, \"output_dir\": \"C:\\\\output\" } }",
+            "{ \"command\": \"batch_export\", \"parameters\": { \"format\": \"dwg\", \"view_ids\": [789] } }"
+        };
+
         protected override string Execute(UIApplication app, Document doc, Dictionary<string, object> parameters, QueuedCommand cmd)
         {
 

@@ -9,6 +9,19 @@ namespace RevitCliBridge.Handlers
     public class GetElementByIdHandler : DocumentCommandBase
     {
         public override string CommandName => "get_element_by_id";
+        public override string Description => "Retrieves an element by its ID";
+        public override string Category => "Query";
+
+        public override CommandParamSchema[] Parameters => new[]
+        {
+            new CommandParamSchema { Name = "element_id", Type = "int", Required = true, Description = "Element ID to look up" }
+        };
+
+        public override string[] Examples => new[]
+        {
+            "{ \"command\": \"get_element_by_id\", \"parameters\": { \"element_id\": 12345 } }"
+        };
+
         protected override string Execute(UIApplication app, Document doc, Dictionary<string, object> parameters, QueuedCommand cmd)
         {
 

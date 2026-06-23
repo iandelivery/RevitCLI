@@ -10,6 +10,24 @@ namespace RevitCliBridge.Handlers
     public class DocSaveAsHandler : DocumentCommandBase
     {
         public override string CommandName => "doc_save_as";
+        public override string Description => "Saves the active document to a new file path";
+        public override string Category => "Document";
+
+        public override CommandParamSchema[] Parameters => new[]
+        {
+            new CommandParamSchema { Name = "path", Type = "string", Required = true, Description = "File path to save as" },
+            new CommandParamSchema { Name = "overwrite", Type = "bool", Required = false, Description = "Overwrite existing file" },
+            new CommandParamSchema { Name = "compact", Type = "bool", Required = false, Description = "Compact the file on save" },
+            new CommandParamSchema { Name = "save_as_central", Type = "bool", Required = false, Description = "Save as central model (workshared only)" },
+            new CommandParamSchema { Name = "preview_view_id", Type = "int", Required = false, Description = "View element ID for preview thumbnail" }
+        };
+
+        public override string[] Examples => new[]
+        {
+            "{ \"command\": \"doc_save_as\", \"parameters\": { \"path\": \"C:\\\\Projects\\\\Building_v2.rvt\" } }",
+            "{ \"command\": \"doc_save_as\", \"parameters\": { \"path\": \"C:\\\\Projects\\\\Building_v2.rvt\", \"overwrite\": true, \"compact\": true } }"
+        };
+
         protected override string Execute(UIApplication app, Document doc, Dictionary<string, object> parameters, QueuedCommand cmd)
         {
 

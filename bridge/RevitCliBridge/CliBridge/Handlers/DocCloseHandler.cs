@@ -10,6 +10,21 @@ namespace RevitCliBridge.Handlers
     public class DocCloseHandler : DocumentCommandBase
     {
         public override string CommandName => "doc_close";
+        public override string Description => "Closes documents (cannot close the active document via API)";
+        public override string Category => "Document";
+
+        public override CommandParamSchema[] Parameters => new[]
+        {
+            new CommandParamSchema { Name = "all", Type = "bool", Required = false, Description = "Close all non-active documents" },
+            new CommandParamSchema { Name = "save", Type = "bool", Required = false, Description = "Save documents before closing" }
+        };
+
+        public override string[] Examples => new[]
+        {
+            "{ \"command\": \"doc_close\", \"parameters\": { \"all\": true } }",
+            "{ \"command\": \"doc_close\", \"parameters\": { \"all\": true, \"save\": true } }"
+        };
+
         protected override string Execute(UIApplication app, Document doc, Dictionary<string, object> parameters, QueuedCommand cmd)
         {
 

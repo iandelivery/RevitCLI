@@ -10,6 +10,20 @@ namespace RevitCliBridge.Handlers
     public class GetRoomsHandler : DocumentCommandBase
     {
         public override string CommandName => "get_rooms";
+        public override string Description => "Retrieves rooms, optionally filtered by level";
+        public override string Category => "Query";
+
+        public override CommandParamSchema[] Parameters => new[]
+        {
+            new CommandParamSchema { Name = "level_id", Type = "int", Required = false, Description = "Level element ID to filter rooms by" }
+        };
+
+        public override string[] Examples => new[]
+        {
+            "{ \"command\": \"get_rooms\", \"parameters\": {} }",
+            "{ \"command\": \"get_rooms\", \"parameters\": { \"level_id\": 3001 } }"
+        };
+
         protected override string Execute(UIApplication app, Document doc, Dictionary<string, object> parameters, QueuedCommand cmd)
         {
 

@@ -9,6 +9,16 @@ namespace RevitCliBridge.Handlers
     public class GetAllLevelsHandler : DocumentCommandBase
     {
         public override string CommandName => "get_levels";
+        public override string Description => "Retrieves all levels in the active document";
+        public override string Category => "Query";
+
+        public override CommandParamSchema[] Parameters => Array.Empty<CommandParamSchema>();
+
+        public override string[] Examples => new[]
+        {
+            "{ \"command\": \"get_levels\", \"parameters\": {} }"
+        };
+
         protected override string Execute(UIApplication app, Document doc, Dictionary<string, object> parameters, QueuedCommand cmd)
         {
 

@@ -9,6 +9,23 @@ namespace RevitCliBridge.Handlers
     public class SetWallConstraintHandler : DocumentCommandBase
     {
         public override string CommandName => "set_wall_constraint";
+        public override string Description => "Sets base and/or top level constraint on a wall";
+        public override string Category => "Modify";
+        public override bool SupportsDryRun => true;
+
+        public override CommandParamSchema[] Parameters => new[]
+        {
+            new CommandParamSchema { Name = "wall_id", Type = "int", Required = true, Description = "Wall element ID" },
+            new CommandParamSchema { Name = "base_level_id", Type = "int", Required = false, Description = "Base constraint level element ID" },
+            new CommandParamSchema { Name = "top_level_id", Type = "int", Required = false, Description = "Top constraint level element ID" }
+        };
+
+        public override string[] Examples => new[]
+        {
+            "{ \"command\": \"set_wall_constraint\", \"parameters\": { \"wall_id\": 12345, \"top_level_id\": 3002 } }",
+            "{ \"command\": \"set_wall_constraint\", \"parameters\": { \"wall_id\": 12345, \"base_level_id\": 3001, \"top_level_id\": 3002 } }"
+        };
+
         protected override string Execute(UIApplication app, Document doc, Dictionary<string, object> parameters, QueuedCommand cmd)
         {
 

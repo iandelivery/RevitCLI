@@ -10,6 +10,23 @@ namespace RevitCliBridge.Handlers
     public class CreateSheetHandler : DocumentCommandBase
     {
         public override string CommandName => "create_sheet";
+        public override string Description => "Creates a new sheet with an optional titleblock";
+        public override string Category => "Create";
+        public override bool SupportsDryRun => true;
+
+        public override CommandParamSchema[] Parameters => new[]
+        {
+            new CommandParamSchema { Name = "name", Type = "string", Required = true, Description = "Sheet name" },
+            new CommandParamSchema { Name = "number", Type = "string", Required = true, Description = "Sheet number" },
+            new CommandParamSchema { Name = "titleblock_id", Type = "int", Required = false, Description = "Titleblock element type ID (uses first available if omitted)" }
+        };
+
+        public override string[] Examples => new[]
+        {
+            "{ \"command\": \"create_sheet\", \"parameters\": { \"name\": \"Floor Plan\", \"number\": \"A-101\" } }",
+            "{ \"command\": \"create_sheet\", \"parameters\": { \"name\": \"Floor Plan\", \"number\": \"A-101\", \"titleblock_id\": 12345 } }"
+        };
+
         protected override string Execute(UIApplication app, Document doc, Dictionary<string, object> parameters, QueuedCommand cmd)
         {
 

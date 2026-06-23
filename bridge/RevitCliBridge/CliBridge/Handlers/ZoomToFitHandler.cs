@@ -11,6 +11,16 @@ namespace RevitCliBridge.Handlers
     public class ZoomToFitHandler : DocumentCommandBase
     {
         public override string CommandName => "zoom_to_fit";
+        public override string Description => "Zooms the active view to fit all elements";
+        public override string Category => "UI";
+
+        public override CommandParamSchema[] Parameters => Array.Empty<CommandParamSchema>();
+
+        public override string[] Examples => new[]
+        {
+            "{ \"command\": \"zoom_to_fit\", \"parameters\": {} }"
+        };
+
         protected override string Execute(UIApplication app, Document doc, Dictionary<string, object> parameters, QueuedCommand cmd)
         {
             var uiDoc = app.ActiveUIDocument;
