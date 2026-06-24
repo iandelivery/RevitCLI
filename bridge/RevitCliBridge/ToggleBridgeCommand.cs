@@ -3,6 +3,7 @@ using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
 using RevitCliBridge;
 using System;
+using System.Reflection;
 
 namespace RevitCliBridge
 {
@@ -14,13 +15,16 @@ namespace RevitCliBridge
     [Transaction(TransactionMode.Manual)]
     public class ToggleBridgeCommand : IExternalCommand
     {
+        private static readonly string FileVersion = Assembly.GetExecutingAssembly()
+            .GetCustomAttribute<AssemblyFileVersionAttribute>()?.Version ?? "Unknown";
+
         public Result Execute(ExternalCommandData commandData, ref string message, ElementSet elements)
         {
             try
             {
                 bool newState = CliBridgeStateManager.Toggle();
 
-                string title = "AI Mode Status";
+                string title = $"AI Mode Status v{FileVersion}";
                 string instruction = newState ? "AI Mode Enabled" : "AI Mode Disabled";
                 string content = newState
                     ? "AI Mode is enabled.\nAI agents can communicate with Revit."

@@ -1,7 +1,9 @@
 {
+  "schema_version": "1",
   "enabled": true,
   "port": 5000,
+  "auto_port": true,
   "timeout_seconds": 180,
   "max_command_queue_size": 100,
-  "allow_raw_execution": true
+  "allow_raw_execution": false
 }

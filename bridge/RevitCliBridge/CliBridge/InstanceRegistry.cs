@@ -84,6 +84,7 @@ namespace RevitCliBridge
 
         /// <summary>
         /// Write a registry file for this running instance.
+        /// Uses atomic write (temp file + rename) to prevent corruption on crash.
         /// </summary>
         public static void Register(InstanceInfo info)
         {
@@ -94,7 +95,12 @@ namespace RevitCliBridge
                     $"revit-{info.Version}-{info.Pid}.json");
 
                 var json = JsonConvert.SerializeObject(info, Formatting.Indented);
-                File.WriteAllText(_currentRegistryFile, json);
+
+                // Atomic write: write to temp file, then rename.
+                var tmpFile = _currentRegistryFile + ".tmp";
+                File.WriteAllText(tmpFile, json);
+                File.Delete(_currentRegistryFile); // Delete existing (File.Move can't overwrite on all platforms)
+                File.Move(tmpFile, _currentRegistryFile);
 
                 CliLogger.Info($"Instance registered: {_currentRegistryFile}");
             }
@@ -161,9 +167,9 @@ namespace RevitCliBridge
             try
             {
                 var process = Process.GetProcessById(pid);
-                // Process.GetProcessById succeeds if the process exists,
-                // but it might have exited between the call and now.
-                return !process.HasExited;
+                bool alive = !process.HasExited;
+                process.Close(); // Release the process handle to avoid leaks.
+                return alive;
             }
             catch (ArgumentException)
             {

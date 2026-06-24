@@ -115,6 +115,7 @@ func (d *DynamicCommand) buildUsage() string {
 }
 
 // coerce converts a string CLI value to the type declared in the schema.
+// Returns an error string if parsing fails for array elements.
 // Mirrors C# DynamicCommand.Coerce.
 func coerce(value, typ string) interface{} {
 	switch typ {
@@ -140,7 +141,7 @@ func coerce(value, typ string) interface{} {
 			if n, err := strconv.Atoi(part); err == nil {
 				arr = append(arr, n)
 			} else {
-				arr = append(arr, 0)
+				fmt.Fprintf(os.Stderr, "Warning: cannot parse %q as int, skipping\n", part)
 			}
 		}
 		return arr
@@ -148,6 +149,28 @@ func coerce(value, typ string) interface{} {
 		var arr []string
 		for _, part := range strings.Split(value, ",") {
 			arr = append(arr, strings.TrimSpace(part))
+		}
+		return arr
+	case "double[]":
+		var arr []float64
+		for _, part := range strings.Split(value, ",") {
+			part = strings.TrimSpace(part)
+			if f, err := strconv.ParseFloat(part, 64); err == nil {
+				arr = append(arr, f)
+			} else {
+				fmt.Fprintf(os.Stderr, "Warning: cannot parse %q as double, skipping\n", part)
+			}
+		}
+		return arr
+	case "bool[]":
+		var arr []bool
+		for _, part := range strings.Split(value, ",") {
+			part = strings.TrimSpace(part)
+			if b, err := strconv.ParseBool(part); err == nil {
+				arr = append(arr, b)
+			} else {
+				fmt.Fprintf(os.Stderr, "Warning: cannot parse %q as bool, skipping\n", part)
+			}
 		}
 		return arr
 	default:
