@@ -6,12 +6,12 @@ on:
       - 'v*'
 
 permissions:
-  contents: write
+  contents: read
 
 env:
   DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
   NUGET_XMLDOC_MODE: skip
-  GO_VERSION: '1.21'
+  GO_VERSION: '1.22'
 
 jobs:
   # -----------------------------------------------------------------------
@@ -47,6 +47,12 @@ jobs:
         working-directory: bridge
         shell: pwsh
         run: |
+          $tag = "${{ github.ref_name }}"
+          $version = $tag -replace '^v', ''
+          $parts = $version -split '\.'
+          $major = if ($parts.Length -gt 0) { $parts[0] } else { "1" }
+          $minor = if ($parts.Length -gt 1) { $parts[1] } else { "0" }
+          $patch = if ($parts.Length -gt 2) { $parts[2] } else { "0" }
           $configTag = switch ("${{ matrix.revit-version }}") {
             "2019" { "R19" }
             "2020" { "R20" }
@@ -55,7 +61,7 @@ jobs:
           }
           $buildConfig = "Release $configTag"
           $outputDir = "dist/Revit${{ matrix.revit-version }}"
-          dotnet build RevitCliBridge\RevitCliBridge.csproj -p:Configuration="$buildConfig" -p:Platform=x64 -o "$outputDir"
+          dotnet build RevitCliBridge\RevitCliBridge.csproj -p:Configuration="$buildConfig" -p:Platform=x64 -p:Major=$major -p:Minor=$minor -p:Patch=$patch -o "$outputDir"
 
       - name: Generate version-specific config
         working-directory: bridge
@@ -66,6 +72,7 @@ jobs:
           $configDir = "dist/Revit${{ matrix.revit-version }}/.config"
           New-Item -ItemType Directory -Path $configDir -Force | Out-Null
           $setting = @{
+            schema_version         = "1"
             enabled               = $true
             port                  = $port
             auto_port             = $true
@@ -126,6 +133,8 @@ jobs:
   release:
     needs: [build-bridge, build-client]
     runs-on: windows-latest
+    permissions:
+      contents: write
 
     steps:
       - name: Checkout
