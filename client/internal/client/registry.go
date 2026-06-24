@@ -4,6 +4,7 @@
 package client
 
 import (
+	"log"
 	"strings"
 
 	"revit-cli/internal/abstractions"
@@ -24,16 +25,20 @@ func NewCommandRegistry() *CommandRegistry {
 	}
 }
 
-// Register adds a command under its primary name. Overwrites existing entries
-// with the same (case-insensitive) name.
+// Register adds a command under its primary name. If a command with the same
+// (case-insensitive) name already exists, the new command is NOT registered
+// and a warning is logged. This prevents dynamic commands from silently
+// overwriting built-in commands.
 func (r *CommandRegistry) Register(cmd abstractions.CliCommand) {
 	if cmd == nil {
 		return
 	}
 	name := toLower(cmd.Metadata().Name)
-	if _, exists := r.commands[name]; !exists {
-		r.order = append(r.order, cmd)
+	if _, exists := r.commands[name]; exists {
+		log.Printf("[registry] command %q already registered, skipping duplicate from %T", cmd.Metadata().Name, cmd)
+		return
 	}
+	r.order = append(r.order, cmd)
 	r.commands[name] = cmd
 }
 

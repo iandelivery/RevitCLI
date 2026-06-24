@@ -36,6 +36,8 @@ x64/
 x86/
 [Bb]in/
 [Oo]bj/
+dist/
+
 
 # OS files
 Thumbs.db

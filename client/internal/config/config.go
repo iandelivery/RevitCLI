@@ -5,6 +5,7 @@ package config
 import (
 	"embed"
 	"encoding/json"
+	"fmt"
 	"log"
 	"os"
 	"path/filepath"
@@ -15,12 +16,13 @@ var defaultConfigFS embed.FS
 
 // CliBridgeConfig mirrors C# CliBridgeConfig.
 type CliBridgeConfig struct {
-	Enabled              bool `json:"enabled"`
-	Port                 int  `json:"port"`
-	AutoPort             bool `json:"auto_port"`
-	TimeoutSeconds       int  `json:"timeout_seconds"`
-	MaxCommandQueueSize  int  `json:"max_command_queue_size"`
-	AllowRawExecution    bool `json:"allow_raw_execution"`
+	SchemaVersion        string `json:"schema_version,omitempty"`
+	Enabled              bool   `json:"enabled"`
+	Port                 int    `json:"port"`
+	AutoPort             bool   `json:"auto_port"`
+	TimeoutSeconds       int    `json:"timeout_seconds"`
+	MaxCommandQueueSize  int    `json:"max_command_queue_size"`
+	AllowRawExecution    bool   `json:"allow_raw_execution"`
 }
 
 // Default returns the default configuration. When a default_config.json is
@@ -32,7 +34,7 @@ func Default() CliBridgeConfig {
 		AutoPort:            true,
 		TimeoutSeconds:      180,
 		MaxCommandQueueSize: 100,
-		AllowRawExecution:   true,
+		AllowRawExecution:   false,
 	}
 
 	data, err := defaultConfigFS.ReadFile("default_config.json")
@@ -71,7 +73,43 @@ func Load(path string) CliBridgeConfig {
 		cfg.MaxCommandQueueSize = 100
 	}
 
+	// Validate config values
+	if err := cfg.Validate(); err != nil {
+		log.Printf("[config] validation warning: %v", err)
+	}
+
 	return cfg
+}
+
+// Validate checks that config values are within acceptable ranges.
+func (c *CliBridgeConfig) Validate() error {
+	var errs []string
+
+	if c.Port < 1 || c.Port > 65535 {
+		errs = append(errs, fmt.Sprintf("port %d is out of valid range [1-65535]", c.Port))
+	}
+	if c.TimeoutSeconds < 1 {
+		errs = append(errs, fmt.Sprintf("timeout_seconds %d must be >= 1", c.TimeoutSeconds))
+	}
+	if c.MaxCommandQueueSize < 1 {
+		errs = append(errs, fmt.Sprintf("max_command_queue_size %d must be >= 1", c.MaxCommandQueueSize))
+	}
+
+	if len(errs) > 0 {
+		return fmt.Errorf("config validation: %s", joinErrors(errs))
+	}
+	return nil
+}
+
+func joinErrors(errs []string) string {
+	result := ""
+	for i, e := range errs {
+		if i > 0 {
+			result += "; "
+		}
+		result += e
+	}
+	return result
 }
 
 // LoadFromDir loads config from a <dir>/.config/cli_bridge_setting.json path.

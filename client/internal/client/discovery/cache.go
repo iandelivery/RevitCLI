@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"revit-cli/internal/models"
@@ -21,6 +22,7 @@ type SchemaCache struct {
 	serverKey string
 	cachePath string
 	etagPath  string
+	mu        sync.Mutex
 }
 
 // cacheTTL is the freshness window for cached schemas.
@@ -52,6 +54,37 @@ func NewSchemaCache(serverURL string) *SchemaCache {
 // Load returns the cached schema if it exists and is not expired.
 // Returns nil if cache is missing or expired.
 func (c *SchemaCache) Load() *models.CommandSchema {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	return c.loadLocked()
+}
+
+// LoadWithVersion returns the cached schema if it exists, is not expired,
+// and matches the given bridge version. Returns nil if any check fails,
+// which signals the caller to re-fetch from the server.
+func (c *SchemaCache) LoadWithVersion(bridgeVersion string) *models.CommandSchema {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	schema := c.loadLocked()
+	if schema == nil {
+		return nil
+	}
+
+	// If a bridge version is provided and the cached schema has a different
+	// version, treat the cache as stale so the caller re-fetches.
+	if bridgeVersion != "" && schema.ServerInfo != nil &&
+		schema.ServerInfo.BridgeVersion != "" &&
+		schema.ServerInfo.BridgeVersion != bridgeVersion {
+		return nil
+	}
+
+	return schema
+}
+
+// loadLocked is the internal implementation of Load. Caller must hold c.mu.
+func (c *SchemaCache) loadLocked() *models.CommandSchema {
 	info, err := os.Stat(c.cachePath)
 	if err != nil {
 		return nil
@@ -74,6 +107,9 @@ func (c *SchemaCache) Load() *models.CommandSchema {
 // LoadStale returns the cached schema regardless of TTL. Used as fallback
 // when the bridge is unreachable.
 func (c *SchemaCache) LoadStale() *models.CommandSchema {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	data, err := os.ReadFile(c.cachePath)
 	if err != nil {
 		return nil
@@ -85,24 +121,40 @@ func (c *SchemaCache) LoadStale() *models.CommandSchema {
 	return &schema
 }
 
-// Save writes the schema to the local cache.
+// Save writes the schema to the local cache using atomic write (temp file + rename)
+// to prevent corruption if the process crashes mid-write.
 func (c *SchemaCache) Save(schema *models.CommandSchema) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	if err := os.MkdirAll(filepath.Dir(c.cachePath), 0o755); err != nil {
 		log.Printf("[cache] cannot create dir: %v", err)
 		return
 	}
-	schema.FetchedAt = time.Now().UTC()
 	data, err := json.MarshalIndent(schema, "", "  ")
 	if err != nil {
+		log.Printf("[cache] cannot marshal schema: %v", err)
 		return
 	}
-	if err := os.WriteFile(c.cachePath, data, 0o644); err != nil {
-		log.Printf("[cache] cannot write cache: %v", err)
+
+	// Atomic write: write to temp file, then rename.
+	tmpPath := c.cachePath + ".tmp"
+	if err := os.WriteFile(tmpPath, data, 0o644); err != nil {
+		log.Printf("[cache] cannot write temp cache: %v", err)
+		return
+	}
+	if err := os.Rename(tmpPath, c.cachePath); err != nil {
+		log.Printf("[cache] cannot rename temp cache: %v", err)
+		// Clean up temp file on failure.
+		os.Remove(tmpPath)
 	}
 }
 
 // LoadEtag returns the stored ETag for conditional requests.
 func (c *SchemaCache) LoadEtag() string {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	data, err := os.ReadFile(c.etagPath)
 	if err != nil {
 		return ""
@@ -112,12 +164,25 @@ func (c *SchemaCache) LoadEtag() string {
 
 // SaveEtag persists the ETag from a server response.
 func (c *SchemaCache) SaveEtag(etag string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	if err := os.MkdirAll(filepath.Dir(c.etagPath), 0o755); err != nil {
+		log.Printf("[cache] cannot create dir for etag: %v", err)
 		return
 	}
 	if err := os.WriteFile(c.etagPath, []byte(etag), 0o644); err != nil {
 		log.Printf("[cache] cannot write etag: %v", err)
 	}
+}
+
+// Touch updates the cache file's modification time, effectively extending the TTL.
+// Used when the server returns 304 Not Modified.
+func (c *SchemaCache) Touch() error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	return os.Chtimes(c.cachePath, time.Now(), time.Now())
 }
 
 // CacheDir exposes the resolved cache directory so other packages
@@ -163,7 +228,11 @@ func DataDir() string {
 
 	// 4. Portable mode — next to the executable.
 	if exePath, err := os.Executable(); err == nil {
-		return filepath.Join(filepath.Dir(exePath), ".revit-cli")
+		dir := filepath.Join(filepath.Dir(exePath), ".revit-cli")
+		if tryCreateDir(dir) {
+			return dir
+		}
+		return dir
 	}
 
 	return ".revit-cli"
@@ -200,5 +269,8 @@ func computeServerKey(serverURL string) string {
 	// Replace unsafe filename characters.
 	hostPort = strings.ReplaceAll(hostPort, ".", "_")
 	hostPort = strings.ReplaceAll(hostPort, ":", "_")
+	// Handle IPv6 brackets: [::1]_5000 -> _1_5000
+	hostPort = strings.ReplaceAll(hostPort, "[", "")
+	hostPort = strings.ReplaceAll(hostPort, "]", "")
 	return hostPort
 }

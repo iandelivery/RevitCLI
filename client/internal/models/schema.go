@@ -1,12 +1,9 @@
 package models
 
-import "time"
-
 // CommandSchema is the full schema response for GET /api/commands.
 // Mirrors C# CliBridge.Abstractions.CommandSchema.
 type CommandSchema struct {
 	Version    string        `json:"version"`
-	FetchedAt  time.Time     `json:"fetched_at"`
 	ServerInfo *ServerInfo   `json:"server_info,omitempty"`
 	Commands   []CommandDef  `json:"commands"`
 }
