@@ -41,7 +41,7 @@ This scans for installed Revit versions, copies the add-in files, and generates 
    - `RevitCliBridge.addin`
    - `.config\cli_bridge_setting.json`
 
-3. Start Revit. You should see a "Revit CLI Bridge" tab with an "AI Mode Toggle" button.
+3. Start Revit. The bridge starts in **AI Mode** automatically (controlled by `enabled` in `.config\cli_bridge_setting.json`, which is `true` by default). You should see a "Revit CLI Bridge" tab with an "AI Mode Toggle" button — it is only needed if you ever want to disable the bridge.
 
 ## Configuration
 

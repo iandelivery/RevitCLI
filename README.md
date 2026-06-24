@@ -102,7 +102,7 @@ The CLI caches the command schema (fetched from `GET /api/commands`) locally wit
    .\revit-cli.exe configure setup
    ```
    This scans the Windows registry, then copies the matching bridge files to each Revit version's addins folder with the correct port assignment.
-4. Start Revit. Click the **AI Mode Toggle** button in the **Revit CLI Bridge** ribbon tab.
+4. Start Revit. The bridge starts in **AI Mode** automatically (controlled by `enabled` in `.config/cli_bridge_setting.json`, which is `true` by default). The **AI Mode Toggle** button in the **Revit CLI Bridge** ribbon tab is only needed if you ever want to disable it.
 5. Test the connection:
    ```powershell
    .\revit-cli.exe ping
@@ -110,30 +110,120 @@ The CLI caches the command schema (fetched from `GET /api/commands`) locally wit
 
 ### Option 2 — Build from source
 
-**Build the bridge (C# add-in, all Revit versions):**
+A unified build script at the repo root builds both the C# bridge and the Go client in one step and packages them into release-ready zips, exactly like the GitHub release workflow.
+
+**Prerequisites**
+
+| Tool | Version | Purpose |
+|------|---------|---------|
+| Windows | 10+ | Bridge targets `x64`; Go build uses `GOOS=windows` |
+| PowerShell | 5.1+ (PowerShell 7+ recommended) | Runs `build.ps1` |
+| .NET SDK | 6.0.x and 7.0.x | Builds the C# bridge for all Revit versions |
+| Go | 1.21 or newer (matches `go.mod`) | Builds `revit-cli.exe` |
+| Git | any recent version | Provides version tags via `git describe` |
+
+Verify everything is on `PATH` before building:
 
 ```powershell
-cd bridge
+dotnet --version     # should print 6.x or 7.x
+go version           # should print go1.21 or newer
+git --version
+```
+
+**Step 1 — Run the unified build**
+
+From the repository root:
+
+```powershell
+cd C:\path\to\revit-cli-opensource
 .\build.ps1
 ```
 
-This produces version-specific output under `bridge/dist/Revit20XX/`. Add `-Deploy` to also install the add-in to every detected Revit automatically. Or add `-Clean` to wipe `dist/` and `obj/` first.
+The script performs three phases, mirroring the CI release pipeline:
 
-**Build the Go client:**
+1. **Build the bridge** for every supported Revit version (2019, 2020, 2021, 2022). Output lands in `bridge/dist/Revit20XX/`, including a per-version `.config/cli_bridge_setting.json` with the correct port (5011, 5021, 5031, 5041).
+2. **Build the Go client** (`go vet` + `go build`) and inject the version string via `-ldflags "-X main.Version=…"`.
+3. **Package** the artifacts into three kinds of zip in the repo-root `dist/` folder:
+   - `revit-cli-<version>.zip` — full bundle (client + SKILL.md + all bridges)
+   - `revit-cli-client-<version>.zip` — client + SKILL.md only
+   - `RevitCliBridge-Revit<year>-<version>.zip` — per-version bridge
 
-```bash
-cd client
-go build -o revit-cli.exe ./cmd/revit-cli
+**Step 2 — Verify the build succeeded**
 
-# Or cross-compile for all platforms:
-./build.sh --all
+A successful run prints each phase in cyan/yellow and finishes with a green `Build Complete` summary. The exit code is `0` when every step succeeded.
+
+```powershell
+# Confirm the exit code was zero
+echo $LASTEXITCODE   # should print 0
+
+# Confirm the zip artifacts exist
+Get-ChildItem .\dist\*.zip
 ```
 
-**Install the bridge manually** if you did not pass `-Deploy`:
+Expected output (example for tag `v1.0.0`):
+
+```
+revit-cli-1.0.0.zip
+revit-cli-client-1.0.0.zip
+RevitCliBridge-Revit2019-1.0.0.zip
+RevitCliBridge-Revit2020-1.0.0.zip
+RevitCliBridge-Revit2021-1.0.0.zip
+RevitCliBridge-Revit2022-1.0.0.zip
+```
+
+**Common options**
+
+| Flag | Effect |
+|------|--------|
+| `-RevitVersions "2021,2022"` | Build the bridge for a subset of Revit versions |
+| `-SkipBridge` | Reuse existing `bridge/dist/` output and only build/package the client |
+| `-SkipClient` | Reuse an existing `revit-cli.exe` and only build/package the bridge |
+| `-SkipPackage` | Run the builds but don't create zips (faster iteration) |
+| `-SkipVet` | Skip `go vet` for a quicker client build |
+
+Examples:
+
+```powershell
+# Quick iteration on the Go client only
+.\build.ps1 -SkipBridge
+
+# Build and package only the Revit 2022 bridge
+.\build.ps1 -RevitVersions "2022" -SkipVet
+```
+
+**Building components independently**
+
+The root `build.ps1` is the recommended one-stop script, but you can still build either component on its own when you only need a quick local iteration cycle. Each sub-project ships with its own build script that performs the same steps the root script would for that component.
+
+```powershell
+# Build only the bridge (all Revit versions, no packaging)
+cd bridge
+.\build.ps1
+
+# Build only the Go client
+cd ..\client
+.\build.ps1
+```
+
+Both scripts accept the same `-SkipVet` / `-SkipVet` style flags and write to the same output directories the root script uses (`bridge/dist/Revit20XX/` and `client/revit-cli.exe`), so artifacts produced by either path are interchangeable. Use the root `build.ps1` for releases; use the per-project scripts for tight inner-loop development.
+
+**Troubleshooting**
+
+| Symptom | Likely cause | Fix |
+|---------|--------------|-----|
+| `[ERROR] Go is not installed or not on PATH.` | `go` not on `PATH` in this PowerShell session | Install Go from <https://go.dev/dl/> or run `winget install GoLang.Go`, then open a new terminal |
+| `[ERROR] dotnet CLI not found.` | .NET SDK missing or not on `PATH` | Install .NET 6.0 and 7.0 SDKs (both are required for the Revit version matrix) |
+| `dotnet build` fails with `MSB4019: The imported project … was not found.` | Missing `RevitAPI.dll` / `RevitAPIUI.dll` references | The csproj expects the Revit SDK assemblies to be on `PATH` or in the standard `C:\Program Files\Autodesk\Revit <year>\` location |
+| `git describe` returns `dev` | No git tag matches the current commit | Tag the commit (e.g. `git tag v1.0.0`) or set `-Version` explicitly; the resulting zips will use `dev` as the version string |
+| Bridge builds but `revit-cli.exe --version` smoke test fails | The exe was built but the new binary path is stale | Delete `client/revit-cli.exe` and re-run `.\build.ps1` |
+| `Compress-Archive` produces empty zips on PowerShell 5.1 | A long-standing PowerShell 5.1 quirk with `-Path` globs | Use PowerShell 7+ (`pwsh`) or `tar -a -cf <name>.zip -C staging .` instead |
+| `Access to the path 'bridge/dist' is denied.` | A previous Revit session or build still has files locked | Close any open File Explorer windows pointing at `bridge/dist/` and re-run |
+
+**Installing the bridge manually** if you did not pass an installer step:
 
 1. Copy the DLLs and `RevitCliBridge.addin` from `bridge/dist/Revit<year>/` to:
    - `%APPDATA%\Autodesk\Revit\Addins\<version>\RevitCliBridge\`
-2. Start Revit and click the **AI Mode Toggle** button in the **Revit CLI Bridge** ribbon tab.
+2. Start Revit. The bridge starts in **AI Mode** automatically (controlled by `enabled` in `.config/cli_bridge_setting.json`, which is `true` by default). The **AI Mode Toggle** button in the **Revit CLI Bridge** ribbon tab is only needed if you ever want to disable it.
 
 ### Run Commands
 
