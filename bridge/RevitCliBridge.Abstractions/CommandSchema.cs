@@ -42,9 +42,6 @@ namespace RevitCliBridge.Abstractions
         [JsonProperty("version")]
         public string Version { get; set; } = "2.0.0";
 
-        [JsonProperty("fetched_at")]
-        public DateTime FetchedAt { get; set; } = DateTime.UtcNow;
-
         [JsonProperty("server_info", NullValueHandling = NullValueHandling.Ignore)]
         public ServerInfo? ServerInfo { get; set; }
 

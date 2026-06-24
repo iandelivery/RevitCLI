@@ -122,7 +122,7 @@ if (-not $SkipBridge) {
             auto_port             = $true
             timeout_seconds       = 180
             max_command_queue_size = 100
-            allow_raw_execution   = $true
+            allow_raw_execution   = $false
         } | ConvertTo-Json -Depth 10
         Set-Content -Path (Join-Path $configDir "cli_bridge_setting.json") -Value $setting -Encoding UTF8
 
@@ -153,13 +153,14 @@ if (-not $SkipClient) {
     }
     Write-Host "Go version: $(& go version)" -ForegroundColor Green
 
-    Set-Location $ClientDir
+    Push-Location $ClientDir
 
     if (-not $SkipVet) {
         Write-Host "  Running go vet..." -ForegroundColor Cyan
         & go vet ./...
         if ($LASTEXITCODE -ne 0) {
             Write-Host "[ERROR] go vet failed" -ForegroundColor Red
+            Pop-Location
             exit 1
         }
         Write-Host "  go vet passed." -ForegroundColor Green
@@ -176,6 +177,7 @@ if (-not $SkipClient) {
 
     if ($LASTEXITCODE -ne 0) {
         Write-Host "[ERROR] Go build failed" -ForegroundColor Red
+        Pop-Location
         exit 1
     }
 
@@ -184,6 +186,8 @@ if (-not $SkipClient) {
 
     # Quick smoke test
     & $clientExe --version
+
+    Pop-Location
 } else {
     Write-Host "[2/3] Skipping client build (-SkipClient)" -ForegroundColor DarkGray
     # Try to find existing exe

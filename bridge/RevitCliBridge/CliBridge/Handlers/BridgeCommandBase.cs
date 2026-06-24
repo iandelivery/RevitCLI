@@ -52,7 +52,9 @@ namespace RevitCliBridge.Handlers
 
         public string Handle(object uiApplication, QueuedCommand cmd)
         {
-            var app = (UIApplication)uiApplication;
+            if (uiApplication is not UIApplication app)
+                return CommandResponse.Error(cmd.TaskId,
+                    $"Invalid UIApplication parameter: expected UIApplication, got {(uiApplication == null ? "null" : uiApplication.GetType().Name)}").ToJson();
 
             if (cmd.DryRun && !SupportsDryRun)
                 return CommandResponse.Error(cmd.TaskId,

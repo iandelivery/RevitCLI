@@ -19,7 +19,10 @@ namespace RevitCliBridge
         private readonly int _port;
         private CancellationTokenSource _cancellationTokenSource;
         private Task? _serverTask;
-        private bool _isRunning;
+        private volatile bool _isRunning;
+
+        // Concurrency limiter to prevent unbounded task spawning.
+        private static readonly SemaphoreSlim _concurrencyLimiter = new SemaphoreSlim(10, 10);
 
         // Identity info for the /api/identity endpoint.
         private int _revitVersion;
@@ -49,6 +52,9 @@ namespace RevitCliBridge
         public void Start()
         {
             if (_isRunning) return;
+
+            // Create a fresh CTS in case Stop() was called previously.
+            _cancellationTokenSource = new CancellationTokenSource();
 
             _listener.Start();
             _isRunning = true;
@@ -91,13 +97,28 @@ namespace RevitCliBridge
                 try
                 {
                     var context = await _listener.GetContextAsync();
-                    _ = Task.Run(() => HandleRequestAsync(context));
+                    _ = Task.Run(async () =>
+                    {
+                        await _concurrencyLimiter.WaitAsync(cancellationToken);
+                        try
+                        {
+                            await HandleRequestAsync(context);
+                        }
+                        finally
+                        {
+                            _concurrencyLimiter.Release();
+                        }
+                    }, cancellationToken);
                 }
                 catch (ObjectDisposedException)
                 {
                     break;
                 }
                 catch (HttpListenerException)
+                {
+                    break;
+                }
+                catch (OperationCanceledException)
                 {
                     break;
                 }
@@ -111,6 +132,7 @@ namespace RevitCliBridge
 
         private async Task HandleRequestAsync(HttpListenerContext context)
         {
+            bool responseHandled = false;
             try
             {
                 var request = context.Request;
@@ -125,7 +147,8 @@ namespace RevitCliBridge
                     if (isSseRequested)
                     {
                         await HandleSseExecuteRequestAsync(request, response);
-                        // SSE handles response lifecycle, return immediately
+                        // SSE handles its own response lifecycle — skip finally Close().
+                        responseHandled = true;
                         return;
                     }
 
@@ -138,7 +161,7 @@ namespace RevitCliBridge
                 else if (path.StartsWith("/api/task/") && request.HttpMethod == "GET")
                 {
                     var taskId = path.Substring("/api/task/".Length);
-                    await HandleTaskStatusRequestAsync(taskId, response);
+                    await HandleCliTaskStatusRequestAsync(taskId, response);
                 }
                 else if (path == "/api/status" && request.HttpMethod == "GET")
                 {
@@ -174,26 +197,47 @@ namespace RevitCliBridge
             catch (Exception ex)
             {
                 CliLogger.Error($"Error handling HTTP request: {ex.Message}");
-                try
+                if (!responseHandled)
                 {
-                    context.Response.StatusCode = 500;
-                    await WriteJsonResponseAsync(context.Response, new { error = ex.Message });
+                    try
+                    {
+                        context.Response.StatusCode = 500;
+                        await WriteJsonResponseAsync(context.Response, new { error = ex.Message });
+                    }
+                    catch { }
                 }
-                catch { }
             }
             finally
             {
-                try { context.Response.Close(); } catch { }
+                if (!responseHandled)
+                {
+                    try { context.Response.Close(); } catch { }
+                }
+            }
+        }
+
+        // Maximum request body size (10 MB).
+        private const int MaxRequestBodySize = 10 * 1024 * 1024;
+
+        private async Task<string> ReadRequestBodyAsync(HttpListenerRequest request, HttpListenerResponse response)
+        {
+            if (request.ContentLength64 > MaxRequestBodySize)
+            {
+                response.StatusCode = 413;
+                await WriteJsonResponseAsync(response, new { error = "Request body too large." });
+                return string.Empty;
+            }
+
+            using (var reader = new StreamReader(request.InputStream, request.ContentEncoding))
+            {
+                return await reader.ReadToEndAsync();
             }
         }
 
         private async Task HandleExecuteRequestAsync(HttpListenerRequest request, HttpListenerResponse response)
         {
-            string body;
-            using (var reader = new StreamReader(request.InputStream, request.ContentEncoding))
-            {
-                body = await reader.ReadToEndAsync();
-            }
+            string body = await ReadRequestBodyAsync(request, response);
+            if (string.IsNullOrEmpty(body) && response.StatusCode == 413) return;
 
             CliLogger.Info($"Received CLI request: {body}");
 
@@ -231,6 +275,16 @@ namespace RevitCliBridge
                 Parameters = input.Parameters,
                 DryRun = input.DryRun
             };
+
+            // Enforce max queue size to prevent unbounded command accumulation.
+            var config = CliBridgeConfigLoader.Config;
+            if (TaskRegistry.CommandQueue.Count >= config.MaxCommandQueueSize)
+            {
+                response.StatusCode = 429;
+                await WriteJsonResponseAsync(response,
+                    CommandResponse.Error(input.TaskId, $"Command queue is full ({config.MaxCommandQueueSize}). Try again later."));
+                return;
+            }
 
             TaskRegistry.CommandQueue.Enqueue(queuedCommand);
 
@@ -276,11 +330,8 @@ namespace RevitCliBridge
         private async Task HandleSseExecuteRequestAsync(HttpListenerRequest request, HttpListenerResponse response)
         {
             // 1. Parse request body
-            string body;
-            using (var reader = new StreamReader(request.InputStream, request.ContentEncoding))
-            {
-                body = await reader.ReadToEndAsync();
-            }
+            string body = await ReadRequestBodyAsync(request, response);
+            if (string.IsNullOrEmpty(body) && response.StatusCode == 413) return;
 
             CliLogger.Info($"Received SSE CLI request: {body}");
 
@@ -317,7 +368,7 @@ namespace RevitCliBridge
             // 3. Create task and attach SSE broadcast
             var taskInfo = TaskRegistry.CreateTask(input.TaskId, input.Command);
 
-            var sseCts = new CancellationTokenSource();
+            var sseCts = CancellationTokenSource.CreateLinkedTokenSource(_cancellationTokenSource.Token);
             bool clientDisconnected = false;
 
             taskInfo.OnSseEvent += async (eventName, dataJson) =>
@@ -393,7 +444,24 @@ namespace RevitCliBridge
                     CommandResponse.Error(input.TaskId, "Revit API execution timed out").ToJson());
             }
 
-            // 8. Cleanup
+            // 8. Send a final SSE event to ensure the client receives the
+            // terminal state, even if the broadcast was missed.
+            if (!clientDisconnected)
+            {
+                try
+                {
+                    var finalTask = TaskRegistry.GetTask(input.TaskId);
+                    if (finalTask != null)
+                    {
+                        var finalEvent = finalTask.Status == CliTaskStatus.Completed ? "completed" : "failed";
+                        var finalData = finalTask.ResultJson ?? "{}";
+                        await WriteSseEventAsync(response.OutputStream, finalEvent, finalData);
+                    }
+                }
+                catch { /* client may have disconnected */ }
+            }
+
+            // 9. Cleanup
             heartbeatCts.Cancel();
             try { await heartbeatTask; } catch { }
 
@@ -403,7 +471,7 @@ namespace RevitCliBridge
             try { sseCts.Dispose(); } catch { }
         }
 
-        private async Task HandleTaskStatusRequestAsync(string taskId, HttpListenerResponse response)
+        private async Task HandleCliTaskStatusRequestAsync(string taskId, HttpListenerResponse response)
         {
             var task = TaskRegistry.GetTask(taskId);
             if (task == null)
@@ -430,7 +498,7 @@ namespace RevitCliBridge
             if (task.CompletedAt.HasValue)
                 result["completed_at"] = task.CompletedAt.Value.ToString("o");
 
-            if (task.ResultJson != null && (task.Status == TaskStatus.Completed || task.Status == TaskStatus.Failed))
+            if (task.ResultJson != null && (task.Status == CliTaskStatus.Completed || task.Status == CliTaskStatus.Failed))
             {
                 try
                 {
@@ -469,8 +537,8 @@ namespace RevitCliBridge
             {
                 server_running = _isRunning,
                 total_tasks = TaskRegistry.Tasks.Count,
-                pending_tasks = TaskRegistry.Tasks.Count(t => t.Value.Status == TaskStatus.Pending),
-                running_tasks = TaskRegistry.Tasks.Count(t => t.Value.Status == TaskStatus.Running),
+                pending_tasks = TaskRegistry.Tasks.Count(t => t.Value.Status == CliTaskStatus.Pending),
+                running_tasks = TaskRegistry.Tasks.Count(t => t.Value.Status == CliTaskStatus.Running),
                 queue_size = TaskRegistry.CommandQueue.Count
             };
             await WriteJsonResponseAsync(response, status);
@@ -565,7 +633,8 @@ namespace RevitCliBridge
             {
                 response.StatusCode = 304;
                 response.Headers["ETag"] = $"\"{etag}\"";
-                response.Close();
+                // Do not call response.Close() here — the finally block in
+                // HandleRequestAsync will close the response safely.
                 return;
             }
 
@@ -643,7 +712,10 @@ namespace RevitCliBridge
 
             response.ContentType = contentType;
             response.ContentLength64 = buffer.Length;
-            response.StatusCode = 200;
+            // Preserve any status code already set by the caller (e.g. 400, 404, 500).
+            // Only default to 200 if no non-200 code has been assigned.
+            if (response.StatusCode == 0)
+                response.StatusCode = 200;
 
             await response.OutputStream.WriteAsync(buffer, 0, buffer.Length);
         }
@@ -654,7 +726,10 @@ namespace RevitCliBridge
 
             response.ContentType = contentType;
             response.ContentLength64 = buffer.Length;
-            response.StatusCode = 200;
+            // Preserve any status code already set by the caller (e.g. 400, 404, 500).
+            // Only default to 200 if no non-200 code has been assigned.
+            if (response.StatusCode == 0)
+                response.StatusCode = 200;
 
             await response.OutputStream.WriteAsync(buffer, 0, buffer.Length);
         }

@@ -59,7 +59,7 @@ if (-not $goCmd) {
 }
 
 Write-Host "[1/5] Go version: $(& go version)" -ForegroundColor Green
-Set-Location $ProjectRoot
+Push-Location $ProjectRoot
 
 # ---------------------------------------------------------------------------
 # 1. Build: go vet (optional)
@@ -91,11 +91,14 @@ if ($LASTEXITCODE -eq 0 -and $gitTag) {
     $buildVersion = $gitTag
 }
 
-$ldFlags = "-X main.Version=$buildVersion"
+$ldFlags = "-s -w -X main.Version=$buildVersion"
 
 Write-Host ""
 Write-Host "[3/5] Building Go binary (version: $buildVersion)..." -ForegroundColor Yellow
-& go build -ldflags $ldFlags -o $buildOutput ./cmd/revit-cli
+$env:GOOS = "windows"
+$env:GOARCH = "amd64"
+$env:CGO_ENABLED = "0"
+& go build -trimpath -ldflags $ldFlags -o $buildOutput ./cmd/revit-cli
 if ($LASTEXITCODE -ne 0) {
     Write-Host "[ERROR] go build failed with exit code $LASTEXITCODE" -ForegroundColor Red
     exit 1
@@ -185,3 +188,5 @@ Write-Host ""
 Write-Host "Skill is ready for use. Test with:" -ForegroundColor Yellow
 Write-Host "  & '$SkillDir\$exeName' --help"
 Write-Host ""
+
+Pop-Location
