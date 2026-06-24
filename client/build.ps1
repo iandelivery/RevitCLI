@@ -84,9 +84,18 @@ if (-not $SkipVet) {
 $exeName = "revit-cli.exe"
 $buildOutput = Join-Path $ProjectRoot $exeName
 
+# Derive version from git tag or fallback to "dev"
+$buildVersion = "dev"
+$gitTag = git describe --tags --always --dirty 2>$null
+if ($LASTEXITCODE -eq 0 -and $gitTag) {
+    $buildVersion = $gitTag
+}
+
+$ldFlags = "-X main.Version=$buildVersion"
+
 Write-Host ""
-Write-Host "[3/5] Building Go binary..." -ForegroundColor Yellow
-& go build -o $buildOutput ./cmd/revit-cli
+Write-Host "[3/5] Building Go binary (version: $buildVersion)..." -ForegroundColor Yellow
+& go build -ldflags $ldFlags -o $buildOutput ./cmd/revit-cli
 if ($LASTEXITCODE -ne 0) {
     Write-Host "[ERROR] go build failed with exit code $LASTEXITCODE" -ForegroundColor Red
     exit 1
@@ -106,6 +115,15 @@ Write-Host "      Built: $exeName ($([math]::Round($fileSize / 1MB, 2)) MB)" -Fo
 Write-Host ""
 Write-Host "[4/5] Creating skill directory..." -ForegroundColor Yellow
 
+# Move existing SKILL.md out of the skill directory so it survives the wipe.
+$existingSkillMdPath = Join-Path $SkillDir "SKILL.md"
+$preservedSkillMdPath = $null
+if (Test-Path $existingSkillMdPath) {
+    $preservedSkillMdPath = Join-Path $ProjectRoot "_preserved_SKILL.md"
+    Move-Item -Path $existingSkillMdPath -Destination $preservedSkillMdPath -Force
+    Write-Host "      Preserved existing SKILL.md" -ForegroundColor DarkGray
+}
+
 if (Test-Path $SkillDir) {
     Write-Host "      Removing existing skill directory..." -ForegroundColor DarkGray
     Remove-Item -Recurse -Force $SkillDir
@@ -122,25 +140,32 @@ Move-Item -Path $buildOutput -Destination (Join-Path $SkillDir $exeName) -Force
 Write-Host "      Moved: $exeName -> $SkillDir" -ForegroundColor Green
 
 # ---------------------------------------------------------------------------
-# 5. Generate SKILL.md per Open Skill protocol
+# 5. Restore SKILL.md into the skill directory
 # ---------------------------------------------------------------------------
 Write-Host ""
-Write-Host "[5/5] Generating SKILL.md (Open Skill protocol)..." -ForegroundColor Yellow
+Write-Host "[5/5] Restoring SKILL.md (Open Skill protocol)..." -ForegroundColor Yellow
 
 $skillMdPath = Join-Path $SkillDir "SKILL.md"
-$templatePath = Join-Path $ProjectRoot "skill-template.md"
 
-if (-not (Test-Path $templatePath)) {
-    Write-Host "[ERROR] Template file not found: $templatePath" -ForegroundColor Red
-    exit 1
+if ($preservedSkillMdPath -and (Test-Path $preservedSkillMdPath)) {
+    # Move the preserved SKILL.md back into the skill directory.
+    Move-Item -Path $preservedSkillMdPath -Destination $skillMdPath -Force
+    Write-Host "      Restored: SKILL.md" -ForegroundColor Green
+} else {
+    $templatePath = Join-Path $ProjectRoot "skill-template.md"
+
+    if (-not (Test-Path $templatePath)) {
+        Write-Host "[ERROR] Template file not found: $templatePath" -ForegroundColor Red
+        exit 1
+    }
+
+    # Read template and replace placeholders
+    $skillContent = Get-Content -Path $templatePath -Raw -Encoding UTF8
+    $skillContent = $skillContent -replace '{{SkillName}}', $SkillName
+
+    Set-Content -Path $skillMdPath -Value $skillContent -Encoding UTF8
+    Write-Host "      Generated: SKILL.md" -ForegroundColor Green
 }
-
-# Read template and replace placeholders
-$skillContent = Get-Content -Path $templatePath -Raw -Encoding UTF8
-$skillContent = $skillContent -replace '{{SkillName}}', $SkillName
-
-Set-Content -Path $skillMdPath -Value $skillContent -Encoding UTF8
-Write-Host "      Generated: SKILL.md" -ForegroundColor Green
 
 # ---------------------------------------------------------------------------
 # Summary
