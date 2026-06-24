@@ -35,6 +35,14 @@ jobs:
             6.0.x
             7.0.x
 
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-bridge-${{ hashFiles('bridge/**/*.csproj') }}
+          restore-keys: |
+            nuget-bridge-
+
       - name: Build bridge (Revit ${{ matrix.revit-version }})
         working-directory: bridge
         shell: pwsh
@@ -63,7 +71,7 @@ jobs:
             auto_port             = $true
             timeout_seconds       = 180
             max_command_queue_size = 100
-            allow_raw_execution   = $true
+            allow_raw_execution   = $false
           } | ConvertTo-Json -Depth 10
           Set-Content -Path "$configDir/cli_bridge_setting.json" -Value $setting -Encoding UTF8
 
@@ -72,7 +80,7 @@ jobs:
         with:
           name: bridge-Revit${{ matrix.revit-version }}
           path: bridge/dist/Revit${{ matrix.revit-version }}/
-          retention-days: 1
+          retention-days: 7
 
   # -----------------------------------------------------------------------
   # Build the Go client
@@ -87,6 +95,8 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: ${{ env.GO_VERSION }}
+          cache: true
+          cache-dependency-path: client/go.sum
 
       - name: Build client
         working-directory: client
@@ -108,7 +118,7 @@ jobs:
         with:
           name: client-windows
           path: client/revit-cli.exe
-          retention-days: 1
+          retention-days: 7
 
   # -----------------------------------------------------------------------
   # Package and create GitHub Release
@@ -255,11 +265,23 @@ jobs:
           Set-Content -Path "release-notes.md" -Value $notes -Encoding UTF8
           Write-Host "Release notes generated."
 
+      - name: Generate SHA256 checksums
+        shell: pwsh
+        run: |
+          $hashes = Get-ChildItem -Filter *.zip | ForEach-Object {
+            $hash = (Get-FileHash -Path $_.FullName -Algorithm SHA256).Hash.ToLower()
+            "$hash  $($_.Name)"
+          }
+          $hashes | Set-Content -Path "checksums-sha256.txt" -Encoding UTF8
+          Write-Host "Checksums:"
+          Get-Content checksums-sha256.txt
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           body_path: release-notes.md
           files: |
             *.zip
+            checksums-sha256.txt
           draft: false
           prerelease: ${{ contains(github.ref_name, '-rc') || contains(github.ref_name, '-beta') || contains(github.ref_name, '-alpha') }}
