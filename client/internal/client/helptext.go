@@ -125,6 +125,7 @@ func Generate(registry *CommandRegistry) string {
 	sb.WriteString("  --pid <pid>             Connect to a specific Revit instance by process ID\n")
 	sb.WriteString("  --revit <version>       Connect to a specific Revit version (e.g. 2022)\n")
 	sb.WriteString("  --help, -h              Show help\n")
+	sb.WriteString("  --version, -V           Show version\n")
 
 	return sb.String()
 }

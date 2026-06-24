@@ -1,8 +1,0 @@
-{
-  "timeout_seconds": 180,
-  "auto_port": true,
-  "allow_raw_execution": true,
-  "port": 5031,
-  "enabled": true,
-  "max_command_queue_size": 100
-}
