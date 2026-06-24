@@ -5,6 +5,7 @@ using System;
 using System.Diagnostics;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 
 namespace RevitCliBridge
 {
@@ -15,9 +16,10 @@ namespace RevitCliBridge
     /// </summary>
     public static class CliBridgeStateManager
     {
+        private static readonly object _lock = new();
         private static CliHttpServer? _cliServer;
         private static ExternalEvent? _cliExternalEvent;
-        private static bool _isEnabled;
+        private static volatile bool _isEnabled;
         private static int _revitVersion;
         private static int _actualPort;
         private static UIApplication? _uiApp;
@@ -55,7 +57,7 @@ namespace RevitCliBridge
         /// </summary>
         public static void SetUIApplication(UIApplication app)
         {
-            _uiApp = app;
+            Volatile.Write(ref _uiApp, app);
         }
 
         /// <summary>
@@ -65,24 +67,27 @@ namespace RevitCliBridge
         /// <param name="revitVersion">Revit version year (e.g. 2022). 0 if unknown.</param>
         public static void Initialize(int revitVersion = 0)
         {
-            if (_isEnabled)
+            lock (_lock)
             {
-                CliLogger.Info("CLI Bridge is already enabled.");
-                return;
+                if (_isEnabled)
+                {
+                    CliLogger.Info("CLI Bridge is already enabled.");
+                    return;
+                }
+
+                _revitVersion = revitVersion;
+                var config = CliBridgeConfigLoader.Config;
+
+                if (!config.Enabled)
+                {
+                    CliLogger.Info("CLI Bridge is disabled in configuration. Use the toggle command to enable it.");
+                    _isEnabled = false;
+                    return;
+                }
+
+                int port = ResolvePort(config);
+                _isEnabled = StartBridge(port);
             }
-
-            _revitVersion = revitVersion;
-            var config = CliBridgeConfigLoader.Config;
-
-            if (!config.Enabled)
-            {
-                CliLogger.Info("CLI Bridge is disabled in configuration. Use the toggle command to enable it.");
-                _isEnabled = false;
-                return;
-            }
-
-            int port = ResolvePort(config);
-            _isEnabled = StartBridge(port);
         }
 
         /// <summary>
@@ -91,19 +96,23 @@ namespace RevitCliBridge
         /// <returns>State after toggle (true = enabled, false = disabled)</returns>
         public static bool Toggle()
         {
-            if (_isEnabled)
+            lock (_lock)
             {
-                CliLogger.Info($"Begin to disable CLI Bridge...");
-                _isEnabled = !Stop();
+                if (_isEnabled)
+                {
+                    CliLogger.Info($"Begin to disable CLI Bridge...");
+                    bool stopped = Stop();
+                    _isEnabled = !stopped;
+                }
+                else
+                {
+                    CliLogger.Info($"Begin to enable CLI Bridge...");
+                    var config = CliBridgeConfigLoader.Config;
+                    int port = ResolvePort(config);
+                    _isEnabled = StartBridge(port);
+                }
+                return _isEnabled;
             }
-            else
-            {
-                CliLogger.Info($"Begin to enable CLI Bridge...");
-                var config = CliBridgeConfigLoader.Config;
-                int port = ResolvePort(config);
-                _isEnabled = StartBridge(port);
-            }
-            return _isEnabled;
         }
 
         /// <summary>
@@ -149,7 +158,8 @@ namespace RevitCliBridge
                 TaskRegistry.RevitEvent = _cliExternalEvent;
 
                 _cliServer = new CliHttpServer(port);
-                _cliServer.SetIdentity(_revitVersion, Process.GetCurrentProcess().Id);
+                int pid = Process.GetCurrentProcess().Id;
+                _cliServer.SetIdentity(_revitVersion, pid);
                 _cliServer.Start();
                 _actualPort = _cliServer.Port;
 
@@ -161,7 +171,7 @@ namespace RevitCliBridge
                 // Write instance registry file.
                 InstanceRegistry.Register(new InstanceRegistry.InstanceInfo
                 {
-                    Pid = Process.GetCurrentProcess().Id,
+                    Pid = pid,
                     Version = _revitVersion,
                     Port = _actualPort,
                     Document = null,
@@ -170,7 +180,7 @@ namespace RevitCliBridge
                     CommandsCount = CommandRouter.GetAllHandlers().Count()
                 });
 
-                CliLogger.Info($"CLI Bridge enabled on port {_actualPort} (Revit {_revitVersion}, PID {Process.GetCurrentProcess().Id}).");
+                CliLogger.Info($"CLI Bridge enabled on port {_actualPort} (Revit {_revitVersion}, PID {pid}).");
                 return true;
             }
             catch (Exception ex)
@@ -237,7 +247,10 @@ namespace RevitCliBridge
         /// </summary>
         public static void Cleanup()
         {
-            _ = Stop();
+            lock (_lock)
+            {
+                _ = Stop();
+            }
         }
 
         /// <summary>

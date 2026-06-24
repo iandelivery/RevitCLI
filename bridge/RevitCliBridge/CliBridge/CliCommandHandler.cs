@@ -31,6 +31,9 @@ namespace RevitCliBridge
                     TaskRegistry.SetFailed(queuedCommand.TaskId, resultJson);
                 }
             }
+
+            // Clean up old completed tasks to prevent unbounded memory growth.
+            TaskRegistry.CleanupOldTasks();
         }
 
         public string GetName() => "AI_CLI_Command_Handler";

@@ -2,6 +2,7 @@ using Newtonsoft.Json;
 using System;
 using System.IO;
 using System.Reflection;
+using System.Threading;
 
 namespace RevitCliBridge.Models
 {
@@ -75,6 +76,7 @@ namespace RevitCliBridge.Models
     public static class CliBridgeConfigLoader
     {
         private static CliBridgeConfig? _config;
+        private static readonly object _lock = new();
 
         public static CliBridgeConfig Config
         {
@@ -83,20 +85,27 @@ namespace RevitCliBridge.Models
                 if (_config is not null)
                     return _config;
 
-                var configPath = Path.Combine(
-                    Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location),
-                    ".config",
-                    "cli_bridge_setting.json");
-
-                if (!File.Exists(configPath))
+                lock (_lock)
                 {
-                    _config = new CliBridgeConfig();
+                    // Double-check after acquiring lock.
+                    if (_config is not null)
+                        return _config;
+
+                    var configPath = Path.Combine(
+                        Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location),
+                        ".config",
+                        "cli_bridge_setting.json");
+
+                    if (!File.Exists(configPath))
+                    {
+                        _config = new CliBridgeConfig();
+                        return _config;
+                    }
+
+                    var loadedConfig = JsonConvert.DeserializeObject<CliBridgeConfig>(File.ReadAllText(configPath));
+                    _config = loadedConfig ?? new CliBridgeConfig();
                     return _config;
                 }
-
-                var loadedConfig = JsonConvert.DeserializeObject<CliBridgeConfig>(File.ReadAllText(configPath));
-                _config = loadedConfig ?? new CliBridgeConfig();
-                return _config;
             }
         }
     }

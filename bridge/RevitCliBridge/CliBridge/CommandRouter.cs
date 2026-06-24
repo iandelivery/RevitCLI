@@ -1,6 +1,7 @@
 using Autodesk.Revit.UI;
 using RevitCliBridge.Abstractions;
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
@@ -10,11 +11,13 @@ namespace RevitCliBridge
     /// <summary>
     /// Routes CLI commands to specific command handler implementations.
     /// Auto-discovers all IBridgeCommand implementations from the executing assembly.
+    /// Uses lazy initialization instead of a static constructor to avoid
+    /// TypeInitializationException that cannot be recovered from.
     /// </summary>
     public static class CommandRouter
     {
-        private static readonly Dictionary<string, IBridgeCommand> _handlers =
-            new Dictionary<string, IBridgeCommand>();
+        private static readonly ConcurrentDictionary<string, IBridgeCommand> _handlers =
+            new ConcurrentDictionary<string, IBridgeCommand>();
 
         /// <summary>
         /// Command name aliases — maps alternative names to the primary command name.
@@ -25,39 +28,62 @@ namespace RevitCliBridge
                 { "unhide_elements", "hide_elements" }
             };
 
-        static CommandRouter()
+        private static bool _initialized;
+        private static readonly object _initLock = new();
+
+        /// <summary>
+        /// Ensures handlers are discovered. Uses lazy initialization with error
+        /// handling so a single bad handler doesn't make the entire type unusable.
+        /// </summary>
+        private static void EnsureInitialized()
         {
-            // Auto-discover all IBridgeCommand implementations in the executing assembly
-            var handlerTypes = Assembly.GetExecutingAssembly()
-                .GetTypes()
-                .Where(t => typeof(IBridgeCommand).IsAssignableFrom(t)
-                         && !t.IsAbstract
-                         && !t.IsInterface);
-
-            foreach (var handlerType in handlerTypes)
+            if (_initialized) return;
+            lock (_initLock)
             {
-                var cmd = (IBridgeCommand)Activator.CreateInstance(handlerType);
-                Register(cmd.CommandName, cmd);
+                if (_initialized) return;
 
-                // Auto-register aliases from handler's Aliases property
-                foreach (var alias in cmd.Aliases)
-                {
-                    _handlers[alias] = cmd;
-                }
-            }
+                // Auto-discover all IBridgeCommand implementations in the executing assembly
+                var handlerTypes = Assembly.GetExecutingAssembly()
+                    .GetTypes()
+                    .Where(t => typeof(IBridgeCommand).IsAssignableFrom(t)
+                             && !t.IsAbstract
+                             && !t.IsInterface);
 
-            // Register static aliases (legacy compatibility)
-            foreach (var alias in _aliases)
-            {
-                if (_handlers.TryGetValue(alias.Value, out var targetCmd))
+                foreach (var handlerType in handlerTypes)
                 {
-                    _handlers[alias.Key] = targetCmd;
+                    try
+                    {
+                        var cmd = (IBridgeCommand)Activator.CreateInstance(handlerType);
+                        Register(cmd.CommandName, cmd);
+
+                        // Auto-register aliases from handler's Aliases property
+                        foreach (var alias in cmd.Aliases)
+                        {
+                            _handlers[alias] = cmd;
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        CliLogger.Warn($"Failed to register command handler {handlerType.Name}: {ex.Message}");
+                    }
                 }
+
+                // Register static aliases (legacy compatibility)
+                foreach (var alias in _aliases)
+                {
+                    if (_handlers.TryGetValue(alias.Value, out var targetCmd))
+                    {
+                        _handlers[alias.Key] = targetCmd;
+                    }
+                }
+
+                _initialized = true;
             }
         }
 
         public static void Register(string commandName, IBridgeCommand handler)
         {
+            EnsureInitialized();
             _handlers[commandName] = handler;
         }
 
@@ -67,6 +93,7 @@ namespace RevitCliBridge
         /// </summary>
         public static IEnumerable<IBridgeCommand> GetAllHandlers()
         {
+            EnsureInitialized();
             var seenNames = new HashSet<string>();
             foreach (var kvp in _handlers)
             {
@@ -81,12 +108,15 @@ namespace RevitCliBridge
         /// </summary>
         public static IBridgeCommand? GetHandler(string commandName)
         {
+            EnsureInitialized();
             _handlers.TryGetValue(commandName, out var handler);
             return handler;
         }
 
         public static string Execute(UIApplication app, QueuedCommand queuedCommand)
         {
+            EnsureInitialized();
+
             // Resolve domain path notation (e.g. "elements.walls.create" → "create_wall")
             var resolvedCommand = ResolveCommandName(queuedCommand.Command);
             if (resolvedCommand != queuedCommand.Command)
