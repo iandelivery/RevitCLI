@@ -224,7 +224,7 @@ foreach ($version in $BuildVersions) {
         auto_port             = $true
         timeout_seconds       = 180
         max_command_queue_size = 100
-        allow_raw_execution   = $true
+        allow_raw_execution   = $false
     } | ConvertTo-Json -Depth 10
 
     $settingPath = Join-Path $configDir "cli_bridge_setting.json"
