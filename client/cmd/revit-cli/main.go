@@ -19,6 +19,9 @@ import (
 	"revit-cli/internal/instance"
 )
 
+// Version is set at build time via -ldflags "-X main.Version=...".
+var Version = "dev"
+
 func main() {
 	os.Exit(run(os.Args[1:]))
 }
@@ -26,6 +29,11 @@ func main() {
 func run(args []string) int {
 	if len(args) == 0 || args[0] == "--help" || args[0] == "-h" {
 		fmt.Print(printHelp(nil, ""))
+		return 0
+	}
+
+	if args[0] == "--version" || args[0] == "-V" {
+		fmt.Printf("revit-cli %s\n", Version)
 		return 0
 	}
 
