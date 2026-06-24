@@ -3,6 +3,7 @@ package discovery
 import (
 	"encoding/json"
 	"io"
+	"log"
 	"net/http"
 	"strings"
 
@@ -14,10 +15,11 @@ import (
 // re-fetching and falls back to stale cache on network failure.
 // Mirrors C# RevitCliClient.Discovery.SchemaFetcher.
 type SchemaFetcher struct {
-	baseURL   string
-	client    *http.Client
-	cache     *SchemaCache
-	lastEtag  string
+	baseURL       string
+	client        *http.Client
+	cache         *SchemaCache
+	lastEtag      string
+	cachedVersion string // last known bridge version for version-change detection
 }
 
 // NewSchemaFetcher creates a fetcher for the given server URL.
@@ -32,10 +34,13 @@ func NewSchemaFetcher(baseURL string, client *http.Client) *SchemaFetcher {
 // Fetch retrieves the schema from the bridge. Returns the cached version if
 // available and not expired. Falls back to stale cache on network error.
 // Uses ETag/If-None-Match to avoid re-downloading unchanged schemas.
+// Detects bridge version changes and forces a re-fetch when the version differs.
 // Mirrors C# SchemaFetcher.FetchAsync.
 func (f *SchemaFetcher) Fetch(forceRefresh bool) *models.CommandSchema {
 	if !forceRefresh {
-		if cached := f.cache.Load(); cached != nil {
+		// Check cache with version awareness — if the bridge was upgraded,
+		// the cached schema is stale even if TTL hasn't expired.
+		if cached := f.cache.LoadWithVersion(f.cachedVersion); cached != nil {
 			return cached
 		}
 	}
@@ -61,7 +66,8 @@ func (f *SchemaFetcher) Fetch(forceRefresh bool) *models.CommandSchema {
 	defer resp.Body.Close()
 
 	if resp.StatusCode == http.StatusNotModified {
-		// Schema unchanged — return cached version.
+		// Schema unchanged — return cached version and refresh TTL.
+		_ = f.cache.Touch()
 		if cached := f.cache.Load(); cached != nil {
 			return cached
 		}
@@ -76,6 +82,15 @@ func (f *SchemaFetcher) Fetch(forceRefresh bool) *models.CommandSchema {
 		var schema models.CommandSchema
 		if err := json.Unmarshal(body, &schema); err != nil {
 			return f.cache.LoadStale()
+		}
+
+		// Track the bridge version for future version-change detection.
+		if schema.ServerInfo != nil && schema.ServerInfo.BridgeVersion != "" {
+			if f.cachedVersion != "" && f.cachedVersion != schema.ServerInfo.BridgeVersion {
+				log.Printf("[fetch] Bridge version changed: %s -> %s, cache invalidated",
+					f.cachedVersion, schema.ServerInfo.BridgeVersion)
+			}
+			f.cachedVersion = schema.ServerInfo.BridgeVersion
 		}
 
 		// Store ETag for future requests.

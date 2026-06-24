@@ -6,10 +6,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"sort"
 	"strconv"
+	"strings"
 
 	"revit-cli/internal/client/discovery"
 )
@@ -61,9 +63,7 @@ func Discover() []InstanceInfo {
 			continue
 		}
 
-		// On non-Windows platforms, we can't check PIDs reliably,
-		// so include all instances. On Windows, check if PID is alive.
-		if runtime.GOOS == "windows" && !isProcessAlive(info.Pid) {
+		if !isProcessAlive(info.Pid) {
 			// Clean up stale registry file.
 			os.Remove(path)
 			continue
@@ -164,16 +164,38 @@ func matchInstanceFile(name string) bool {
 	return true
 }
 
-// isProcessAlive checks if a Windows process with the given PID is running.
-// On non-Windows, always returns true (we can't check reliably).
+// isProcessAlive checks if a process with the given PID is running.
+// On Windows, uses tasklist command since os.FindProcess always succeeds.
+// On non-Windows, uses os.FindProcess + Signal(0).
 func isProcessAlive(pid int) bool {
-	if runtime.GOOS != "windows" {
+	if runtime.GOOS == "windows" {
+		return isWindowsProcessAlive(pid)
+	}
+	// Unix: use FindProcess + Signal(0).
+	proc, err := os.FindProcess(pid)
+	if err != nil {
+		return false
+	}
+	return proc.Signal(nil) == nil
+}
+
+// isWindowsProcessAlive uses tasklist to check if a PID exists on Windows.
+func isWindowsProcessAlive(pid int) bool {
+	cmd := exec.Command("tasklist", "/FI", fmt.Sprintf("PID eq %d", pid), "/NH", "/FO", "CSV")
+	output, err := cmd.Output()
+	if err != nil {
+		// If tasklist fails, conservatively assume the process is alive.
 		return true
 	}
-	// On Windows, try to open the process. If it fails, the process is dead.
-	// We use a simple approach: try to find the process via tasklist.
-	// A more robust approach would use Windows API, but this avoids cgo.
-	return true // We'll rely on the bridge-side stale cleanup instead.
+	// tasklist /NH /FO CSV outputs one line per matching process, e.g.:
+	// "revit.exe","1234","Console","1","1,234 KB"
+	// If no match, output is: "INFO: No tasks are running which match the specified criteria."
+	line := strings.TrimSpace(string(output))
+	if line == "" || strings.HasPrefix(line, "INFO:") {
+		return false
+	}
+	// Verify the PID appears in the output.
+	return strings.Contains(line, fmt.Sprintf("%d", pid))
 }
 
 // ParseVersion parses a Revit version string (e.g. "2022") to int.
