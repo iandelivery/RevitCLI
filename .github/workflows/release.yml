@@ -94,9 +94,12 @@ jobs:
           GOOS: windows
           GOARCH: amd64
           CGO_ENABLED: '0'
+        shell: pwsh
         run: |
+          $tag = "${{ github.ref_name }}"
+          $version = $tag -replace '^v', ''
           go vet ./...
-          go build -trimpath -ldflags="-s -w" -o revit-cli.exe ./cmd/revit-cli
+          go build -trimpath -ldflags="-s -w -X main.Version=$version" -o revit-cli.exe ./cmd/revit-cli
           Get-ChildItem revit-cli.exe | Format-List Name,Length,LastWriteTime
           & .\revit-cli.exe --version
 
