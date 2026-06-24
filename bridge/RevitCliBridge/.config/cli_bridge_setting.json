@@ -1,4 +1,5 @@
 {
+  "schema_version": "1",
   "enabled": true,
   "port": 5000,
   "auto_port": true,

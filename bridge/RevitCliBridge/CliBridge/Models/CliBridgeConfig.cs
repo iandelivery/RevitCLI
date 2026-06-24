@@ -12,6 +12,13 @@ namespace RevitCliBridge.Models
     public class CliBridgeConfig
     {
         /// <summary>
+        /// Schema version for future config format migrations.
+        /// Current version: 1.
+        /// </summary>
+        [JsonProperty("schema_version", NullValueHandling = NullValueHandling.Ignore)]
+        public string? SchemaVersion { get; set; }
+
+        /// <summary>
         /// Whether the CLI bridge is enabled.
         /// </summary>
         [JsonProperty("enabled")]

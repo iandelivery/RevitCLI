@@ -29,11 +29,14 @@ namespace RevitCliBridge
             };
 
         private static bool _initialized;
+        private static bool _initializing; // Re-entrancy guard for GetTypes() → type init → CommandRouter
         private static readonly object _initLock = new();
 
         /// <summary>
         /// Ensures handlers are discovered. Uses lazy initialization with error
         /// handling so a single bad handler doesn't make the entire type unusable.
+        /// A re-entrancy guard prevents StackOverflow if Assembly.GetTypes()
+        /// triggers a type initializer that calls back into CommandRouter.
         /// </summary>
         private static void EnsureInitialized()
         {
@@ -41,49 +44,61 @@ namespace RevitCliBridge
             lock (_initLock)
             {
                 if (_initialized) return;
+                if (_initializing) return; // Re-entrant call during type discovery — break recursion
 
-                // Auto-discover all IBridgeCommand implementations in the executing assembly
-                var handlerTypes = Assembly.GetExecutingAssembly()
-                    .GetTypes()
-                    .Where(t => typeof(IBridgeCommand).IsAssignableFrom(t)
-                             && !t.IsAbstract
-                             && !t.IsInterface);
-
-                foreach (var handlerType in handlerTypes)
+                _initializing = true;
+                try
                 {
-                    try
-                    {
-                        var cmd = (IBridgeCommand)Activator.CreateInstance(handlerType);
-                        Register(cmd.CommandName, cmd);
+                    // Auto-discover all IBridgeCommand implementations in the executing assembly
+                    var handlerTypes = Assembly.GetExecutingAssembly()
+                        .GetTypes()
+                        .Where(t => typeof(IBridgeCommand).IsAssignableFrom(t)
+                                 && !t.IsAbstract
+                                 && !t.IsInterface);
 
-                        // Auto-register aliases from handler's Aliases property
-                        foreach (var alias in cmd.Aliases)
+                    foreach (var handlerType in handlerTypes)
+                    {
+                        try
                         {
-                            _handlers[alias] = cmd;
+                            var cmd = (IBridgeCommand)Activator.CreateInstance(handlerType);
+                            Register(cmd.CommandName, cmd);
+
+                            // Auto-register aliases from handler's Aliases property
+                            foreach (var alias in cmd.Aliases)
+                            {
+                                _handlers[alias] = cmd;
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            CliLogger.Warn($"Failed to register command handler {handlerType.Name}: {ex.Message}");
                         }
                     }
-                    catch (Exception ex)
-                    {
-                        CliLogger.Warn($"Failed to register command handler {handlerType.Name}: {ex.Message}");
-                    }
-                }
 
-                // Register static aliases (legacy compatibility)
-                foreach (var alias in _aliases)
+                    // Register static aliases (legacy compatibility)
+                    foreach (var alias in _aliases)
+                    {
+                        if (_handlers.TryGetValue(alias.Value, out var targetCmd))
+                        {
+                            _handlers[alias.Key] = targetCmd;
+                        }
+                    }
+
+                    _initialized = true;
+                }
+                finally
                 {
-                    if (_handlers.TryGetValue(alias.Value, out var targetCmd))
-                    {
-                        _handlers[alias.Key] = targetCmd;
-                    }
+                    _initializing = false;
                 }
-
-                _initialized = true;
             }
         }
 
         public static void Register(string commandName, IBridgeCommand handler)
         {
             EnsureInitialized();
+            // During initialization, _handlers is already being populated by
+            // EnsureInitialized(), so this direct add is safe and avoids
+            // re-entrancy issues.
             _handlers[commandName] = handler;
         }
 
