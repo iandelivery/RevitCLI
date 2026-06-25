@@ -157,6 +157,7 @@ func registerBuiltIns(registry *client.CommandRegistry, baseURL string, httpClie
 	registry.Register(builtin.CommandsHandler{BaseURL: baseURL, Client: httpClient})
 	registry.Register(builtin.SchemaHandler{BaseURL: baseURL, Client: httpClient})
 	registry.Register(builtin.ExecuteRawHandler{})
+	registry.Register(builtin.RawModeHandler{BaseURL: baseURL, Client: httpClient})
 	registry.Register(builtin.ListHandler{})
 	registry.Register(builtin.LlmsHandler{BaseURL: baseURL, Client: httpClient})
 	registry.Register(builtin.ConfigureHandler{})
