@@ -247,6 +247,23 @@ revit-cli.exe create_wall --start-x 0 --start-y 0 --end-x 5000 --end-y 0 -l 3001
 revit-cli.exe llms
 ```
 
+### 原始执行模式
+
+`execute_raw` 命令（用于在 Revit API 上执行任意 C# 或 Python 代码）出于安全考虑**默认禁用**。`raw-mode` 命令允许你在运行时切换该设置，而无需修改配置文件或重启 Revit：
+
+```bash
+# 查看当前状态
+revit-cli.exe raw-mode
+
+# 启用原始执行
+revit-cli.exe raw-mode --enable
+
+# 禁用原始执行
+revit-cli.exe raw-mode --disable
+```
+
+该命令通过 `GET /api/raw-mode` 查询当前状态，通过 `POST /api/raw-mode` 进行切换。设置仅保存在内存中——重启 Revit 后会恢复为 `cli_bridge_setting.json` 中 `allow_raw_execution` 的值。若需持久化更改，请直接编辑该文件。
+
 ## 功能特性
 
 - **60+ 内置命令** — 创建墙体/门/窗、查询元素、修改参数、导出视图、管理文档
