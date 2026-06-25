@@ -115,5 +115,17 @@ namespace RevitCliBridge.Models
                 }
             }
         }
+
+        /// <summary>
+        /// Enable or disable raw execution at runtime without restarting the bridge.
+        /// Thread-safe: uses the same lock as Config for safe publication.
+        /// </summary>
+        public static void SetAllowRawExecution(bool enabled)
+        {
+            lock (_lock)
+            {
+                Config.AllowRawExecution = enabled;
+            }
+        }
     }
 }

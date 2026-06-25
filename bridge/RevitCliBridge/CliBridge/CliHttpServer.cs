@@ -188,6 +188,14 @@ namespace RevitCliBridge
                     var commandName = path.Substring("/api/commands/".Length);
                     await HandleCommandSchemaAsync(commandName, response);
                 }
+                else if (path == "/api/raw-mode" && request.HttpMethod == "GET")
+                {
+                    await HandleRawModeGetAsync(response);
+                }
+                else if (path == "/api/raw-mode" && request.HttpMethod == "POST")
+                {
+                    await HandleRawModeSetAsync(request, response);
+                }
                 else
                 {
                     response.StatusCode = 404;
@@ -565,6 +573,67 @@ namespace RevitCliBridge
                 commands_count = CommandRouter.GetAllHandlers().Count()
             };
             await WriteJsonResponseAsync(response, identity);
+        }
+
+        /// <summary>
+        /// GET /api/raw-mode — query whether raw execution is currently enabled.
+        /// </summary>
+        private async Task HandleRawModeGetAsync(HttpListenerResponse response)
+        {
+            var result = new
+            {
+                allow_raw_execution = CliBridgeConfigLoader.Config.AllowRawExecution
+            };
+            await WriteJsonResponseAsync(response, result);
+        }
+
+        /// <summary>
+        /// POST /api/raw-mode — enable or disable raw execution at runtime.
+        /// Request body: {"enabled": true|false}
+        /// </summary>
+        private async Task HandleRawModeSetAsync(HttpListenerRequest request, HttpListenerResponse response)
+        {
+            string body = await ReadRequestBodyAsync(request, response);
+            if (string.IsNullOrEmpty(body) && response.StatusCode == 413) return;
+
+            try
+            {
+                var payload = JsonConvert.DeserializeObject<Dictionary<string, object>>(body);
+                if (payload == null || !payload.TryGetValue("enabled", out var enabledObj))
+                {
+                    response.StatusCode = 400;
+                    await WriteJsonResponseAsync(response, new { error = "Request body must contain 'enabled' field." });
+                    return;
+                }
+
+                bool enabled;
+                if (enabledObj is bool b)
+                {
+                    enabled = b;
+                }
+                else
+                {
+                    response.StatusCode = 400;
+                    await WriteJsonResponseAsync(response, new { error = "'enabled' must be a boolean (true/false)." });
+                    return;
+                }
+
+                CliBridgeConfigLoader.SetAllowRawExecution(enabled);
+                CliLogger.Info($"Raw execution mode changed: allow_raw_execution = {enabled}");
+
+                await WriteJsonResponseAsync(response, new
+                {
+                    allow_raw_execution = enabled,
+                    message = enabled
+                        ? "Raw execution enabled. execute_raw command is now available."
+                        : "Raw execution disabled. execute_raw command is now blocked."
+                });
+            }
+            catch (Exception ex)
+            {
+                response.StatusCode = 400;
+                await WriteJsonResponseAsync(response, new { error = $"Invalid request: {ex.Message}" });
+            }
         }
 
         /// <summary>
