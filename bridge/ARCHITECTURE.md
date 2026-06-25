@@ -127,13 +127,15 @@ revit-cli-opensource/
 │       │   │   ├── TagRoomsHandler.cs
 │       │   │   └── UndoHandler.cs
 │       │   ├── TaskRegistry.cs               # Global task registry with state tracking
+│       │   ├── TaskStatus.cs                 # CliTaskStatus enum (avoids System.Threading.Tasks.TaskStatus conflict)
 │       │   ├── CliCommandHandler.cs          # IExternalEventHandler implementation
 │       │   ├── CliFailurePreprocessor.cs     # IFailuresPreprocessor implementation
-│       │   ├── CommandRouter.cs              # Command router (42 commands)
-│       │   ├── CliHttpServer.cs              # HTTP REST API server
-│       │   ├── CliBridgeStateManager.cs      # Bridge on/off state management
+│       │   ├── CommandRouter.cs              # Command router with lazy init + re-entrancy guard
+│       │   ├── CliHttpServer.cs              # HTTP REST API server with concurrency control
+│       │   ├── CliBridgeStateManager.cs      # Bridge on/off state management (thread-safe)
 │       │   ├── PortAllocator.cs              # Dynamic port allocation by Revit version
-│       │   ├── InstanceRegistry.cs           # Instance registry file management
+│       │   ├── InstanceRegistry.cs           # Instance registry file management (atomic writes)
+│       │   ├── BridgePluginLoader.cs         # Third-party plugin auto-discovery
 │       │   ├── LlmsTxtGenerator.cs           # llms.txt API reference generator
 │       │   └── CliLogger.cs                  # Logging system
 │       └── .config/
@@ -168,7 +170,20 @@ revit-cli-opensource/
 
 **File**: `CliBridge/CliHttpServer.cs`
 
-**Responsibility**: Lightweight HTTP server running on `localhost`, providing REST API endpoints.
+**Responsibility**: Lightweight HTTP server running on `localhost`, providing REST API endpoints with concurrency control and request validation.
+
+**Key Design Decisions**:
+
+| Concern | Solution |
+|---------|----------|
+| Unbounded concurrency | `SemaphoreSlim(10, 10)` limits concurrent request handling to 10 |
+| Large request bodies | `ReadRequestBodyAsync` rejects bodies > 10 MB with HTTP 413 |
+| Queue overflow | Returns HTTP 429 when `CommandQueue.Count >= MaxCommandQueueSize` |
+| SSE response lifecycle | `responseHandled` flag prevents `finally` block from closing SSE streams |
+| Server restart | `Start()` creates fresh `CancellationTokenSource` after `Stop()` |
+| Graceful SSE shutdown | SSE `CancellationTokenSource` linked to server shutdown via `CreateLinkedTokenSource` |
+| SSE cleanup | Final `event: done` sent before closing SSE stream |
+| Status code overwrite | `WriteJsonResponseAsync` preserves pre-set status codes (only defaults to 200) |
 
 **Endpoints**:
 
@@ -186,12 +201,13 @@ revit-cli-opensource/
 
 **Execution Modes**:
 
-The `/api/execute` endpoint supports two modes controlled by the `async` field in the request body:
+The `/api/execute` endpoint supports three modes:
 
-| Mode | `async` Value | Behavior |
-|------|------|------|
-| Sync (default) | `false` or omitted | HTTP connection held until result or timeout |
-| Async | `true` | Immediately returns `task_id`, poll `/api/task/{id}` for result |
+| Mode | Trigger | Behavior |
+|------|---------|----------|
+| Sync (default) | `async: false` or omitted | HTTP connection held until result or timeout |
+| Async | `async: true` | Immediately returns `task_id`, poll `/api/task/{id}` for result |
+| SSE | `Accept: text/event-stream` header | Real-time streaming of progress and result events |
 
 **Sync Mode Flow**:
 
@@ -267,6 +283,8 @@ public static class TaskRegistry
 }
 ```
 
+**Thread Safety**: `SetCompleted`/`SetFailed` use `TrySetResult`/`TrySetResult` on `TaskCompletionSource` to avoid `InvalidOperationException` on double-set. `CleanupOldTasks` is called after each command loop iteration in `CliCommandHandler` to prevent memory leaks.
+
 **Task Lifecycle**:
 
 ```
@@ -281,7 +299,7 @@ pending → running → completed
 |------|------|------|
 | `TaskId` | `string` | Unique task identifier |
 | `Command` | `string` | Command name |
-| `Status` | `TaskStatus` | pending/running/completed/failed/timeout |
+| `Status` | `CliTaskStatus` | pending/running/completed/failed/timeout |
 | `Progress` | `int` | Progress percentage (0-100) |
 | `ProgressMessage` | `string?` | Progress description |
 | `ResultJson` | `string?` | Result JSON (available when completed/failed) |
@@ -289,6 +307,8 @@ pending → running → completed
 | `StartedAt` | `DateTime?` | Execution start time |
 | `CompletedAt` | `DateTime?` | Execution end time |
 | `Tcs` | `TaskCompletionSource<string>` | [JsonIgnore] Signal for sync mode |
+
+> **Note**: The status enum is named `CliTaskStatus` (not `TaskStatus`) to avoid conflict with `System.Threading.Tasks.TaskStatus`. All mutable properties in `TaskInfo` use `lock(_lock)` for thread-safe access from both HTTP and Revit UI threads.
 
 **Design Pattern**: `TaskCompletionSource` + `ConcurrentQueue` + `ExternalEvent`
 
@@ -337,7 +357,17 @@ public void Execute(UIApplication app)
 
 **File**: `CliBridge/CommandRouter.cs`
 
-**Responsibility**: Routes command names to corresponding handler functions using a registry pattern.
+**Responsibility**: Routes command names to corresponding handler implementations using auto-discovery with lazy initialization.
+
+**Key Design Decisions**:
+
+| Concern | Solution |
+|---------|----------|
+| Static constructor failures | Lazy initialization via `EnsureInitialized()` — a single bad handler doesn't make the type unusable |
+| Re-entrancy during `GetTypes()` | `_initializing` flag breaks recursion if `Assembly.GetTypes()` triggers a type initializer that calls back into `CommandRouter` |
+| Thread-safe handler storage | `ConcurrentDictionary<string, IBridgeCommand>` for safe concurrent access |
+| Per-handler error isolation | Each handler's `Activator.CreateInstance` is wrapped in try/catch — one failure doesn't block others |
+| Plugin registration | `BridgePluginLoader` loads third-party `IBridgeCommand` DLLs from `CliBridgePlugins/` directory |
 
 **Registered Commands (42 total)**:
 
@@ -388,52 +418,42 @@ public void Execute(UIApplication app)
 
 **Adding a New Command**:
 
-1. Create handler file in `CliBridge/Handlers/`:
+1. Create handler file in `CliBridge/Handlers/` implementing `IBridgeCommand`:
 
 ```csharp
-public static class MyCommandHandler
+public class MyCommandHandler : IBridgeCommand
 {
-    public static string Handle(UIApplication app, QueuedCommand cmd)
+    public string CommandName => "my_command";
+    public string Description => "Does something useful";
+    public string Category => "Custom";
+    public bool SupportsDryRun => false;
+    public string[] Aliases => new[] { "my_cmd" };
+    public string[] Examples => new[] { "revit-cli.exe my_command --param value" };
+    public CommandParamSchema[] Parameters => new[]
     {
-        var doc = app.ActiveUIDocument?.Document;
-        if (doc == null)
-            return CommandResponse.Error(cmd.TaskId, "No active document.").ToJson();
+        new CommandParamSchema { Name = "param", Type = "string", Required = true }
+    };
 
-        var parameters = cmd.Parameters as Dictionary<string, object>
-            ?? new Dictionary<string, object>();
-
-        using (Transaction t = new Transaction(doc, "CLI My Command"))
-        {
-            t.Start();
-            var options = t.GetFailureHandlingOptions();
-            options.SetFailuresPreprocessor(new CliFailurePreprocessor());
-            t.SetFailureHandlingOptions(options);
-
-            // ... Revit API operations
-
-            t.Commit();
-        }
-
-        return CommandResponse.Success(cmd.TaskId, result, "done").ToJson();
+    public string Handle(object uiApplication, QueuedCommand cmd)
+    {
+        var app = (UIApplication)uiApplication;
+        // ... Revit API operations
+        return CommandResponse.Success(cmd.TaskId, new { result = "done" }).ToJson();
     }
 }
 ```
 
-2. Register in `CommandRouter` static constructor:
+2. No manual registration needed — `CommandRouter` auto-discovers all `IBridgeCommand` implementations via reflection.
 
-```csharp
-Register("my_command", MyCommandHandler.Handle);
-```
-
-3. Add CLI client handler in `RevitCliClient/Handlers/`
-
-4. Add case in `Program.cs` switch
+3. For third-party plugins, compile a DLL implementing `IBridgeCommand` and place it in `CliBridgePlugins/` next to `RevitCliBridge.dll`.
 
 ### 3.5 CliBridgeStateManager - Bridge State Management
 
 **File**: `CliBridge/CliBridgeStateManager.cs`
 
 **Responsibility**: Manages the on/off state of the CLI Bridge, with dynamic port allocation and instance registry support for multi-instance scenarios.
+
+**Thread Safety**: Uses `static readonly object _lock` for `Initialize`, `Toggle`, and `Cleanup`. `_isEnabled` is `volatile` for lock-free reads. `UIApplication` reference uses `Volatile.Write` for safe publication across threads. PID is cached to avoid repeated `Process.GetCurrentProcess().Id` calls.
 
 ```csharp
 public static class CliBridgeStateManager
@@ -488,7 +508,11 @@ public static class CliBridgeStateManager
 
 **Responsibility**: Manages instance registry files that enable the CLI client to discover running Revit instances.
 
-**Registry File**: `%AppData%\revit-cli\instances\revit-{version}-{pid}.json`
+**Atomic Writes**: Registry files are written using temp-file + `File.Move` pattern to prevent corruption if Revit crashes mid-write.
+
+**Process Alive Detection**: Uses `Process.GetProcessById(pid)` with `Close()` to release handles and avoid leaks. The Go client uses `tasklist /FI "PID eq {pid}"` on Windows for reliable PID checking.
+
+**Registry File**: `%LOCALAPPDATA%\revit-cli\instances\revit-{version}-{pid}.json`
 
 ```json
 {
@@ -625,23 +649,29 @@ using (Transaction t = new Transaction(doc, "CLI Action"))
 
 ```json
 {
+    "schema_version": "1",
     "enabled": true,
     "port": 5000,
     "auto_port": true,
     "timeout_seconds": 180,
     "max_command_queue_size": 100,
-    "allow_raw_execution": true
+    "allow_raw_execution": false
 }
 ```
 
 | Field | Type | Default | Description |
 |------|------|---------|-------------|
+| `schema_version` | `string?` | `"1"` | Schema version for future config format migrations |
 | `enabled` | `bool` | `true` | Auto-start bridge on Revit launch |
-| `port` | `int` | `5000` | Fallback TCP port |
+| `port` | `int` | `5000` | Fallback TCP port (valid range: 1-65535) |
 | `auto_port` | `bool` | `true` | Dynamically allocate port based on Revit version |
-| `timeout_seconds` | `int` | `180` | Command execution timeout |
-| `max_command_queue_size` | `int` | `100` | Maximum pending commands |
-| `allow_raw_execution` | `bool` | `true` | Allow `execute_raw` command |
+| `timeout_seconds` | `int` | `180` | Command execution timeout (minimum: 1) |
+| `max_command_queue_size` | `int` | `100` | Maximum pending commands (minimum: 1) |
+| `allow_raw_execution` | `bool` | `false` | Allow `execute_raw` command (C#/Python code execution) |
+
+**Thread Safety**: `CliBridgeConfigLoader.Config` uses double-check locking pattern for lazy initialization.
+
+**Validation**: Both Go and C# loaders validate port range (1-65535), timeout (>= 1), and queue size (>= 1) on load.
 
 ## 5. Revit Plugin Integration
 
@@ -696,18 +726,34 @@ Users can toggle CLI Bridge on/off from the Revit Ribbon:
 The CLI client uses a handler pattern with shared utilities:
 
 - **`ArgHelper`** (`abstractions/arghelper.go`): Centralized argument parsing with type safety
-  - `FindArg(args, flag)` → `string?` — Find flag value
-  - `GetInt(args, flag)` → `int?` — Type-safe int parsing
-  - `GetDouble(args, flag)` → `double?` — Type-safe double parsing
+  - `FindArg(args, flag)` → `(string, bool)` — Find flag value; rejects values starting with `-` to prevent flag consumption
+  - `GetInt(args, flag)` → `(int, bool)` — Type-safe int parsing
+  - `GetDouble(args, flag)` → `(float64, bool)` — Type-safe double parsing
   - `HasFlag(args, flag)` → `bool` — Check boolean flag
-  - `ParseIds(ids)` → `List<int>?` — Parse comma-separated IDs
-  - `ParseIdsToArray(ids)` → `int[]?` — Parse to array
-  - `TryParseValue(value)` → `object` — Auto-detect int/double/string
+  - `ParseIds(ids)` → `[]int` — Parse comma-separated IDs
+  - `TryParseValue(value)` → `interface{}` — Auto-detect int/float64/string
 
 - **`instance`** (`instance/discovery.go`): Instance discovery via registry files
-  - `Discover()` → `[]InstanceInfo` — Read all alive instances from `%AppData%`
+  - `Discover()` → `[]InstanceInfo` — Read all alive instances from data directory
   - `ResolveURL(url, pid, revit)` → `string` — Resolve bridge URL with priority chain
   - Priority: `--url` > `--pid` > `--revit` > auto-discover (single instance) > fallback
+
+- **`discovery`** (`client/discovery/`): Schema discovery and caching
+  - `SchemaFetcher.Fetch(force)` → `*CommandSchema` — Fetch with ETag/If-None-Match conditional revalidation
+  - `SchemaCache` — Thread-safe (mutex-protected) TTL-based cache with atomic file writes
+  - Version-aware caching: detects bridge version changes and invalidates stale cache
+  - `Touch()` refreshes TTL on 304 Not Modified responses
+
+- **`DynamicCommand`** (`client/discovery/dynamic.go`): Schema-driven command handler
+  - Auto-generates CLI handler from `CommandDef` schema metadata
+  - `coerce()` converts string values to typed values (int, double, bool, and array variants)
+  - Built-in commands take priority over dynamic commands with the same name
+
+- **`SseClient`** (`client/sseclient.go`): SSE transport
+  - Handles SSE comment lines (`:` prefix) per spec
+  - Accumulates multi-line `data:` fields with `strings.Builder`
+  - Context-based timeouts prevent goroutine leaks
+  - `select`-based sleep instead of `time.Sleep` for cancellable polling
 
 ### 6.3 Command Execution Flow
 
@@ -780,6 +826,9 @@ curl http://localhost:5041/api/llms.txt
 │  │ await TCS    │◄───│   SetCompleted/SetFailed  │    │
 │  │ Return resp  │    │                           │    │
 │  └──────────────┘    └───────────────────────────┘    │
+│                                                       │
+│  Concurrency: SemaphoreSlim(10,10) limits concurrent  │
+│  request handlers to prevent unbounded task spawning  │
 └───────────────────────────────────────────────────────┘
 ```
 
@@ -795,12 +844,25 @@ curl http://localhost:5041/api/llms.txt
 | Risk | Protection |
 |------|----------|
 | Revit dialog freeze | `CliFailurePreprocessor` auto-handles |
-| Deadlock wait | `Task.WhenAny` timeout (default 120s) |
+| Deadlock wait | `Task.WhenAny` timeout (default 180s) |
 | Edit mode conflict | Check `doc.IsModifiable` |
 | Invalid parameters | `ArgHelper` type-safe parsing + handler validation |
 | External network exposure | Listen on `localhost` only |
 | Running when disabled | `CliBridgeStateManager` + config toggle |
 | Task memory leak | `CleanupOldTasks()` removes completed tasks after 5 min |
+| Unbounded concurrency | `SemaphoreSlim(10, 10)` limits concurrent request handlers |
+| Queue overflow | HTTP 429 response when queue is full |
+| Large request bodies | HTTP 413 for bodies > 10 MB |
+| Double-set TCS | `TrySetResult` instead of `SetResult` in `SetCompleted`/`SetFailed` |
+| Stale CTS after restart | `Start()` creates fresh `CancellationTokenSource` |
+| SSE stream not closed | `responseHandled` flag + final `event: done` before cleanup |
+| Race in TaskInfo | All mutable properties protected by `lock(_lock)` |
+| Race in state manager | `volatile _isEnabled` + `lock(_lock)` for state transitions |
+| Re-entrancy in CommandRouter | `_initializing` flag breaks recursion during `GetTypes()` |
+| Config thread safety | Double-check locking in `CliBridgeConfigLoader` |
+| Cache corruption | Atomic writes (temp file + rename) in Go `SchemaCache` |
+| Cache version mismatch | `LoadWithVersion()` detects bridge version changes |
+| Process handle leak | `Process.Close()` after `GetProcessById()` in C#; `tasklist` in Go |
 
 ## 8. Unit Convention
 
@@ -852,7 +914,25 @@ RevitCliBridge.dll (IExternalApplication)
 | File | Path | Purpose |
 |------|------|---------|
 | `cli_bridge_setting.json` | `.config/` | CLI Bridge on/off, port, auto_port, timeout |
-| Instance registry | `%AppData%\revit-cli\instances\revit-{version}-{pid}.json` | Running instance discovery |
-| Schema cache | `%AppData%\revit-cli\` | Client-side command schema cache |
+| Instance registry | `%LOCALAPPDATA%\revit-cli\instances\revit-{version}-{pid}.json` | Running instance discovery |
+| Schema cache | `%LOCALAPPDATA%\revit-cli\` | Client-side command schema cache (TTL 30 min) |
+| Schema ETag cache | `%LOCALAPPDATA%\revit-cli\` | ETag for conditional revalidation |
 
 All `.config/` files are copied to build output via `<CopyToOutputDirectory>Always</CopyToOutputDirectory>`.
+
+## 12. CI/CD Pipeline
+
+**File**: `.github/workflows/release.yml`
+
+The release pipeline builds both components and creates a GitHub Release with distribution packages.
+
+**Key Features**:
+
+| Feature | Implementation |
+|---------|---------------|
+| Version injection | Git tag version injected into Go binary via `-ldflags "-X main.Version=$version"` and C# assembly via `-p:Major/Minor/Patch` |
+| Dependency caching | Go module cache via `setup-go@v5 cache: true`; NuGet cache via `actions/cache@v4` |
+| Artifact retention | 7 days for build artifacts |
+| Checksums | SHA256 checksums generated for all release artifacts |
+| Permissions | Top-level `contents: read`; release job elevated to `contents: write` |
+| Security default | `allow_raw_execution: false` in all generated configs |
