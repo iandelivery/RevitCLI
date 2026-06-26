@@ -513,12 +513,13 @@ func installBridgeForVersion(bridgeDir string, inst revitInstallation) error {
 	}
 
 	config := map[string]interface{}{
-		"enabled":                true,
-		"port":                   portForVersion(inst.Version),
-		"auto_port":              true,
-		"timeout_seconds":        180,
-		"max_command_queue_size": 100,
-		"allow_raw_execution":    false,
+		"enabled":                     true,
+		"port":                        portForVersion(inst.Version),
+		"auto_port":                   true,
+		"timeout_seconds":             180,
+		"max_command_queue_size":      100,
+		"max_request_body_size_bytes": 10 * 1024 * 1024,
+		"allow_raw_execution":         false,
 	}
 	configData, _ := json.MarshalIndent(config, "", "  ")
 	configPath := filepath.Join(configDir, "cli_bridge_setting.json")
