@@ -53,6 +53,14 @@ namespace RevitCliBridge.Models
         public bool AutoPort { get; set; } = true;
 
         /// <summary>
+        /// Maximum size, in bytes, of an incoming HTTP request body.
+        /// Requests larger than this are rejected with HTTP 413.
+        /// Default: 10 MiB.
+        /// </summary>
+        [JsonProperty("max_request_body_size_bytes")]
+        public long MaxRequestBodySizeBytes { get; set; } = 10L * 1024 * 1024;
+
+        /// <summary>
         /// Default values aligned with `cli_bridge_setting.json`.
         /// </summary>
         public CliBridgeConfig()
@@ -63,6 +71,7 @@ namespace RevitCliBridge.Models
             MaxCommandQueueSize = 100;
             AllowRawExecution = false;
             AutoPort = true;
+            MaxRequestBodySizeBytes = 10L * 1024 * 1024;
         }
     }
 
