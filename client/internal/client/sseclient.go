@@ -97,13 +97,13 @@ func (c *SseClient) handleLegacyResponse(resp *http.Response) (int, error) {
 	var obj map[string]interface{}
 	if err := json.Unmarshal(body, &obj); err != nil {
 		fmt.Println(string(body))
-		return 0, nil
+		return 1, nil
 	}
 
 	if status, _ := obj["status"].(string); status == "pending" {
 		if taskID, ok := obj["task_id"].(string); ok {
 			fmt.Printf("Task submitted: %s. Polling for result...\n", taskID)
-			return c.pollTaskResult(taskID, 120, 500), nil
+			return c.pollTaskResult(context.Background(), taskID, 120, 500), nil
 		}
 	}
 
@@ -119,6 +119,7 @@ func (c *SseClient) handleLegacyResponse(resp *http.Response) (int, error) {
 func (c *SseClient) readSSEStream(ctx context.Context, command string, body io.Reader) (int, error) {
 	reader := bufio.NewReader(body)
 	var currentEvent string
+	var currentData strings.Builder
 	lastProgress := -1
 	heartbeatTimeout := 30 * time.Second
 
@@ -130,7 +131,7 @@ func (c *SseClient) readSSEStream(ctx context.Context, command string, body io.R
 		}
 
 		// Read one line with a heartbeat timeout.
-		line, err := readLineWithTimeout(reader, heartbeatTimeout)
+		line, err := readLineWithTimeout(ctx, reader, heartbeatTimeout)
 		if err != nil {
 			if err == io.EOF {
 				log.Println("[SSE] Connection closed unexpectedly. Falling back to polling...")
@@ -141,18 +142,30 @@ func (c *SseClient) readSSEStream(ctx context.Context, command string, body io.R
 		}
 
 		if line == "" {
+			// Blank line = end of event. Dispatch accumulated data.
+			if currentEvent != "" && currentData.Len() > 0 {
+				if exitCode, done := c.handleSSEEvent(currentEvent, currentData.String(), &lastProgress); done {
+					return exitCode, nil
+				}
+			}
 			currentEvent = ""
+			currentData.Reset()
+			continue
+		}
+
+		// Handle SSE comment lines (start with ':').
+		if strings.HasPrefix(line, ":") {
 			continue
 		}
 
 		if strings.HasPrefix(line, "event: ") {
 			currentEvent = strings.TrimPrefix(line, "event: ")
-		} else if strings.HasPrefix(line, "data: ") && currentEvent != "" {
+		} else if strings.HasPrefix(line, "data: ") {
 			data := strings.TrimPrefix(line, "data: ")
-			if exitCode, done := c.handleSSEEvent(currentEvent, data, &lastProgress); done {
-				return exitCode, nil
+			if currentData.Len() > 0 {
+				currentData.WriteByte('\n')
 			}
-			currentEvent = ""
+			currentData.WriteString(data)
 		}
 	}
 }
@@ -217,18 +230,30 @@ func (c *SseClient) fallbackPollLastTask(command string) int {
 		log.Printf("[SSE] No task_id for fallback. Command: %s", command)
 		return 1
 	}
-	return c.pollTaskResult(c.lastSseTaskID, 120, 500)
+	return c.pollTaskResult(context.Background(), c.lastSseTaskID, 120, 500)
 }
 
 // pollTaskResult polls GET /api/task/{id} until completion or timeout.
+// Respects context cancellation for clean shutdown.
 // Mirrors C# SseClient.PollTaskResultAsync.
-func (c *SseClient) pollTaskResult(taskID string, maxWaitSeconds, pollIntervalMs int) int {
+func (c *SseClient) pollTaskResult(ctx context.Context, taskID string, maxWaitSeconds, pollIntervalMs int) int {
 	start := time.Now()
 	maxWait := time.Duration(maxWaitSeconds) * time.Second
 	interval := time.Duration(pollIntervalMs) * time.Millisecond
 
 	for time.Since(start) < maxWait {
-		time.Sleep(interval)
+		select {
+		case <-ctx.Done():
+			return 1
+		default:
+		}
+
+		// Use a select-based sleep so context cancellation is respected.
+		select {
+		case <-ctx.Done():
+			return 1
+		case <-time.After(interval):
+		}
 
 		resp, err := c.httpClient.Get(c.baseURL + "/api/task/" + taskID)
 		if err != nil {
@@ -279,15 +304,26 @@ func (c *SseClient) pollTaskResult(taskID string, maxWaitSeconds, pollIntervalMs
 
 // readLineWithTimeout reads a single line from the reader, returning
 // io.EOF or an error if no data arrives within the timeout.
-func readLineWithTimeout(reader *bufio.Reader, timeout time.Duration) (string, error) {
+// Uses context cancellation to prevent goroutine leaks.
+func readLineWithTimeout(ctx context.Context, reader *bufio.Reader, timeout time.Duration) (string, error) {
 	type result struct {
 		line string
 		err  error
 	}
 	ch := make(chan result, 1)
+
+	// Create a cancellable context for the read goroutine.
+	readCtx, cancelRead := context.WithCancel(ctx)
+	defer cancelRead() // Ensure goroutine is cancelled when we return.
+
 	go func() {
 		line, err := reader.ReadString('\n')
-		ch <- result{strings.TrimRight(line, "\r\n"), err}
+		// Only send result if we haven't been cancelled.
+		select {
+		case <-readCtx.Done():
+			return
+		case ch <- result{strings.TrimRight(line, "\r\n"), err}:
+		}
 	}()
 
 	select {
@@ -295,6 +331,8 @@ func readLineWithTimeout(reader *bufio.Reader, timeout time.Duration) (string, e
 		return res.line, res.err
 	case <-time.After(timeout):
 		return "", fmt.Errorf("heartbeat timeout (%s)", timeout)
+	case <-ctx.Done():
+		return "", ctx.Err()
 	}
 }
 

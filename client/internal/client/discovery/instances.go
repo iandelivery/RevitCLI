@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"sort"
@@ -49,13 +50,10 @@ func DiscoverInstances() []InstanceInfo {
 			continue
 		}
 
-		// On Windows, check if PID is still alive
-		if runtime.GOOS == "windows" {
-			if !isPidAlive(info.Pid) {
-				// Clean up stale file
-				os.Remove(filepath.Join(dir, entry.Name()))
-				continue
-			}
+		if !isPidAlive(info.Pid) {
+			// Clean up stale file
+			os.Remove(filepath.Join(dir, entry.Name()))
+			continue
 		}
 
 		instances = append(instances, info)
@@ -76,7 +74,9 @@ func DiscoverInstances() []InstanceInfo {
 func FindInstanceByPID(pid int) *InstanceInfo {
 	for _, inst := range DiscoverInstances() {
 		if inst.Pid == pid {
-			return &inst
+			// Copy to heap to avoid returning pointer to loop variable.
+			copied := inst
+			return &copied
 		}
 	}
 	return nil
@@ -151,23 +151,32 @@ func pidList(instances []InstanceInfo) string {
 }
 
 // isPidAlive checks if a process with the given PID exists.
-// On non-Windows platforms, always returns true (conservative).
+// On Windows, uses tasklist command since os.FindProcess always succeeds.
+// On non-Windows, uses os.FindProcess + Signal(0).
 func isPidAlive(pid int) bool {
-	if runtime.GOOS != "windows" {
-		return true
+	if runtime.GOOS == "windows" {
+		return isWindowsPidAlive(pid)
 	}
-	// On Windows, use os.FindProcess + Signal(0) trick
-	// Actually, on Windows os.FindProcess always succeeds, so we use
-	// a different approach: try to open the process
 	proc, err := os.FindProcess(pid)
 	if err != nil {
 		return false
 	}
-	// On Windows, FindProcess always returns a process even if dead.
-	// Signal(0) doesn't work on Windows the same way.
-	// We'll just return true and rely on the bridge's own stale cleanup.
-	_ = proc
-	return true
+	return proc.Signal(nil) == nil
+}
+
+// isWindowsPidAlive uses tasklist to check if a PID exists on Windows.
+func isWindowsPidAlive(pid int) bool {
+	cmd := exec.Command("tasklist", "/FI", fmt.Sprintf("PID eq %d", pid), "/NH", "/FO", "CSV")
+	output, err := cmd.Output()
+	if err != nil {
+		// If tasklist fails, conservatively assume the process is alive.
+		return true
+	}
+	line := strings.TrimSpace(string(output))
+	if line == "" || strings.HasPrefix(line, "INFO:") {
+		return false
+	}
+	return strings.Contains(line, fmt.Sprintf("%d", pid))
 }
 
 // FormatInstancesTable formats instance info as a human-readable table.

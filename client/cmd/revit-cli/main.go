@@ -71,6 +71,11 @@ func run(args []string) int {
 	schema := fetcher.Fetch(false)
 	if schema != nil {
 		for _, def := range schema.Commands {
+			// Skip dynamic commands that already have a built-in handler.
+			// Built-ins take priority (e.g. "ping", "execute_raw").
+			if _, exists := registry.TryGetCommand(def.Name); exists {
+				continue
+			}
 			registry.Register(discovery.NewDynamicCommand(def))
 			// Register aliases.
 			for _, alias := range def.Aliases {
@@ -152,6 +157,7 @@ func registerBuiltIns(registry *client.CommandRegistry, baseURL string, httpClie
 	registry.Register(builtin.CommandsHandler{BaseURL: baseURL, Client: httpClient})
 	registry.Register(builtin.SchemaHandler{BaseURL: baseURL, Client: httpClient})
 	registry.Register(builtin.ExecuteRawHandler{})
+	registry.Register(builtin.RawModeHandler{BaseURL: baseURL, Client: httpClient})
 	registry.Register(builtin.ListHandler{})
 	registry.Register(builtin.LlmsHandler{BaseURL: baseURL, Client: httpClient})
 	registry.Register(builtin.ConfigureHandler{})
@@ -171,6 +177,9 @@ func printHelp(registry *client.CommandRegistry, baseURL string) string {
 			schema := fetcher.Fetch(false)
 			if schema != nil {
 				for _, def := range schema.Commands {
+					if _, exists := registry.TryGetCommand(def.Name); exists {
+						continue
+					}
 					registry.Register(discovery.NewDynamicCommand(def))
 					for _, alias := range def.Aliases {
 						registry.RegisterAlias(alias, def.Name)

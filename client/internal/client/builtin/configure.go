@@ -218,17 +218,24 @@ func configureCheck(args []string) int {
 	}
 
 	// 3. Check connectivity to running instances.
-	for _, inst := range instances {
-		url := fmt.Sprintf("http://localhost:%d/api/health", inst.Port)
-		resp, err := http.Get(url)
-		if err != nil {
-			fmt.Printf("  [✗] PID %d (port %d): unreachable\n", inst.Pid, inst.Port)
-			continue
+	if len(instances) > 0 {
+		fmt.Println("Connectivity:")
+		for _, inst := range instances {
+			url := fmt.Sprintf("http://localhost:%d/api/health", inst.Port)
+			resp, err := http.Get(url)
+			if err != nil {
+				fmt.Printf("  [✗] Revit %d  PID %d  port %d: unreachable\n", inst.Version, inst.Pid, inst.Port)
+				continue
+			}
+			resp.Body.Close()
+			doc := inst.Document
+			if doc == "" {
+				doc = "(no document)"
+			}
+			fmt.Printf("  [✓] Revit %d  PID %d  port %d: healthy  %s\n", inst.Version, inst.Pid, inst.Port, doc)
 		}
-		resp.Body.Close()
-		fmt.Printf("  [✓] PID %d (port %d): healthy\n", inst.Pid, inst.Port)
+		fmt.Println()
 	}
-	fmt.Println()
 
 	// 4. Print the resolved data directories.
 	fmt.Printf("Data directory:        %s\n", discovery.DataDir())
@@ -485,7 +492,7 @@ func installBridgeForVersion(bridgeDir string, inst revitInstallation) error {
 		"auto_port":             true,
 		"timeout_seconds":       180,
 		"max_command_queue_size": 100,
-		"allow_raw_execution":   true,
+		"allow_raw_execution":   false,
 	}
 	configData, _ := json.MarshalIndent(config, "", "  ")
 	configPath := filepath.Join(configDir, "cli_bridge_setting.json")

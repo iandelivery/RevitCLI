@@ -13,12 +13,19 @@ import (
 type ArgHelper struct{}
 
 // FindArg returns the value following any of the given flags, or "" and false
-// if none is found. Mirrors C# ArgHelper.FindArg.
+// if none is found. Rejects values that look like flags (starting with "-")
+// to prevent accidental flag consumption.
+// Mirrors C# ArgHelper.FindArg.
 func FindArg(args []string, flags ...string) (string, bool) {
 	for _, flag := range flags {
 		for i := 0; i < len(args); i++ {
 			if args[i] == flag && i+1 < len(args) {
-				return args[i+1], true
+				val := args[i+1]
+				// Reject if the next argument looks like a flag.
+				if strings.HasPrefix(val, "-") {
+					return "", false
+				}
+				return val, true
 			}
 		}
 	}
