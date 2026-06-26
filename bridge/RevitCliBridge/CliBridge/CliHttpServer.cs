@@ -224,12 +224,15 @@ namespace RevitCliBridge
             }
         }
 
-        // Maximum request body size (10 MB).
-        private const int MaxRequestBodySize = 10 * 1024 * 1024;
+        // Maximum request body size. Sourced from cli_bridge_setting.json
+        // (max_request_body_size_bytes), defaulting to 10 MB when unset.
+        private static long MaxRequestBodySize =>
+            CliBridgeConfigLoader.Config.MaxRequestBodySizeBytes;
 
         private async Task<string> ReadRequestBodyAsync(HttpListenerRequest request, HttpListenerResponse response)
         {
-            if (request.ContentLength64 > MaxRequestBodySize)
+            long maxBytes = MaxRequestBodySize;
+            if (request.ContentLength64 > maxBytes)
             {
                 response.StatusCode = 413;
                 await WriteJsonResponseAsync(response, new { error = "Request body too large." });

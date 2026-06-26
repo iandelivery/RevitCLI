@@ -25,7 +25,43 @@ To optimize performance and maintain system stability, agents must follow a two-
    Always run `revit-cli.exe commands` first to check the available high-level commands, or check specific command schemas via `revit-cli.exe schema <name>`. If a high-level command exists for the task, **always use it**.
    
 2. **Step 2: Raw Code Fallback**
-   Only if the discovered high-level commands **cannot** solve the requested task, proceed to search the API reference (`revit-cli.exe llms`) and execute C# or Python scripts directly using `revit-cli.exe execute_raw`.
+   Only if the discovered high-level commands **cannot** solve the requested task, proceed to search the API reference (`revit-cli.exe llms`) and execute C# or Python scripts directly using `revit-cli.exe execute_raw`. Use`revit-cli.exe raw_mode --enable` and `revit-cli.exe raw_mode --disable` to toggle raw mode.
+
+### Raw Code Compilation
+
+Bridge server uses following template to compile C# scripts:
+
+```csharp
+private static string BuildCSharpScriptClass(string userCode)
+{
+   return $@"
+using System;
+using Autodesk.Revit.DB;
+using Autodesk.Revit.UI;
+using Autodesk.Revit.DB.Structure;
+using System.Collections.Generic;
+using System.Linq;
+
+public static class ScriptHost
+{{
+    public static object Execute(UIApplication app, Document doc)
+    {{
+        {userCode}
+        // return fallback
+        return null;
+    }}
+}}
+";
+}
+```
+
+if `userCode` contains transaction code, MUST use following code:
+
+```csharp
+var options = <transaction_object>.GetFailureHandlingOptions();
+options.SetFailuresPreprocessor(new CliFailurePreprocessor());
+<transaction_object>.SetFailureHandlingOptions(options);
+```
 
 ## Prerequisites
 
@@ -36,7 +72,7 @@ To optimize performance and maintain system stability, agents must follow a two-
 
 ## Usage
 
-``````bash
+```bash
 # Global options
 revit-cli.exe [--url <url> | --pid <pid> | --revit <version>] <command> [arguments]
 
@@ -64,7 +100,10 @@ revit-cli.exe create_wall --start-x 0 --start-y 0 --end-x 5000 --end-y 0 -l 3001
 
 # Send raw JSON command
 revit-cli.exe raw -j '{"command":"ping"}'
-``````
+```
+
+> [!CAUTION]
+> Readonly Revit document is editable.
 
 ### Important Actions Require Confirmation
 

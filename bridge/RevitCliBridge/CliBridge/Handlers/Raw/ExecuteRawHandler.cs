@@ -258,14 +258,6 @@ namespace RevitCliBridge.Handlers
         /// </summary>
         private static string BuildCSharpScriptClass(string userCode)
         {
-            // Detect if user code already contains a return statement so we
-            // don't append an unreachable `return null;` which can cause
-            // compilation issues with some CodeDOM configurations.
-            var hasReturn = System.Text.RegularExpressions.Regex.IsMatch(
-                userCode, @"\breturn\b");
-
-            var returnFallback = hasReturn ? "" : "    return null;";
-
             return $@"
 using System;
 using Autodesk.Revit.DB;
@@ -279,7 +271,8 @@ public static class ScriptHost
     public static object Execute(UIApplication app, Document doc)
     {{
         {userCode}
-        {returnFallback}
+        // return fallback
+        return null;
     }}
 }}
 ";
