@@ -250,6 +250,23 @@ revit-cli.exe create_wall --start-x 0 --start-y 0 --end-x 5000 --end-y 0 -l 3001
 revit-cli.exe llms
 ```
 
+### Raw Execution Mode
+
+The `execute_raw` command (which runs arbitrary C# or Python code against the Revit API) is **disabled by default** for security. The `raw-mode` command lets you toggle this at runtime without editing config files or restarting Revit:
+
+```bash
+# Check current state
+revit-cli.exe raw-mode
+
+# Enable raw execution
+revit-cli.exe raw-mode --enable
+
+# Disable raw execution
+revit-cli.exe raw-mode --disable
+```
+
+This calls `GET /api/raw-mode` to query and `POST /api/raw-mode` to toggle. The setting is in-memory only — restarting Revit resets it to the value in `cli_bridge_setting.json` (`allow_raw_execution`). For persistent changes, edit that file.
+
 ## Features
 
 - **60+ built-in commands** — create walls/doors/windows, query elements, modify parameters, export views, manage documents
