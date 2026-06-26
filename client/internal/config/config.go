@@ -16,13 +16,14 @@ var defaultConfigFS embed.FS
 
 // CliBridgeConfig mirrors C# CliBridgeConfig.
 type CliBridgeConfig struct {
-	SchemaVersion        string `json:"schema_version,omitempty"`
-	Enabled              bool   `json:"enabled"`
-	Port                 int    `json:"port"`
-	AutoPort             bool   `json:"auto_port"`
-	TimeoutSeconds       int    `json:"timeout_seconds"`
-	MaxCommandQueueSize  int    `json:"max_command_queue_size"`
-	AllowRawExecution    bool   `json:"allow_raw_execution"`
+	SchemaVersion           string `json:"schema_version,omitempty"`
+	Enabled                 bool   `json:"enabled"`
+	Port                    int    `json:"port"`
+	AutoPort                bool   `json:"auto_port"`
+	TimeoutSeconds          int    `json:"timeout_seconds"`
+	MaxCommandQueueSize     int    `json:"max_command_queue_size"`
+	AllowRawExecution       bool   `json:"allow_raw_execution"`
+	MaxRequestBodySizeBytes int64  `json:"max_request_body_size_bytes,omitempty"`
 }
 
 // Default returns the default configuration. When a default_config.json is
