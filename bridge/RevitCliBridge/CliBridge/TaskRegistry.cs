@@ -21,7 +21,7 @@ namespace RevitCliBridge
             {
                 TaskId = taskId,
                 Command = command,
-                Status = TaskStatus.Pending,
+                Status = CliTaskStatus.Pending,
                 CreatedAt = DateTime.Now
             };
 
@@ -39,7 +39,7 @@ namespace RevitCliBridge
         {
             if (Tasks.TryGetValue(taskId, out var task))
             {
-                task.Status = TaskStatus.Running;
+                task.Status = CliTaskStatus.Running;
                 task.StartedAt = DateTime.Now;
                 task.Broadcast("progress", new { task_id = taskId, progress = 0, message = "Execution started" });
             }
@@ -60,11 +60,12 @@ namespace RevitCliBridge
         {
             if (Tasks.TryGetValue(taskId, out var task))
             {
-                task.Status = TaskStatus.Completed;
+                task.Status = CliTaskStatus.Completed;
                 task.ResultJson = resultJson;
                 task.CompletedAt = DateTime.Now;
                 task.Broadcast("completed", new { task_id = taskId, status = "completed", result = SafeParseJson(resultJson) });
-                task.Tcs.SetResult(resultJson);
+                // Use TrySetResult to avoid InvalidOperationException if already set.
+                task.Tcs.TrySetResult(resultJson);
             }
         }
 
@@ -72,11 +73,12 @@ namespace RevitCliBridge
         {
             if (Tasks.TryGetValue(taskId, out var task))
             {
-                task.Status = TaskStatus.Failed;
+                task.Status = CliTaskStatus.Failed;
                 task.ResultJson = errorJson;
                 task.CompletedAt = DateTime.Now;
                 task.Broadcast("failed", new { task_id = taskId, status = "failed", result = SafeParseJson(errorJson) });
-                task.Tcs.SetResult(errorJson);
+                // Use TrySetResult to avoid InvalidOperationException if already set.
+                task.Tcs.TrySetResult(errorJson);
             }
         }
 

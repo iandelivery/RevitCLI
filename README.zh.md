@@ -107,30 +107,120 @@ CLI 客户端会把命令 schema（通过 `GET /api/commands` 获取）在本地
 
 ### 方式 2 — 从源码编译
 
-**编译 Bridge（C# 插件，覆盖所有 Revit 版本）：**
+仓库根目录的 `build.ps1` 会在一次执行中同时编译 C# Bridge 和 Go 客户端，并打包成可直接发布的 zip，与 GitHub Release 工作流完全一致。
+
+**前置条件**
+
+| 工具 | 版本要求 | 用途 |
+|------|---------|------|
+| Windows | 10+ | Bridge 目标平台 `x64`；Go 构建使用 `GOOS=windows` |
+| PowerShell | 5.1+（推荐 PowerShell 7+） | 执行 `build.ps1` |
+| .NET SDK | 6.0.x 和 7.0.x | 编译覆盖所有 Revit 版本的 C# Bridge |
+| Go | 1.21 或更新（与 `go.mod` 一致） | 编译 `revit-cli.exe` |
+| Git | 任意较新版本 | 通过 `git describe` 读取版本号 |
+
+构建前请先确认工具在 `PATH` 中可用：
 
 ```powershell
-cd bridge
+dotnet --version     # 应输出 6.x 或 7.x
+go version           # 应输出 go1.21 或更新版本
+git --version
+```
+
+**步骤 1 — 执行统一构建脚本**
+
+在仓库根目录执行：
+
+```powershell
+cd C:\path\to\revit-cli-opensource
 .\build.ps1
 ```
 
-产物会按版本输出到 `bridge/dist/Revit20XX/`。加 `-Deploy` 参数可自动安装到所有检测到的 Revit；加 `-Clean` 会在编译前清空 `dist/` 和 `obj/`。
+脚本按三个阶段运行，完全对应 CI 发布流水线：
 
-**编译 Go 客户端：**
+1. **编译 Bridge**：依次构建所有受支持的 Revit 版本（2019、2020、2021、2022）。产物输出到 `bridge/dist/Revit20XX/`，并为每个版本生成包含正确端口（5011、5021、5031、5041）的 `.config/cli_bridge_setting.json`。
+2. **编译 Go 客户端**：`go vet` + `go build`，并通过 `-ldflags "-X main.Version=…"` 注入版本号。
+3. **打包**：在仓库根目录的 `dist/` 下生成三类 zip：
+   - `revit-cli-<version>.zip` — 完整包（客户端 + SKILL.md + 所有 Bridge 版本）
+   - `revit-cli-client-<version>.zip` — 仅客户端 + SKILL.md
+   - `RevitCliBridge-Revit<year>-<version>.zip` — 单个 Bridge 版本
 
-```bash
-cd client
-go build -o revit-cli.exe ./cmd/revit-cli
+**步骤 2 — 验证构建结果**
 
-# 或交叉编译所有平台：
-./build.sh --all
+成功执行时，脚本会用青色/黄色输出每个阶段，最后以绿色的 `Build Complete` 汇总收尾。退出码为 `0` 表示所有阶段都成功。
+
+```powershell
+# 检查退出码是否为零
+echo $LASTEXITCODE   # 应输出 0
+
+# 确认 zip 产物已生成
+Get-ChildItem .\dist\*.zip
 ```
 
-**手动安装桥接器**（如果没用 `-Deploy`）：
+预期输出（以 `v1.0.0` 标签为例）：
 
-1. 把 `bridge/dist/Revit<年份>/` 下的 DLL 和 `RevitCliBridge.addin` 复制到：
+```
+revit-cli-1.0.0.zip
+revit-cli-client-1.0.0.zip
+RevitCliBridge-Revit2019-1.0.0.zip
+RevitCliBridge-Revit2020-1.0.0.zip
+RevitCliBridge-Revit2021-1.0.0.zip
+RevitCliBridge-Revit2022-1.0.0.zip
+```
+
+**常用参数**
+
+| 参数 | 作用 |
+|------|------|
+| `-RevitVersions "2021,2022"` | 仅编译指定的 Revit 版本 Bridge |
+| `-SkipBridge` | 复用现有 `bridge/dist/` 产物，只构建/打包客户端 |
+| `-SkipClient` | 复用现有 `revit-cli.exe`，只构建/打包 Bridge |
+| `-SkipPackage` | 执行构建但跳过打包 zip（适合快速迭代） |
+| `-SkipVet` | 跳过 `go vet`，加快客户端编译速度 |
+
+使用示例：
+
+```powershell
+# 仅快速迭代 Go 客户端
+.\build.ps1 -SkipBridge
+
+# 仅编译并打包 Revit 2022 Bridge
+.\build.ps1 -RevitVersions "2022" -SkipVet
+```
+
+**单独构建某个组件**
+
+根目录的 `build.ps1` 是一站式的推荐脚本，但当你只想做本地快速迭代时，仍然可以单独构建某一个组件。每个子项目都自带 `build.ps1`，执行的就是根脚本里针对该组件的那部分步骤。
+
+```powershell
+# 仅构建 Bridge（所有 Revit 版本，不打包）
+cd bridge
+.\build.ps1
+
+# 仅构建 Go 客户端
+cd ..\client
+.\build.ps1
+```
+
+两个脚本接受同样的 `-SkipVet` 等开关，产物输出目录也与根脚本一致（分别是 `bridge/dist/Revit20XX/` 和 `client/revit-cli.exe`），所以任意一条路径生成的产物都可以互换使用。发布构建请用根目录的 `build.ps1`；紧密的内循环开发则推荐使用子项目脚本。
+
+**故障排查**
+
+| 现象 | 可能原因 | 解决方法 |
+|------|----------|----------|
+| `[ERROR] Go is not installed or not on PATH.` | 当前 PowerShell 会话找不到 `go` | 从 <https://go.dev/dl/> 安装 Go，或执行 `winget install GoLang.Go` 后重新打开终端 |
+| `[ERROR] dotnet CLI not found.` | .NET SDK 未安装或未加入 `PATH` | 安装 .NET 6.0 与 7.0 SDK（编译多版本 Revit 都需要） |
+| `dotnet build` 报 `MSB4019: The imported project … was not found.` | 缺少 `RevitAPI.dll` / `RevitAPIUI.dll` 引用 | csproj 期望 Revit SDK 程序集位于 `PATH` 或标准路径 `C:\Program Files\Autodesk\Revit <year>\` 下 |
+| `git describe` 返回 `dev` | 当前提交没有匹配的 git 标签 | 给当前提交打标签（例如 `git tag v1.0.0`），或在脚本中显式指定版本；否则 zip 名称会使用 `dev` |
+| Bridge 构建成功但 `revit-cli.exe --version` 烟雾测试失败 | 新旧二进制路径冲突 | 删除 `client/revit-cli.exe` 后重新执行 `.\build.ps1` |
+| PowerShell 5.1 下 `Compress-Archive` 生成空 zip | PowerShell 5.1 处理 `-Path` 通配符的历史 bug | 改用 PowerShell 7+（`pwsh`），或改用 `tar -a -cf <name>.zip -C staging .` |
+| `Access to the path 'bridge/dist' is denied.` | 上一次 Revit 进程或构建进程仍在占用文件 | 关闭任何指向 `bridge/dist/` 的资源管理器窗口后重新执行 |
+
+**手动安装 Bridge**（如果你没有走自动安装流程）：
+
+1. 把 `bridge/dist/Revit<year>/` 下的 DLL 和 `RevitCliBridge.addin` 复制到：
    - `%APPDATA%\Autodesk\Revit\Addins\<version>\RevitCliBridge\`
-2. 启动 Revit，点击 **Revit CLI Bridge** 功能区选项卡中的 **AI Mode Toggle** 按钮。
+2. 启动 Revit，Bridge 会以 **AI Mode（默认开启）** 自动运行（由 `.config/cli_bridge_setting.json` 中的 `enabled` 控制，默认为 `true`）。**Revit CLI Bridge** 功能区选项卡中的 **AI Mode Toggle** 按钮仅在需要关闭 Bridge 时使用。
 
 ### 运行命令
 
@@ -156,6 +246,23 @@ revit-cli.exe create_wall --start-x 0 --start-y 0 --end-x 5000 --end-y 0 -l 3001
 # 查看 Revit API 参考（用于未覆盖的操作）
 revit-cli.exe llms
 ```
+
+### 原始执行模式
+
+`execute_raw` 命令（用于在 Revit API 上执行任意 C# 或 Python 代码）出于安全考虑**默认禁用**。`raw-mode` 命令允许你在运行时切换该设置，而无需修改配置文件或重启 Revit：
+
+```bash
+# 查看当前状态
+revit-cli.exe raw-mode
+
+# 启用原始执行
+revit-cli.exe raw-mode --enable
+
+# 禁用原始执行
+revit-cli.exe raw-mode --disable
+```
+
+该命令通过 `GET /api/raw-mode` 查询当前状态，通过 `POST /api/raw-mode` 进行切换。设置仅保存在内存中——重启 Revit 后会恢复为 `cli_bridge_setting.json` 中 `allow_raw_execution` 的值。若需持久化更改，请直接编辑该文件。
 
 ## 功能特性
 

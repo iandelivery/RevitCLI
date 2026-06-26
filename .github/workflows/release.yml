@@ -6,12 +6,12 @@ on:
       - 'v*'
 
 permissions:
-  contents: write
+  contents: read
 
 env:
   DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
   NUGET_XMLDOC_MODE: skip
-  GO_VERSION: '1.21'
+  GO_VERSION: '1.22'
 
 jobs:
   # -----------------------------------------------------------------------
@@ -35,10 +35,24 @@ jobs:
             6.0.x
             7.0.x
 
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-bridge-${{ hashFiles('bridge/**/*.csproj') }}
+          restore-keys: |
+            nuget-bridge-
+
       - name: Build bridge (Revit ${{ matrix.revit-version }})
         working-directory: bridge
         shell: pwsh
         run: |
+          $tag = "${{ github.ref_name }}"
+          $version = $tag -replace '^v', ''
+          $parts = $version -split '\.'
+          $major = if ($parts.Length -gt 0) { $parts[0] } else { "1" }
+          $minor = if ($parts.Length -gt 1) { $parts[1] } else { "0" }
+          $patch = if ($parts.Length -gt 2) { $parts[2] } else { "0" }
           $configTag = switch ("${{ matrix.revit-version }}") {
             "2019" { "R19" }
             "2020" { "R20" }
@@ -47,7 +61,7 @@ jobs:
           }
           $buildConfig = "Release $configTag"
           $outputDir = "dist/Revit${{ matrix.revit-version }}"
-          dotnet build RevitCliBridge\RevitCliBridge.csproj -p:Configuration="$buildConfig" -p:Platform=x64 -o "$outputDir"
+          dotnet build RevitCliBridge\RevitCliBridge.csproj -p:Configuration="$buildConfig" -p:Platform=x64 -p:Major=$major -p:Minor=$minor -p:Patch=$patch -o "$outputDir"
 
       - name: Generate version-specific config
         working-directory: bridge
@@ -58,12 +72,13 @@ jobs:
           $configDir = "dist/Revit${{ matrix.revit-version }}/.config"
           New-Item -ItemType Directory -Path $configDir -Force | Out-Null
           $setting = @{
+            schema_version         = "1"
             enabled               = $true
             port                  = $port
             auto_port             = $true
             timeout_seconds       = 180
             max_command_queue_size = 100
-            allow_raw_execution   = $true
+            allow_raw_execution   = $false
           } | ConvertTo-Json -Depth 10
           Set-Content -Path "$configDir/cli_bridge_setting.json" -Value $setting -Encoding UTF8
 
@@ -72,7 +87,7 @@ jobs:
         with:
           name: bridge-Revit${{ matrix.revit-version }}
           path: bridge/dist/Revit${{ matrix.revit-version }}/
-          retention-days: 1
+          retention-days: 7
 
   # -----------------------------------------------------------------------
   # Build the Go client
@@ -87,6 +102,8 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: ${{ env.GO_VERSION }}
+          cache: true
+          cache-dependency-path: client/go.sum
 
       - name: Build client
         working-directory: client
@@ -94,9 +111,12 @@ jobs:
           GOOS: windows
           GOARCH: amd64
           CGO_ENABLED: '0'
+        shell: pwsh
         run: |
+          $tag = "${{ github.ref_name }}"
+          $version = $tag -replace '^v', ''
           go vet ./...
-          go build -trimpath -ldflags="-s -w" -o revit-cli.exe ./cmd/revit-cli
+          go build -trimpath -ldflags="-s -w -X main.Version=$version" -o revit-cli.exe ./cmd/revit-cli
           Get-ChildItem revit-cli.exe | Format-List Name,Length,LastWriteTime
           & .\revit-cli.exe --version
 
@@ -105,7 +125,7 @@ jobs:
         with:
           name: client-windows
           path: client/revit-cli.exe
-          retention-days: 1
+          retention-days: 7
 
   # -----------------------------------------------------------------------
   # Package and create GitHub Release
@@ -113,6 +133,8 @@ jobs:
   release:
     needs: [build-bridge, build-client]
     runs-on: windows-latest
+    permissions:
+      contents: write
 
     steps:
       - name: Checkout
@@ -252,11 +274,23 @@ jobs:
           Set-Content -Path "release-notes.md" -Value $notes -Encoding UTF8
           Write-Host "Release notes generated."
 
+      - name: Generate SHA256 checksums
+        shell: pwsh
+        run: |
+          $hashes = Get-ChildItem -Filter *.zip | ForEach-Object {
+            $hash = (Get-FileHash -Path $_.FullName -Algorithm SHA256).Hash.ToLower()
+            "$hash  $($_.Name)"
+          }
+          $hashes | Set-Content -Path "checksums-sha256.txt" -Encoding UTF8
+          Write-Host "Checksums:"
+          Get-Content checksums-sha256.txt
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           body_path: release-notes.md
           files: |
             *.zip
+            checksums-sha256.txt
           draft: false
           prerelease: ${{ contains(github.ref_name, '-rc') || contains(github.ref_name, '-beta') || contains(github.ref_name, '-alpha') }}

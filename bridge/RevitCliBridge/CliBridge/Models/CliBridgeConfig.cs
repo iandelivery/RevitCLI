@@ -2,6 +2,7 @@ using Newtonsoft.Json;
 using System;
 using System.IO;
 using System.Reflection;
+using System.Threading;
 
 namespace RevitCliBridge.Models
 {
@@ -10,6 +11,13 @@ namespace RevitCliBridge.Models
     /// </summary>
     public class CliBridgeConfig
     {
+        /// <summary>
+        /// Schema version for future config format migrations.
+        /// Current version: 1.
+        /// </summary>
+        [JsonProperty("schema_version", NullValueHandling = NullValueHandling.Ignore)]
+        public string? SchemaVersion { get; set; }
+
         /// <summary>
         /// Whether the CLI bridge is enabled.
         /// </summary>
@@ -75,6 +83,7 @@ namespace RevitCliBridge.Models
     public static class CliBridgeConfigLoader
     {
         private static CliBridgeConfig? _config;
+        private static readonly object _lock = new();
 
         public static CliBridgeConfig Config
         {
@@ -83,20 +92,39 @@ namespace RevitCliBridge.Models
                 if (_config is not null)
                     return _config;
 
-                var configPath = Path.Combine(
-                    Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location),
-                    ".config",
-                    "cli_bridge_setting.json");
-
-                if (!File.Exists(configPath))
+                lock (_lock)
                 {
-                    _config = new CliBridgeConfig();
+                    // Double-check after acquiring lock.
+                    if (_config is not null)
+                        return _config;
+
+                    var configPath = Path.Combine(
+                        Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location),
+                        ".config",
+                        "cli_bridge_setting.json");
+
+                    if (!File.Exists(configPath))
+                    {
+                        _config = new CliBridgeConfig();
+                        return _config;
+                    }
+
+                    var loadedConfig = JsonConvert.DeserializeObject<CliBridgeConfig>(File.ReadAllText(configPath));
+                    _config = loadedConfig ?? new CliBridgeConfig();
                     return _config;
                 }
+            }
+        }
 
-                var loadedConfig = JsonConvert.DeserializeObject<CliBridgeConfig>(File.ReadAllText(configPath));
-                _config = loadedConfig ?? new CliBridgeConfig();
-                return _config;
+        /// <summary>
+        /// Enable or disable raw execution at runtime without restarting the bridge.
+        /// Thread-safe: uses the same lock as Config for safe publication.
+        /// </summary>
+        public static void SetAllowRawExecution(bool enabled)
+        {
+            lock (_lock)
+            {
+                Config.AllowRawExecution = enabled;
             }
         }
     }

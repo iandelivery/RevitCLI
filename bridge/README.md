@@ -41,7 +41,7 @@ This scans for installed Revit versions, copies the add-in files, and generates 
    - `RevitCliBridge.addin`
    - `.config\cli_bridge_setting.json`
 
-3. Start Revit. You should see a "Revit CLI Bridge" tab with an "AI Mode Toggle" button.
+3. Start Revit. The bridge starts in **AI Mode** automatically (controlled by `enabled` in `.config\cli_bridge_setting.json`, which is `true` by default). You should see a "Revit CLI Bridge" tab with an "AI Mode Toggle" button — it is only needed if you ever want to disable the bridge.
 
 ## Configuration
 
@@ -49,23 +49,25 @@ Edit `.config\cli_bridge_setting.json`:
 
 ```json
 {
+  "schema_version": "1",
   "enabled": true,
   "port": 5000,
   "auto_port": true,
   "timeout_seconds": 180,
   "max_command_queue_size": 100,
-  "allow_raw_execution": true
+  "allow_raw_execution": false
 }
 ```
 
 | Option | Default | Description |
 |--------|---------|-------------|
+| `schema_version` | `"1"` | Config schema version for future format migrations |
 | `enabled` | `true` | Auto-start the bridge when Revit launches |
 | `port` | `5000` | Fallback TCP port (used when `auto_port` is disabled or fails) |
 | `auto_port` | `true` | Dynamically allocate port based on Revit version |
 | `timeout_seconds` | `180` | Command execution timeout |
 | `max_command_queue_size` | `100` | Maximum pending commands |
-| `allow_raw_execution` | `true` | Allow `execute_raw` command (C#/Python code execution) |
+| `allow_raw_execution` | `false` | Allow `execute_raw` command (C#/Python code execution) |
 
 ### Port Allocation
 
@@ -82,7 +84,7 @@ This allows multiple Revit instances (including different versions) to run simul
 
 ### Multi-Instance Support
 
-Each running bridge instance writes a registry file to `%AppData%\revit-cli\instances\revit-{version}-{pid}.json` on startup and deletes it on shutdown. Stale files from crashed instances are cleaned up automatically.
+Each running bridge instance writes a registry file to `%LOCALAPPDATA%\revit-cli\instances\revit-{version}-{pid}.json` on startup and deletes it on shutdown. Stale files from crashed instances are cleaned up automatically.
 
 The CLI client uses these registry files to discover and connect to specific instances via `--revit <version>` or `--pid <pid>` flags.
 

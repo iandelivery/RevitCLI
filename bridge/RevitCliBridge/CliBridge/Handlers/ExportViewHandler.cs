@@ -4,17 +4,19 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using RevitCliBridge.Abstractions;
+using System.Linq;
 
 namespace RevitCliBridge.Handlers
 {
     public class ExportViewHandler : DocumentCommandBase
     {
         public override string CommandName => "export_view";
-        public override string Description => "Exports the active view to an image file";
+        public override string Description => "Exports a view to an image file (defaults to the active view)";
         public override string Category => "Export";
 
         public override CommandParamSchema[] Parameters => new[]
         {
+            new CommandParamSchema { Name = "view_name", Type = "string", Required = false, Description = "Name of the view to export (defaults to the active view)" },
             new CommandParamSchema { Name = "output_path", Type = "string", Required = false, Description = "Output file path (defaults to temp directory)" },
             new CommandParamSchema { Name = "file_type", Type = "string", Required = false, Description = "Image format", EnumValues = new[] { "png", "bmp", "jpeg", "tiff", "targa" }, Default = "png" },
             new CommandParamSchema { Name = "dpi", Type = "string", Required = false, Description = "DPI resolution", EnumValues = new[] { "72", "150", "300", "600" }, Default = "300" },
@@ -27,7 +29,8 @@ namespace RevitCliBridge.Handlers
         public override string[] Examples => new[]
         {
             "{ \"command\": \"export_view\", \"parameters\": {} }",
-            "{ \"command\": \"export_view\", \"parameters\": { \"output_path\": \"C:\\\\output\\\\view.png\", \"file_type\": \"png\", \"dpi\": \"300\" } }"
+            "{ \"command\": \"export_view\", \"parameters\": { \"view_name\": \"Level 1 - Floor Plan\", \"output_path\": \"C:\\\\output\\\\view.png\" } }",
+            "{ \"command\": \"export_view\", \"parameters\": { \"view_name\": \"3D View 1\", \"file_type\": \"jpeg\", \"dpi\": \"300\" } }"
         };
 
         protected override string Execute(UIApplication app, Document doc, Dictionary<string, object> parameters, QueuedCommand cmd)
@@ -41,6 +44,22 @@ namespace RevitCliBridge.Handlers
             if (activeView is null)
                 return CommandResponse.Error(cmd.TaskId, "No active view.").ToJson();
 
+            // Resolve target view by name; fall back to the active view.
+            string? viewNameParam = HandlerUtilities.GetStringOrNull(parameters, "view_name");
+            Autodesk.Revit.DB.View targetView = activeView;
+            if (!string.IsNullOrWhiteSpace(viewNameParam))
+            {
+                var matchedView = new FilteredElementCollector(doc)
+                    .OfClass(typeof(Autodesk.Revit.DB.View))
+                    .Cast<Autodesk.Revit.DB.View>()
+                    .FirstOrDefault(v => v.Name.Equals(viewNameParam, StringComparison.OrdinalIgnoreCase)
+                                         && !v.IsTemplate);
+                if (matchedView is null)
+                    return CommandResponse.Error(cmd.TaskId,
+                        $"View '{viewNameParam}' not found in the document.").ToJson();
+                targetView = matchedView;
+            }
+
             string outputPath = HandlerUtilities.GetStringOrNull(parameters, "output_path")
                 ?? Path.Combine(Path.GetTempPath(), "revit_export.png");
 
@@ -51,7 +70,7 @@ namespace RevitCliBridge.Handlers
             string shadowFileTypeStr = HandlerUtilities.GetStringOrNull(parameters, "shadow_file_type") ?? "png";
             string exportRangeStr = HandlerUtilities.GetStringOrNull(parameters, "export_range") ?? "current_view";
 
-            int? resolution = HandlerUtilities.GetIntOrNull(parameters, "resolution");
+            int? resolution = HandlerUtilities.GetIntOrNull(parameters, "resolution") ?? 2000;
             double zoomValue = HandlerUtilities.GetDoubleOrNull(parameters, "zoom_value") ?? 100.0;
 
             FitDirectionType fitDirection = fitDirectionStr.Equals("vertical", StringComparison.OrdinalIgnoreCase)
@@ -64,6 +83,7 @@ namespace RevitCliBridge.Handlers
             {
                 "72" => ImageResolution.DPI_72,
                 "150" => ImageResolution.DPI_150,
+                "300" => ImageResolution.DPI_300,
                 "600" => ImageResolution.DPI_600,
                 _ => ImageResolution.DPI_300
             };
@@ -94,7 +114,7 @@ namespace RevitCliBridge.Handlers
                         ImageResolution = dpi,
                         HLRandWFViewsFileType = fileType,
                         ShadowViewsFileType = shadowFileType,
-                        ViewName = activeView.Name,
+                        ViewName = targetView.Name,
                         ZoomType = zoomType,
                         Zoom = (int)zoomValue
                     };
@@ -102,15 +122,28 @@ namespace RevitCliBridge.Handlers
                     if (resolution.HasValue && zoomType == ZoomFitType.FitToPage)
                         imageExportOptions.PixelSize = resolution.Value;
 
-                    doc.ExportImage(imageExportOptions);
+                    // Override the active view for this export.
+                    var previousActiveView = doc.ActiveView;
+                    if (!targetView.Id.Equals(previousActiveView?.Id))
+                        uiDoc.ActiveView = targetView;
+
+                    try
+                    {
+                        doc.ExportImage(imageExportOptions);
+                    }
+                    finally
+                    {
+                        if (previousActiveView is not null && !targetView.Id.Equals(previousActiveView.Id))
+                            uiDoc.ActiveView = previousActiveView;
+                    }
 
                     t.Commit();
 
                     var fileInfo = new FileInfo(outputPath);
                     var result = new
                     {
-                        view_name = activeView.Name,
-                        view_id = activeView.Id.IntegerValue,
+                        view_name = targetView.Name,
+                        view_id = targetView.Id.IntegerValue,
                         output_path = outputPath,
                         file_size = fileInfo.Exists ? fileInfo.Length : 0,
                         fit_direction = fitDirection.ToString(),
