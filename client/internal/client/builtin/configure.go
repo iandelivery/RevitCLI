@@ -250,13 +250,13 @@ func configurePort(args []string) int {
 	if abstractions.HasFlag(args, "--json") {
 		instances := instance.Discover()
 		type portInfo struct {
-			Version int `json:"version"`
+			Version  int `json:"version"`
 			BasePort int `json:"base_port"`
 			Port     int `json:"port,omitempty"`
 			Pid      int `json:"pid,omitempty"`
 		}
 		var infos []portInfo
-		for v := 2019; v <= 2029; v++ {
+		for _, v := range supportedRevitVersions {
 			info := portInfo{Version: v, BasePort: portForVersion(v)}
 			for _, inst := range instances {
 				if inst.Version == v {
@@ -275,7 +275,7 @@ func configurePort(args []string) int {
 	fmt.Fprintln(w, "VERSION\tBASE PORT\tACTUAL PORT\tPID")
 
 	instances := instance.Discover()
-	for v := 2019; v <= 2029; v++ {
+	for _, v := range supportedRevitVersions {
 		base := portForVersion(v)
 		actual := "-"
 		pid := "-"
@@ -293,6 +293,21 @@ func configurePort(args []string) int {
 
 // --- Helper types and functions ---
 
+// supportedRevitVersions lists the Revit versions for which a bridge
+// build exists.  Only these versions are considered during detection,
+// setup, teardown, and port display.
+var supportedRevitVersions = []int{2019, 2020, 2021, 2022}
+
+// isSupportedVersion returns true if v is in supportedRevitVersions.
+func isSupportedVersion(v int) bool {
+	for _, sv := range supportedRevitVersions {
+		if sv == v {
+			return true
+		}
+	}
+	return false
+}
+
 type revitInstallation struct {
 	Version     int
 	InstallPath string
@@ -301,7 +316,7 @@ type revitInstallation struct {
 
 // detectRevitInstallations scans the Windows registry and the addins
 // directory for installed Revit versions.  Returns installations sorted
-// by version.  Only versions in the supported range (2019+) are returned.
+// by version.  Only supported versions are returned.
 func detectRevitInstallations() []revitInstallation {
 	if runtime.GOOS != "windows" {
 		return nil
@@ -334,7 +349,7 @@ func detectRevitInstallations() []revitInstallation {
 				}
 				v := 0
 				fmt.Sscanf(entry.Name(), "%d", &v)
-				if v >= 2019 && v <= 2099 && !seen[v] {
+				if isSupportedVersion(v) && !seen[v] {
 					seen[v] = true
 					installations = append(installations, revitInstallation{
 						Version:   v,
@@ -374,7 +389,7 @@ func collectRevitVersionsFromRegistry(regPath string, installations *[]revitInst
 		name := parts[len(parts)-1]
 		v := 0
 		fmt.Sscanf(name, "%d", &v)
-		if v >= 2019 && v <= 2099 && !seen[v] {
+		if isSupportedVersion(v) && !seen[v] {
 			seen[v] = true
 			*installations = append(*installations, revitInstallation{
 				Version: v,
@@ -391,10 +406,10 @@ func portForVersion(version int) int {
 // findBridgeFiles locates the bridge distribution root.  It supports two
 // layouts:
 //
-//   1. Flat layout — revit-cli.exe sits next to RevitCliBridge.dll
-//   2. Bundled layout — revit-cli.exe sits next to a "bridge" directory
-//      that contains version-specific subfolders named "Revit<year>"
-//      (e.g. bridge/Revit2022/RevitCliBridge.dll)
+//  1. Flat layout — revit-cli.exe sits next to RevitCliBridge.dll
+//  2. Bundled layout — revit-cli.exe sits next to a "bridge" directory
+//     that contains version-specific subfolders named "Revit<year>"
+//     (e.g. bridge/Revit2022/RevitCliBridge.dll)
 //
 // The bundled layout is what release zip packages produce.
 func findBridgeFiles() string {
@@ -459,15 +474,26 @@ func installBridgeForVersion(bridgeDir string, inst revitInstallation) error {
 		return fmt.Errorf("cannot create directory %s: %w", targetAddinDir, err)
 	}
 
-	// Copy DLL files.
-	dlls := []string{"RevitCliBridge.dll", "RevitCliBridge.Abstractions.dll"}
-	for _, dll := range dlls {
-		src := filepath.Join(bridgeDir, dll)
-		dst := filepath.Join(targetAddinDir, dll)
-		if fileExists(src) {
-			if err := copyFile(src, dst); err != nil {
-				return fmt.Errorf("cannot copy %s: %w", dll, err)
-			}
+	// Copy all DLLs in the source bridge directory.  The bridge depends
+	// on transitive references (e.g. Newtonsoft.Json.dll) that vary by
+	// build, so enumerate the directory rather than relying on a
+	// hardcoded list of expected file names.
+	entries, err := os.ReadDir(bridgeDir)
+	if err != nil {
+		return fmt.Errorf("cannot read bridge source %s: %w", bridgeDir, err)
+	}
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+		name := entry.Name()
+		if !strings.EqualFold(filepath.Ext(name), ".dll") {
+			continue
+		}
+		src := filepath.Join(bridgeDir, name)
+		dst := filepath.Join(targetAddinDir, name)
+		if err := copyFile(src, dst); err != nil {
+			return fmt.Errorf("cannot copy %s: %w", name, err)
 		}
 	}
 
@@ -487,12 +513,12 @@ func installBridgeForVersion(bridgeDir string, inst revitInstallation) error {
 	}
 
 	config := map[string]interface{}{
-		"enabled":               true,
-		"port":                  portForVersion(inst.Version),
-		"auto_port":             true,
-		"timeout_seconds":       180,
+		"enabled":                true,
+		"port":                   portForVersion(inst.Version),
+		"auto_port":              true,
+		"timeout_seconds":        180,
 		"max_command_queue_size": 100,
-		"allow_raw_execution":   false,
+		"allow_raw_execution":    false,
 	}
 	configData, _ := json.MarshalIndent(config, "", "  ")
 	configPath := filepath.Join(configDir, "cli_bridge_setting.json")
