@@ -1,7 +1,6 @@
 // Command revit-cli is the entry point for the Go Revit CLI client.
-// It parses arguments, registers built-in commands, lazily discovers command
-// schemas from the bridge, and dispatches commands via SSE.
-// Mirrors C# RevitCliClient.Program.
+// It uses cobra for command dispatch and help generation, and lazily
+// discovers command schemas from the bridge for dynamic commands.
 package main
 
 import (
@@ -12,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/spf13/cobra"
 	"revit-cli/internal/abstractions"
 	"revit-cli/internal/client"
 	"revit-cli/internal/client/builtin"
@@ -22,86 +22,69 @@ import (
 // Version is set at build time via -ldflags "-X main.Version=...".
 var Version = "dev"
 
+// exitCode is set by command RunE functions and read by main() after Execute().
+var exitCode int
+
+// Dummy variables for persistent flag registration (flags are parsed
+// manually from os.Args because DisableFlagParsing is true).
+var (
+	flagURL   string
+	flagPID   int
+	flagRevit int
+)
+
 func main() {
-	os.Exit(run(os.Args[1:]))
+	root := newRootCmd()
+	_ = root.Execute()
+	os.Exit(exitCode)
 }
 
-func run(args []string) int {
-	if len(args) == 0 || args[0] == "--help" || args[0] == "-h" {
-		fmt.Print(printHelp(nil, ""))
-		return 0
-	}
-
-	if args[0] == "--version" || args[0] == "-V" {
-		fmt.Printf("revit-cli %s\n", Version)
-		return 0
-	}
-
-	baseURL, cmdIndex := parseArgs(args)
-	if cmdIndex >= len(args) {
-		fmt.Print(printHelp(nil, baseURL))
-		return 0
-	}
-
-	registry := client.NewCommandRegistry()
-	httpClient := &http.Client{Timeout: 0}
-
-	// 1. Register built-in commands (always available, no server needed).
-	registerBuiltIns(registry, baseURL, httpClient)
-
-	commandName := args[cmdIndex]
-	sseClient := client.NewSseClient(baseURL)
-
-	// sendCommand dispatches a command to the bridge via SSE. Output
-	// post-processing (--jq/--fields/--fmt) is currently a stub; when
-	// implemented it will wrap Execute to capture and transform stdout.
-	sendCommand := abstractions.SendCommandFunc(func(ctx context.Context, cmd string, params interface{}) int {
-		return sseClient.Execute(ctx, cmd, params)
-	})
-
-	ctx := context.Background()
-
-	// 2. If the command is built-in, execute immediately (no discovery needed).
-	if cmd, ok := registry.TryGetCommand(commandName); ok {
-		return cmd.Handle(ctx, args[cmdIndex+1:], sendCommand)
-	}
-
-	// 3. Lazy discovery: fetch schema only when user invokes a non-built-in command.
-	fetcher := discovery.NewSchemaFetcher(baseURL, httpClient)
-	schema := fetcher.Fetch(false)
-	if schema != nil {
-		for _, def := range schema.Commands {
-			// Skip dynamic commands that already have a built-in handler.
-			// Built-ins take priority (e.g. "ping", "execute_raw").
-			if _, exists := registry.TryGetCommand(def.Name); exists {
-				continue
+// newRootCmd creates the root cobra command with all built-in sub-commands.
+func newRootCmd() *cobra.Command {
+	root := &cobra.Command{
+		Use:                "revit-cli [flags] <command> [args]",
+		Short:              "Command-line tool for AI agents to drive Autodesk Revit",
+		Long:                "Revit CLI Client (Go) - Command-line tool for AI agents to drive Autodesk Revit.",
+		DisableFlagParsing:  true,
+		SilenceUsage:        true,
+		SilenceErrors:       true,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			// Handle --help/-h and --version/-V manually (DisableFlagParsing
+			// prevents cobra from intercepting them).
+			for _, a := range args {
+				if a == "--help" || a == "-h" {
+					return cmd.Help()
+				}
+				if a == "--version" || a == "-V" {
+					fmt.Printf("revit-cli %s\n", Version)
+					return nil
+				}
 			}
-			registry.Register(discovery.NewDynamicCommand(def))
-			// Register aliases.
-			for _, alias := range def.Aliases {
-				registry.RegisterAlias(alias, def.Name)
+			if len(args) == 0 {
+				return cmd.Help()
 			}
-		}
+			exitCode = dispatchDynamic(args)
+			return nil
+		},
 	}
 
-	// 4. Try again with discovered commands.
-	if cmd, ok := registry.TryGetCommand(commandName); ok {
-		return cmd.Handle(ctx, args[cmdIndex+1:], sendCommand)
-	}
+	// Register global flags for help documentation. Actual parsing is done
+	// manually in resolveBaseURL() because DisableFlagParsing is true.
+	root.PersistentFlags().StringVar(&flagURL, "url", "", "Revit CLI server address (default: auto-discover)")
+	root.PersistentFlags().IntVar(&flagPID, "pid", 0, "Connect to a specific Revit instance by process ID")
+	root.PersistentFlags().IntVar(&flagRevit, "revit", 0, "Connect to a specific Revit version (e.g. 2022)")
 
-	fmt.Fprintf(os.Stderr, "Unknown command: %s\n", commandName)
-	fmt.Fprintln(os.Stderr, "Run 'revit-cli.exe commands' to see available commands.")
-	return 1
+	registerBuiltinCmds(root)
+	return root
 }
 
-// parseArgs extracts the --url, --revit, --pid flags and returns the base URL
-// and the index where the command name begins.
-// Resolution order: --url > --pid > --revit > auto-discover > fallback.
-func parseArgs(args []string) (string, int) {
+// resolveBaseURL scans os.Args for --url, --pid, --revit flags and resolves
+// the bridge base URL. Used by sub-commands whose flag parsing is disabled.
+func resolveBaseURL() string {
+	args := os.Args[1:]
 	var explicitURL string
 	var pidFlag int
 	var revitFlag int
-	cmdIndex := -1
 
 	for i := 0; i < len(args); i++ {
 		switch args[i] {
@@ -130,63 +113,236 @@ func parseArgs(args []string) (string, int) {
 				}
 				i++
 			}
-		default:
-			// First non-flag argument is the command.
-			if !strings.HasPrefix(args[i], "-") && cmdIndex == -1 {
-				cmdIndex = i
-			}
 		}
 	}
 
-	if cmdIndex == -1 {
-		cmdIndex = len(args)
+	return instance.ResolveURL(explicitURL, pidFlag, revitFlag)
+}
+
+// makeSend creates the SSE send function for dispatching commands to the bridge.
+func makeSend(baseURL string) abstractions.SendCommandFunc {
+	sseClient := client.NewSseClient(baseURL)
+	return abstractions.SendCommandFunc(func(ctx context.Context, cmd string, params interface{}) int {
+		return sseClient.Execute(ctx, cmd, params)
+	})
+}
+
+// dispatchDynamic handles unknown (dynamic) commands by discovering the schema
+// from the bridge and dispatching to the matching DynamicCommand.
+func dispatchDynamic(args []string) int {
+	baseURL := resolveBaseURL()
+
+	// Find the command name (first non-flag arg).
+	cmdName := ""
+	var cmdArgs []string
+	for i, a := range args {
+		if !strings.HasPrefix(a, "-") {
+			cmdName = a
+			cmdArgs = args[i+1:]
+			break
+		}
+	}
+	if cmdName == "" {
+		return 0
 	}
 
-	baseURL := instance.ResolveURL(explicitURL, pidFlag, revitFlag)
-	return baseURL, cmdIndex
-}
+	// Discover schema from bridge.
+	httpClient := &http.Client{Timeout: 0}
+	fetcher := discovery.NewSchemaFetcher(baseURL, httpClient)
+	schema := fetcher.Fetch(false)
+	if schema == nil {
+		fmt.Fprintf(os.Stderr, "Unknown command: %s\n", cmdName)
+		fmt.Fprintln(os.Stderr, "Run 'revit-cli commands' to see available commands.")
+		return 1
+	}
 
-// registerBuiltIns registers the always-available commands.
-// Mirrors C# Program.RegisterBuiltInCommands.
-func registerBuiltIns(registry *client.CommandRegistry, baseURL string, httpClient *http.Client) {
-	registry.Register(builtin.PingHandler{})
-	registry.Register(builtin.StatusHandler{BaseURL: baseURL, Client: httpClient})
-	registry.Register(builtin.HealthHandler{BaseURL: baseURL, Client: httpClient})
-	registry.Register(builtin.TaskHandler{BaseURL: baseURL, Client: httpClient})
-	registry.Register(builtin.RawHandler{})
-	registry.Register(builtin.CommandsHandler{BaseURL: baseURL, Client: httpClient})
-	registry.Register(builtin.SchemaHandler{BaseURL: baseURL, Client: httpClient})
-	registry.Register(builtin.ExecuteRawHandler{})
-	registry.Register(builtin.RawModeHandler{BaseURL: baseURL, Client: httpClient})
-	registry.Register(builtin.ListHandler{})
-	registry.Register(builtin.LlmsHandler{BaseURL: baseURL, Client: httpClient})
-	registry.Register(builtin.ConfigureHandler{})
-}
-
-// printHelp generates help text, optionally discovering commands for richer help.
-// Mirrors C# Program.PrintHelpAsync.
-func printHelp(registry *client.CommandRegistry, baseURL string) string {
-	if registry == nil {
-		registry = client.NewCommandRegistry()
-		httpClient := &http.Client{Timeout: 0}
-		registerBuiltIns(registry, baseURL, httpClient)
-
-		// Try to discover commands for richer help.
-		if baseURL != "" {
-			fetcher := discovery.NewSchemaFetcher(baseURL, httpClient)
-			schema := fetcher.Fetch(false)
-			if schema != nil {
-				for _, def := range schema.Commands {
-					if _, exists := registry.TryGetCommand(def.Name); exists {
-						continue
-					}
-					registry.Register(discovery.NewDynamicCommand(def))
-					for _, alias := range def.Aliases {
-						registry.RegisterAlias(alias, def.Name)
-					}
+	// Find matching command (by name or alias).
+	for _, def := range schema.Commands {
+		if def.Name != cmdName {
+			matched := false
+			for _, alias := range def.Aliases {
+				if alias == cmdName {
+					matched = true
+					break
 				}
 			}
+			if !matched {
+				continue
+			}
 		}
+		dynCmd := discovery.NewDynamicCommand(def)
+		send := makeSend(baseURL)
+		return dynCmd.Handle(context.Background(), cmdArgs, send)
 	}
-	return client.Generate(registry)
+
+	fmt.Fprintf(os.Stderr, "Unknown command: %s\n", cmdName)
+	fmt.Fprintln(os.Stderr, "Run 'revit-cli commands' to see available commands.")
+	return 1
+}
+
+// registerBuiltinCmds creates cobra sub-commands for all built-in handlers.
+func registerBuiltinCmds(root *cobra.Command) {
+	// --- Commands that use SSE send (no direct HTTP) ---
+
+	root.AddCommand(newBuiltinCmd(
+		"ping [--json]", "Test connection to Revit",
+		[]string{"revit-cli ping", "revit-cli ping --json"},
+		true,
+		func(_ string, _ *http.Client) abstractions.CliCommand {
+			return builtin.PingHandler{}
+		},
+	))
+
+	root.AddCommand(newBuiltinCmd(
+		"raw -j <json>", "Send raw JSON command",
+		[]string{`revit-cli raw -j "{\"command\":\"ping\"}"`},
+		true,
+		func(_ string, _ *http.Client) abstractions.CliCommand {
+			return builtin.RawHandler{}
+		},
+	))
+
+	root.AddCommand(newBuiltinCmd(
+		"execute_raw --code <code> | --file <path> [--lang csharp|python]",
+		"Execute C# or Python code on the bridge",
+		[]string{
+			`revit-cli execute_raw --lang csharp --code "return doc.Title;"`,
+			`revit-cli execute_raw --file script.cs --lang csharp`,
+		},
+		true,
+		func(_ string, _ *http.Client) abstractions.CliCommand {
+			return builtin.ExecuteRawHandler{}
+		},
+	))
+
+	// --- Commands that use HTTP GET/POST directly ---
+
+	root.AddCommand(newBuiltinCmd(
+		"status [--json]", "Show service status",
+		[]string{"revit-cli status", "revit-cli status --json"},
+		true,
+		func(baseURL string, httpClient *http.Client) abstractions.CliCommand {
+			return builtin.StatusHandler{BaseURL: baseURL, Client: httpClient}
+		},
+	))
+
+	root.AddCommand(newBuiltinCmd(
+		"health [--json]", "Health check",
+		[]string{"revit-cli health", "revit-cli health --json"},
+		true,
+		func(baseURL string, httpClient *http.Client) abstractions.CliCommand {
+			return builtin.HealthHandler{BaseURL: baseURL, Client: httpClient}
+		},
+	))
+
+	root.AddCommand(newBuiltinCmd(
+		"task [-ti <id>] [--json]", "Query task status",
+		[]string{"revit-cli task", "revit-cli task -ti abc123", "revit-cli task -ti abc123 --json"},
+		true,
+		func(baseURL string, httpClient *http.Client) abstractions.CliCommand {
+			return builtin.TaskHandler{BaseURL: baseURL, Client: httpClient}
+		},
+	))
+
+	root.AddCommand(newBuiltinCmd(
+		"commands [--refresh]", "List all commands (with cache)",
+		[]string{"revit-cli commands", "revit-cli commands --refresh"},
+		true,
+		func(baseURL string, httpClient *http.Client) abstractions.CliCommand {
+			return builtin.CommandsHandler{BaseURL: baseURL, Client: httpClient}
+		},
+	))
+
+	root.AddCommand(newBuiltinCmd(
+		"schema <command>", "Show command parameter details",
+		[]string{"revit-cli schema create_wall"},
+		true,
+		func(baseURL string, httpClient *http.Client) abstractions.CliCommand {
+			return builtin.SchemaHandler{BaseURL: baseURL, Client: httpClient}
+		},
+	))
+
+	root.AddCommand(newBuiltinCmd(
+		"raw-mode [--enable | --disable]", "Query or toggle raw execution mode",
+		[]string{"revit-cli raw-mode", "revit-cli raw-mode --enable", "revit-cli raw-mode --disable"},
+		true,
+		func(baseURL string, httpClient *http.Client) abstractions.CliCommand {
+			return builtin.RawModeHandler{BaseURL: baseURL, Client: httpClient}
+		},
+	))
+
+	root.AddCommand(newBuiltinCmd(
+		"llms [--save <path>]", "Show Revit API reference (llms.txt)",
+		[]string{"revit-cli llms", "revit-cli llms --save llms.txt"},
+		true,
+		func(baseURL string, httpClient *http.Client) abstractions.CliCommand {
+			return builtin.LlmsHandler{BaseURL: baseURL, Client: httpClient}
+		},
+	))
+
+	// --- Commands that don't need a bridge connection ---
+
+	root.AddCommand(newBuiltinCmd(
+		"list [--json]", "List running Revit instances",
+		[]string{"revit-cli list", "revit-cli list --json"},
+		false,
+		func(_ string, _ *http.Client) abstractions.CliCommand {
+			return builtin.ListHandler{}
+		},
+	))
+
+	root.AddCommand(newBuiltinCmd(
+		"configure <setup|teardown|check|port> [options]",
+		"Manage bridge installation and configuration",
+		[]string{"revit-cli configure setup", "revit-cli configure check", "revit-cli configure teardown", "revit-cli configure port"},
+		false,
+		func(_ string, _ *http.Client) abstractions.CliCommand {
+			return builtin.ConfigureHandler{}
+		},
+	))
+}
+
+// newBuiltinCmd creates a cobra command wrapping a built-in handler.
+// needsURL indicates whether the command requires a resolved bridge URL.
+// DisableFlagParsing is true so handlers can parse their own args via
+// abstractions.FindArg / HasFlag without cobra rejecting unknown flags.
+func newBuiltinCmd(use, short string, examples []string, needsURL bool,
+	factory func(baseURL string, httpClient *http.Client) abstractions.CliCommand,
+) *cobra.Command {
+	return &cobra.Command{
+		Use:                use,
+		Short:              short,
+		Example:            strings.Join(examples, "\n"),
+		DisableFlagParsing: true,
+		SilenceUsage:       true,
+		SilenceErrors:      true,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			// Handle --help/-h manually (DisableFlagParsing prevents cobra
+			// from intercepting them).
+			for _, a := range args {
+				if a == "--help" || a == "-h" {
+					return cmd.Help()
+				}
+			}
+
+			var send abstractions.SendCommandFunc
+			var baseURL string
+			var httpClient *http.Client
+
+			if needsURL {
+				baseURL = resolveBaseURL()
+				httpClient = &http.Client{Timeout: 0}
+				send = makeSend(baseURL)
+			} else {
+				send = abstractions.SendCommandFunc(func(ctx context.Context, _ string, _ interface{}) int {
+					fmt.Fprintln(os.Stderr, "Error: this command does not use the bridge connection.")
+					return 1
+				})
+			}
+
+			h := factory(baseURL, httpClient)
+			exitCode = h.Handle(context.Background(), args, send)
+			return nil
+		},
+	}
 }
