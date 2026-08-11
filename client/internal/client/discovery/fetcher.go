@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"strings"
+	"sync"
 
 	"revit-cli/internal/models"
 )
@@ -29,6 +30,66 @@ func NewSchemaFetcher(baseURL string, client *http.Client) *SchemaFetcher {
 		client:  client,
 		cache:   NewSchemaCache(baseURL),
 	}
+}
+
+// commandCacheEntry holds a cached command definition and its ETag.
+type commandCacheEntry struct {
+	def  *models.CommandDef
+	etag string
+}
+
+// commandCache provides in-process caching of individual command definitions
+// fetched via /api/commands/{name}. Keyed by baseURL+":"+commandName so
+// multiple server targets don't collide. Entries live for the process
+// lifetime — no TTL needed since bridge schemas do not change mid-process.
+var commandCache sync.Map
+
+// FetchCommand fetches a single command definition via /api/commands/{name}.
+// Uses the in-process cache to avoid redundant HTTP calls within the same
+// process. Returns nil if the command is not found or the request fails
+// (caller should fall back to Fetch for alias resolution or old bridges
+// that lack the per-command endpoint).
+func (f *SchemaFetcher) FetchCommand(name string) *models.CommandDef {
+	cacheKey := f.baseURL + ":" + name
+	if cached, ok := commandCache.Load(cacheKey); ok {
+		return cached.(*commandCacheEntry).def
+	}
+
+	req, err := http.NewRequest(http.MethodGet, f.baseURL+"/api/commands/"+name, nil)
+	if err != nil {
+		return nil
+	}
+
+	resp, err := f.client.Do(req)
+	if err != nil {
+		return nil
+	}
+	defer resp.Body.Close()
+
+	// 404 means the command doesn't exist — return nil so the caller can
+	// try the full schema fallback (the user may have typed an alias that
+	// the server didn't resolve, or the command genuinely doesn't exist).
+	if resp.StatusCode == http.StatusNotFound {
+		return nil
+	}
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return nil
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil
+	}
+
+	var def models.CommandDef
+	if err := json.Unmarshal(body, &def); err != nil {
+		return nil
+	}
+
+	etagHeader := strings.Trim(resp.Header.Get("ETag"), `"`)
+	commandCache.Store(cacheKey, &commandCacheEntry{def: &def, etag: etagHeader})
+	return &def
 }
 
 // Fetch retrieves the schema from the bridge. Returns the cached version if

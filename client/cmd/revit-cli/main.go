@@ -146,9 +146,21 @@ func dispatchDynamic(args []string) int {
 		return 0
 	}
 
-	// Discover schema from bridge.
 	httpClient := &http.Client{Timeout: 0}
 	fetcher := discovery.NewSchemaFetcher(baseURL, httpClient)
+
+	// Fast path: fetch only the requested command's schema (~1 KB) instead
+	// of the full schema (~100 KB). The server resolves aliases, so this
+	// works even if the user typed an alias.
+	if def := fetcher.FetchCommand(cmdName); def != nil {
+		dynCmd := discovery.NewDynamicCommand(*def)
+		send := makeSend(baseURL)
+		return dynCmd.Handle(context.Background(), cmdArgs, send)
+	}
+
+	// Fallback: fetch the full schema. Needed if the per-command endpoint
+	// is unavailable (old bridge) or FetchCommand returned nil for any
+	// reason. Searches by name and aliases.
 	schema := fetcher.Fetch(false)
 	if schema == nil {
 		fmt.Fprintf(os.Stderr, "Unknown command: %s\n", cmdName)
