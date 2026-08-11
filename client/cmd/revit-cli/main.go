@@ -23,6 +23,13 @@ import (
 // Version is set at build time via -ldflags "-X main.Version=...".
 var Version = "dev"
 
+// banner is the ASCII art shown in help and version output.
+const banner = `  ___    __    _ __   ___   _     __    _ __
+ |_ _|  / _|  | '_ \ / __| | |__ / _|  | '_ \
+  | |  | (_   | .__/| (    | '_ \ (_   | .__/
+ |___|  \__|  |_|   \___|  | | | \__|  |_|
+                              |_| |_|`
+
 // exitCode is set by command RunE functions and read by main() after Execute().
 var exitCode int
 
@@ -51,7 +58,7 @@ func newRootCmd() *cobra.Command {
 	root := &cobra.Command{
 		Use:                "revit-cli [flags] <command> [args]",
 		Short:              "Command-line tool for AI agents to drive Autodesk Revit",
-		Long:               "Revit CLI Client (Go) - Command-line tool for AI agents to drive Autodesk Revit.",
+		Long:               banner + "\n\nRevit CLI Client (Go) - Command-line tool for AI agents to drive Autodesk Revit.",
 		DisableFlagParsing: true,
 		SilenceUsage:       true,
 		SilenceErrors:      true,
@@ -69,6 +76,7 @@ func newRootCmd() *cobra.Command {
 					return cmd.Help()
 				}
 				if a == "--version" || a == "-V" {
+					fmt.Println(banner)
 					fmt.Printf("revit-cli %s\n", Version)
 					return nil
 				}
