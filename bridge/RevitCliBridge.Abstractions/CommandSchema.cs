@@ -84,4 +84,37 @@ namespace RevitCliBridge.Abstractions
         [JsonProperty("output_formats", NullValueHandling = NullValueHandling.Ignore)]
         public string[]? OutputFormats { get; set; }
     }
+
+    /// <summary>
+    /// Lightweight catalog response for GET /api/catalog. Contains only
+    /// command names, categories, and one-line summaries — no parameter
+    /// schemas or examples. Designed for AI agent discovery where the full
+    /// schema (~50-150 KB) would waste context window tokens.
+    /// </summary>
+    public class CommandCatalog
+    {
+        [JsonProperty("catalog_version")]
+        public string CatalogVersion { get; set; } = string.Empty;
+
+        [JsonProperty("command_count")]
+        public int CommandCount { get; set; }
+
+        [JsonProperty("commands")]
+        public List<CatalogEntry> Commands { get; set; } = new List<CatalogEntry>();
+    }
+
+    /// <summary>
+    /// Single entry in the command catalog — name, category, and summary only.
+    /// </summary>
+    public class CatalogEntry
+    {
+        [JsonProperty("name")]
+        public string Name { get; set; } = string.Empty;
+
+        [JsonProperty("category", NullValueHandling = NullValueHandling.Ignore)]
+        public string? Category { get; set; }
+
+        [JsonProperty("summary", NullValueHandling = NullValueHandling.Ignore)]
+        public string? Summary { get; set; }
+    }
 }

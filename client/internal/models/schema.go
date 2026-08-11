@@ -50,3 +50,22 @@ type CommandParamSchema struct {
 	Properties  []CommandParamSchema `json:"properties,omitempty"`
 	Context     interface{}         `json:"context,omitempty"`
 }
+
+// CommandCatalog is the lightweight catalog response from GET /api/catalog.
+// Contains only command names, categories, and summaries — no parameter
+// schemas or examples. Designed for AI agent discovery where the full
+// schema would waste context window tokens.
+// Mirrors C# CliBridge.Abstractions.CommandCatalog.
+type CommandCatalog struct {
+	CatalogVersion string         `json:"catalog_version"`
+	CommandCount   int            `json:"command_count"`
+	Commands       []CatalogEntry `json:"commands"`
+}
+
+// CatalogEntry is a single entry in the command catalog.
+// Mirrors C# CliBridge.Abstractions.CatalogEntry.
+type CatalogEntry struct {
+	Name     string `json:"name"`
+	Category string `json:"category,omitempty"`
+	Summary  string `json:"summary,omitempty"`
+}

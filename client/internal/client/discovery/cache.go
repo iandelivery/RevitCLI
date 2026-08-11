@@ -60,29 +60,6 @@ func (c *SchemaCache) Load() *models.CommandSchema {
 	return c.loadLocked()
 }
 
-// LoadWithVersion returns the cached schema if it exists, is not expired,
-// and matches the given bridge version. Returns nil if any check fails,
-// which signals the caller to re-fetch from the server.
-func (c *SchemaCache) LoadWithVersion(bridgeVersion string) *models.CommandSchema {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
-	schema := c.loadLocked()
-	if schema == nil {
-		return nil
-	}
-
-	// If a bridge version is provided and the cached schema has a different
-	// version, treat the cache as stale so the caller re-fetches.
-	if bridgeVersion != "" && schema.ServerInfo != nil &&
-		schema.ServerInfo.BridgeVersion != "" &&
-		schema.ServerInfo.BridgeVersion != bridgeVersion {
-		return nil
-	}
-
-	return schema
-}
-
 // loadLocked is the internal implementation of Load. Caller must hold c.mu.
 func (c *SchemaCache) loadLocked() *models.CommandSchema {
 	info, err := os.Stat(c.cachePath)

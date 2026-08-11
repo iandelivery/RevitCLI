@@ -14,11 +14,17 @@ namespace RevitCliBridge.Handlers
         public override string Description => "Zooms the active view to fit all elements";
         public override string Category => "UI";
 
-        public override CommandParamSchema[] Parameters => Array.Empty<CommandParamSchema>();
+        public override CommandParamSchema[] Parameters => new[]
+        {
+            new CommandParamSchema { Name = "element_id", Type = "int", Required = false, Description = "Single element ID to zoom to" },
+            new CommandParamSchema { Name = "element_ids", Type = "int[]", Required = false, Description = "Array of element IDs to zoom to" }
+        };
 
         public override string[] Examples => new[]
         {
-            "{ \"command\": \"zoom_to_fit\", \"parameters\": {} }"
+            "{ \"command\": \"zoom_to_fit\", \"parameters\": {} }",
+            "{ \"command\": \"zoom_to_fit\", \"parameters\": { \"element_id\": 12345 } }",
+            "{ \"command\": \"zoom_to_fit\", \"parameters\": { \"element_ids\": [12345, 67890] } }"
         };
 
         protected override string Execute(UIApplication app, Document doc, Dictionary<string, object> parameters, QueuedCommand cmd)
@@ -32,8 +38,16 @@ namespace RevitCliBridge.Handlers
 
             if (elementId is null && (elementIds is null || elementIds.Length == 0))
             {
-                // If no element specified, zoom to fit all model elements
-                uiDoc.ShowElements(new List<ElementId>());
+                // No element specified — zoom to fit the entire active view.
+                // ShowElements throws ArgumentException on an empty collection,
+                // so use UIView.ZoomToFit() instead.
+                var activeView = doc.ActiveView;
+                var uiView = uiDoc.GetOpenUIViews()
+                    .FirstOrDefault(v => v.ViewId == activeView.Id);
+                if (uiView is null)
+                    return CommandResponse.Error(cmd.TaskId, "Active view is not open in the UI.").ToJson();
+
+                uiView.ZoomToFit();
                 var result = new { zoom_type = "all" };
                 return CommandResponse.Success(cmd.TaskId, result, "Zoomed to fit all elements.").ToJson();
             }
