@@ -100,6 +100,14 @@ namespace RevitCliBridge
             // EnsureInitialized(), so this direct add is safe and avoids
             // re-entrancy issues.
             _handlers[commandName] = handler;
+
+            // Invalidate the HTTP server's schema cache so subsequent schema
+            // requests reflect the newly registered handler. Skipped during
+            // initial discovery (cache is not built yet at that point).
+            if (_initialized)
+            {
+                CliHttpServer.InvalidateSchemaCache();
+            }
         }
 
         /// <summary>

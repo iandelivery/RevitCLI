@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Net;
+using System.Reflection;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -27,6 +28,15 @@ namespace RevitCliBridge
         // Identity info for the /api/identity endpoint.
         private int _revitVersion;
         private int _processId;
+
+        // Static schema cache — the command definitions are derived entirely
+        // from CommandRouter (static) and do not depend on the server instance.
+        // Invalidated by InvalidateSchemaCache() when handlers are registered
+        // at runtime (e.g. plugin loading). The ETag is version-stamped so the
+        // 304 fast path is a pure string comparison with no serialization.
+        private static List<CommandDef>? _cachedCommandDefs;
+        private static string? _cachedSchemaEtag;
+        private static readonly object _schemaCacheLock = new object();
 
         public int Port => _port;
         public bool IsRunning => _isRunning;
@@ -689,17 +699,16 @@ namespace RevitCliBridge
 
         /// <summary>
         /// GET /api/commands — returns schema for all registered commands.
-        /// Supports ETag/If-None-Match for efficient re-fetching.
+        /// Supports ETag/If-None-Match for efficient re-fetching. The schema
+        /// and ETag are cached statically and only rebuilt when handlers are
+        /// registered or unregistered (see <see cref="InvalidateSchemaCache"/>).
         /// </summary>
         private async Task HandleCommandsSchemaAsync(HttpListenerRequest request, HttpListenerResponse response)
         {
-            var schema = BuildCommandSchema();
+            var etag = GetOrBuildSchemaEtag();
 
-            // Compute ETag from schema content hash
-            var schemaJson = JsonConvert.SerializeObject(schema, Formatting.None);
-            var etag = ComputeEtag(schemaJson);
-
-            // Check If-None-Match header — return 304 if schema unchanged
+            // Check If-None-Match header — return 304 if schema unchanged.
+            // Fast path: pure string comparison, no serialization or hashing.
             var ifNoneMatch = request.Headers["If-None-Match"];
             if (ifNoneMatch != null && ifNoneMatch.Trim('"') == etag)
             {
@@ -711,7 +720,105 @@ namespace RevitCliBridge
             }
 
             response.Headers["ETag"] = $"\"{etag}\"";
+            var schema = BuildCommandSchemaFromCache();
             await WriteJsonResponseAsync(response, schema);
+        }
+
+        /// <summary>
+        /// Returns the cached ETag for the command schema, building the cache
+        /// on first access. Thread-safe.
+        /// </summary>
+        private static string GetOrBuildSchemaEtag()
+        {
+            lock (_schemaCacheLock)
+            {
+                if (_cachedSchemaEtag != null) return _cachedSchemaEtag;
+                GetOrBuildCommandDefs();
+                return _cachedSchemaEtag!;
+            }
+        }
+
+        /// <summary>
+        /// Returns the cached command definitions, building them on first access.
+        /// The ETag is computed once as a version-stamped content hash:
+        /// "{bridgeVersion}:{commandCount}:{contentHash}". Thread-safe.
+        /// </summary>
+        private static List<CommandDef> GetOrBuildCommandDefs()
+        {
+            lock (_schemaCacheLock)
+            {
+                if (_cachedCommandDefs != null) return _cachedCommandDefs;
+
+                var defs = new List<CommandDef>();
+                foreach (var handler in CommandRouter.GetAllHandlers())
+                {
+                    defs.Add(BuildCommandDef(handler));
+                }
+
+                // Compute content hash once — not on every request.
+                var json = JsonConvert.SerializeObject(defs, Formatting.None);
+                var hash = ComputeEtag(json);
+                _cachedSchemaEtag = $"{BridgeVersionString}:{defs.Count}:{hash}";
+
+                _cachedCommandDefs = defs;
+                return defs;
+            }
+        }
+
+        /// <summary>
+        /// Invalidates the cached command schema. Called when handlers are
+        /// registered at runtime (e.g. plugin loading). During initial handler
+        /// discovery the cache is not yet built, so invalidation is a no-op.
+        /// </summary>
+        public static void InvalidateSchemaCache()
+        {
+            lock (_schemaCacheLock)
+            {
+                _cachedCommandDefs = null;
+                _cachedSchemaEtag = null;
+            }
+        }
+
+        /// <summary>
+        /// Bridge version derived from the assembly FileVersion (e.g. "1.2.0").
+        /// Used as part of the version-stamped ETag so clients detect upgrades
+        /// even when the content hash happens to collide.
+        /// </summary>
+        private static string BridgeVersionString
+        {
+            get
+            {
+                var v = typeof(CliHttpServer).Assembly
+                    .GetCustomAttribute<AssemblyFileVersionAttribute>()?.Version;
+                if (string.IsNullOrEmpty(v)) return "0.0.0";
+                // "1.2.0.0" -> "1.2.0"; v is non-null here (IsNullOrEmpty checked).
+                var parts = v!.Split('.');
+                return parts.Length >= 3 ? $"{parts[0]}.{parts[1]}.{parts[2]}" : v!;
+            }
+        }
+
+        /// <summary>
+        /// Builds a full CommandSchema response from the cached command defs,
+        /// populating instance-specific ServerInfo (port, features, version).
+        /// </summary>
+        private CommandSchema BuildCommandSchemaFromCache()
+        {
+            var defs = GetOrBuildCommandDefs();
+            return new CommandSchema
+            {
+                Version = "2.0.0",
+                ServerInfo = new ServerInfo
+                {
+                    BridgeVersion = BridgeVersionString,
+                    Port = _port,
+                    Features = new ServerFeatures
+                    {
+                        DryRun = true,
+                        ExecuteRaw = false
+                    }
+                },
+                Commands = new List<CommandDef>(defs)
+            };
         }
 
         private static string ComputeEtag(string content)
@@ -738,29 +845,6 @@ namespace RevitCliBridge
 
             var commandDef = BuildCommandDef(handler);
             await WriteJsonResponseAsync(response, commandDef);
-        }
-
-        private CommandSchema BuildCommandSchema()
-        {
-            var schema = new CommandSchema
-            {
-                ServerInfo = new ServerInfo
-                {
-                    Port = _port,
-                    Features = new ServerFeatures
-                    {
-                        DryRun = true,
-                        ExecuteRaw = false
-                    }
-                }
-            };
-
-            foreach (var handler in CommandRouter.GetAllHandlers())
-            {
-                schema.Commands.Add(BuildCommandDef(handler));
-            }
-
-            return schema;
         }
 
         private static CommandDef BuildCommandDef(IBridgeCommand handler)
