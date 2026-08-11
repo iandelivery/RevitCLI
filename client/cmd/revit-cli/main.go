@@ -11,12 +11,13 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/spf13/cobra"
 	"revit-cli/internal/abstractions"
 	"revit-cli/internal/client"
 	"revit-cli/internal/client/builtin"
 	"revit-cli/internal/client/discovery"
 	"revit-cli/internal/instance"
+
+	"github.com/spf13/cobra"
 )
 
 // Version is set at build time via -ldflags "-X main.Version=...".
@@ -44,10 +45,10 @@ func newRootCmd() *cobra.Command {
 	root := &cobra.Command{
 		Use:                "revit-cli [flags] <command> [args]",
 		Short:              "Command-line tool for AI agents to drive Autodesk Revit",
-		Long:                "Revit CLI Client (Go) - Command-line tool for AI agents to drive Autodesk Revit.",
-		DisableFlagParsing:  true,
-		SilenceUsage:        true,
-		SilenceErrors:       true,
+		Long:               "Revit CLI Client (Go) - Command-line tool for AI agents to drive Autodesk Revit.",
+		DisableFlagParsing: true,
+		SilenceUsage:       true,
+		SilenceErrors:      true,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Handle --help/-h and --version/-V manually (DisableFlagParsing
 			// prevents cobra from intercepting them).
@@ -262,6 +263,15 @@ func registerBuiltinCmds(root *cobra.Command) {
 		true,
 		func(baseURL string, httpClient *http.Client) abstractions.CliCommand {
 			return builtin.CommandsHandler{BaseURL: baseURL, Client: httpClient}
+		},
+	))
+
+	root.AddCommand(newBuiltinCmd(
+		"catalog [--json]", "List all commands (compact index)",
+		[]string{"revit-cli catalog", "revit-cli catalog --json"},
+		true,
+		func(baseURL string, httpClient *http.Client) abstractions.CliCommand {
+			return builtin.CatalogHandler{BaseURL: baseURL, Client: httpClient}
 		},
 	))
 
