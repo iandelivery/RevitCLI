@@ -196,7 +196,7 @@ namespace RevitCliBridge
                 else if (path.StartsWith("/api/commands/") && request.HttpMethod == "GET")
                 {
                     var commandName = path.Substring("/api/commands/".Length);
-                    await HandleCommandSchemaAsync(commandName, response);
+                    await HandleCommandSchemaAsync(request, commandName, response);
                 }
                 else if (path == "/api/raw-mode" && request.HttpMethod == "GET")
                 {
@@ -832,8 +832,10 @@ namespace RevitCliBridge
 
         /// <summary>
         /// GET /api/commands/{name} — returns schema for a single command.
+        /// Supports ETag/If-None-Match so clients can cheaply revalidate
+        /// per-command schemas without re-downloading the full payload.
         /// </summary>
-        private async Task HandleCommandSchemaAsync(string commandName, HttpListenerResponse response)
+        private async Task HandleCommandSchemaAsync(HttpListenerRequest request, string commandName, HttpListenerResponse response)
         {
             var handler = CommandRouter.GetHandler(commandName);
             if (handler == null)
@@ -844,7 +846,30 @@ namespace RevitCliBridge
             }
 
             var commandDef = BuildCommandDef(handler);
+            var etag = ComputeCommandEtag(commandDef);
+
+            var ifNoneMatch = request.Headers["If-None-Match"];
+            if (ifNoneMatch != null && ifNoneMatch.Trim('"') == etag)
+            {
+                response.StatusCode = 304;
+                response.Headers["ETag"] = $"\"{etag}\"";
+                return;
+            }
+
+            response.Headers["ETag"] = $"\"{etag}\"";
             await WriteJsonResponseAsync(response, commandDef);
+        }
+
+        /// <summary>
+        /// Computes a version-stamped ETag for a single command definition.
+        /// Format: "{bridgeVersion}:{contentHash}" — stable across requests
+        /// for the same command content, changes on bridge upgrade.
+        /// </summary>
+        private static string ComputeCommandEtag(CommandDef commandDef)
+        {
+            var json = JsonConvert.SerializeObject(commandDef, Formatting.None);
+            var hash = ComputeEtag(json);
+            return $"{BridgeVersionString}:{hash}";
         }
 
         private static CommandDef BuildCommandDef(IBridgeCommand handler)
