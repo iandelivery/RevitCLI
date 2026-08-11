@@ -36,7 +36,13 @@ var (
 
 func main() {
 	root := newRootCmd()
-	_ = root.Execute()
+	if err := root.Execute(); err != nil && exitCode == 0 {
+		// Execute() returned an error but no RunE set the exit code.
+		// This happens for errors from Find()/ValidateArgs() that bypass
+		// RunE entirely (e.g., arg validation failures). Exit with 1
+		// rather than silently succeeding with exit code 0.
+		os.Exit(1)
+	}
 	os.Exit(exitCode)
 }
 
@@ -49,6 +55,12 @@ func newRootCmd() *cobra.Command {
 		DisableFlagParsing: true,
 		SilenceUsage:       true,
 		SilenceErrors:      true,
+		// ArbitraryArgs allows the root command to accept any positional
+		// args. Without this, Cobra's default legacyArgs validator rejects
+		// unknown commands (anything not matching a registered subcommand)
+		// with an "unknown command" error, preventing dispatchDynamic from
+		// ever being called for dynamic commands like doc_list, undo, etc.
+		Args: cobra.ArbitraryArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Handle --help/-h and --version/-V manually (DisableFlagParsing
 			// prevents cobra from intercepting them).
@@ -133,15 +145,29 @@ func makeSend(baseURL string) abstractions.SendCommandFunc {
 func dispatchDynamic(args []string) int {
 	baseURL := resolveBaseURL()
 
-	// Find the command name (first non-flag arg).
+	// Find the command name (first non-flag arg). Skip global flags
+	// (--url, --pid, --revit) and their values, since DisableFlagParsing
+	// means they are still present in args.
 	cmdName := ""
 	var cmdArgs []string
-	for i, a := range args {
-		if !strings.HasPrefix(a, "-") {
-			cmdName = a
-			cmdArgs = args[i+1:]
-			break
+	for i := 0; i < len(args); i++ {
+		a := args[i]
+		// Skip known global flags that take a value.
+		if a == "--url" || a == "--pid" || a == "--revit" {
+			i++ // skip the value
+			continue
 		}
+		// Skip --flag=value forms of global flags.
+		if strings.HasPrefix(a, "--url=") || strings.HasPrefix(a, "--pid=") || strings.HasPrefix(a, "--revit=") {
+			continue
+		}
+		// Skip other flags (e.g. --dry-run).
+		if strings.HasPrefix(a, "-") {
+			continue
+		}
+		cmdName = a
+		cmdArgs = args[i+1:]
+		break
 	}
 	if cmdName == "" {
 		return 0
