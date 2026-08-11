@@ -193,6 +193,10 @@ namespace RevitCliBridge
                 {
                     await HandleCommandsSchemaAsync(request, response);
                 }
+                else if (path == "/api/catalog" && request.HttpMethod == "GET")
+                {
+                    await HandleCatalogRequestAsync(request, response);
+                }
                 else if (path.StartsWith("/api/commands/") && request.HttpMethod == "GET")
                 {
                     var commandName = path.Substring("/api/commands/".Length);
@@ -870,6 +874,42 @@ namespace RevitCliBridge
             var json = JsonConvert.SerializeObject(commandDef, Formatting.None);
             var hash = ComputeEtag(json);
             return $"{BridgeVersionString}:{hash}";
+        }
+
+        /// <summary>
+        /// GET /api/catalog — returns a lightweight command index containing
+        /// only names, categories, and one-line summaries. Designed for AI
+        /// agent discovery: ~3-5 KB vs ~50-150 KB for the full schema.
+        /// Supports ETag/If-None-Match; the ETag is shared with the full
+        /// schema cache (same underlying data, same invalidation lifecycle).
+        /// </summary>
+        private async Task HandleCatalogRequestAsync(HttpListenerRequest request, HttpListenerResponse response)
+        {
+            var etag = GetOrBuildSchemaEtag();
+
+            var ifNoneMatch = request.Headers["If-None-Match"];
+            if (ifNoneMatch != null && ifNoneMatch.Trim('"') == etag)
+            {
+                response.StatusCode = 304;
+                response.Headers["ETag"] = $"\"{etag}\"";
+                return;
+            }
+
+            var defs = GetOrBuildCommandDefs();
+            var catalog = new CommandCatalog
+            {
+                CatalogVersion = BridgeVersionString,
+                CommandCount = defs.Count,
+                Commands = defs.Select(d => new CatalogEntry
+                {
+                    Name = d.Name,
+                    Category = d.Category,
+                    Summary = d.Description
+                }).ToList()
+            };
+
+            response.Headers["ETag"] = $"\"{etag}\"";
+            await WriteJsonResponseAsync(response, catalog);
         }
 
         private static CommandDef BuildCommandDef(IBridgeCommand handler)
