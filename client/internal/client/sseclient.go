@@ -12,6 +12,8 @@ import (
 	"os"
 	"strings"
 	"time"
+
+	"revit-cli/internal/client/auth"
 )
 
 // SseClient handles command execution via SSE stream with legacy polling
@@ -70,6 +72,7 @@ func (c *SseClient) consumeSSEStream(ctx context.Context, command string, parame
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "text/event-stream")
+	auth.WithAuth(req, c.baseURL)
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
@@ -255,7 +258,14 @@ func (c *SseClient) pollTaskResult(ctx context.Context, taskID string, maxWaitSe
 		case <-time.After(interval):
 		}
 
-		resp, err := c.httpClient.Get(c.baseURL + "/api/task/" + taskID)
+		// Build an authenticated GET request instead of using
+		// httpClient.Get so the Authorization header is attached.
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.baseURL+"/api/task/"+taskID, nil)
+		if err != nil {
+			continue
+		}
+		auth.WithAuth(req, c.baseURL)
+		resp, err := c.httpClient.Do(req)
 		if err != nil {
 			continue
 		}

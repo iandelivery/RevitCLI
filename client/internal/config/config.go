@@ -24,6 +24,11 @@ type CliBridgeConfig struct {
 	MaxCommandQueueSize     int    `json:"max_command_queue_size"`
 	AllowRawExecution       bool   `json:"allow_raw_execution"`
 	MaxRequestBodySizeBytes int64  `json:"max_request_body_size_bytes,omitempty"`
+	// API key for Bearer token authentication. When non-empty, all /api/*
+	// endpoints (except /api/health, /api/identity, /api/auth/status)
+	// require an "Authorization: Bearer <api_key>" header.
+	// Synced from the bridge's cli_bridge_setting.json during `configure setup`.
+	APIKey string `json:"api_key,omitempty"`
 }
 
 // Default returns the default configuration. When a default_config.json is

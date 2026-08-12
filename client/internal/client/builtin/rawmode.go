@@ -9,6 +9,7 @@ import (
 	"net/http"
 
 	"revit-cli/internal/abstractions"
+	"revit-cli/internal/client/auth"
 )
 
 // RawModeHandler queries or toggles raw execution mode on the bridge.
@@ -53,7 +54,7 @@ func (h RawModeHandler) Handle(ctx context.Context, args []string, send abstract
 }
 
 func (h RawModeHandler) query() int {
-	out, code, err := httpGet(h.Client, h.BaseURL+"/api/raw-mode")
+	out, code, err := httpGet(h.Client, h.BaseURL, "/api/raw-mode")
 	if err != nil {
 		printErr(fmt.Sprintf("Cannot query raw mode: %v", err))
 		return 1
@@ -64,7 +65,15 @@ func (h RawModeHandler) query() int {
 
 func (h RawModeHandler) set(enabled bool) int {
 	body, _ := json.Marshal(map[string]bool{"enabled": enabled})
-	resp, err := h.Client.Post(h.BaseURL+"/api/raw-mode", "application/json", bytes.NewReader(body))
+	req, err := http.NewRequest(http.MethodPost, h.BaseURL+"/api/raw-mode", bytes.NewReader(body))
+	if err != nil {
+		printErr(fmt.Sprintf("Cannot build request: %v", err))
+		return 1
+	}
+	req.Header.Set("Content-Type", "application/json")
+	auth.WithAuth(req, h.BaseURL)
+
+	resp, err := h.Client.Do(req)
 	if err != nil {
 		printErr(fmt.Sprintf("Cannot set raw mode: %v", err))
 		return 1

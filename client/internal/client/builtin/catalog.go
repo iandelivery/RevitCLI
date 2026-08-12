@@ -9,6 +9,7 @@ import (
 	"sort"
 
 	"revit-cli/internal/abstractions"
+	"revit-cli/internal/client/auth"
 	"revit-cli/internal/models"
 )
 
@@ -34,7 +35,14 @@ func (h CatalogHandler) Metadata() abstractions.CommandMetadata {
 func (h CatalogHandler) Handle(ctx context.Context, args []string, send abstractions.SendCommandFunc) int {
 	url := h.BaseURL + "/api/catalog"
 
-	resp, err := h.Client.Get(url)
+	req, err := http.NewRequest(http.MethodGet, url, nil)
+	if err != nil {
+		printErr(fmt.Sprintf("Cannot build request: %v", err))
+		return 1
+	}
+	auth.WithAuth(req, h.BaseURL)
+
+	resp, err := h.Client.Do(req)
 	if err != nil {
 		printErr(fmt.Sprintf("Cannot fetch catalog from %s: %v", url, err))
 		return 1
