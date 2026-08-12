@@ -6,7 +6,7 @@ using System.IO;
 using RevitCliBridge.Abstractions;
 using System.Linq;
 
-namespace RevitCliBridge.Handlers
+namespace RevitCliBridge.Handlers.View
 {
     public class ExportViewHandler : DocumentCommandBase
     {
