@@ -149,6 +149,26 @@ namespace RevitCliBridge
                 var response = context.Response;
                 var path = request.Url?.AbsolutePath ?? "";
 
+                // Authentication gate. /api/health and /api/identity remain
+                // public so clients can probe the bridge and discover the
+                // instance without credentials. All other endpoints require
+                // a valid Bearer token when api_key is configured.
+                if (IsAuthRequired(path))
+                {
+                    var authHeader = request.Headers["Authorization"];
+                    if (!CliBridgeConfigLoader.ValidateToken(authHeader))
+                    {
+                        response.StatusCode = 401;
+                        response.Headers["WWW-Authenticate"] = "Bearer";
+                        await WriteJsonResponseAsync(response, new
+                        {
+                            error = "Unauthorized. Provide 'Authorization: Bearer <api_key>' header.",
+                            auth_enabled = CliBridgeConfigLoader.IsAuthEnabled
+                        });
+                        return;
+                    }
+                }
+
                 if (path == "/api/execute" && request.HttpMethod == "POST")
                 {
                     // Check if client requests SSE mode
@@ -210,6 +230,10 @@ namespace RevitCliBridge
                 {
                     await HandleRawModeSetAsync(request, response);
                 }
+                else if (path == "/api/auth/status" && request.HttpMethod == "GET")
+                {
+                    await HandleAuthStatusRequestAsync(response);
+                }
                 else
                 {
                     response.StatusCode = 404;
@@ -242,6 +266,31 @@ namespace RevitCliBridge
         // (max_request_body_size_bytes), defaulting to 10 MB when unset.
         private static long MaxRequestBodySize =>
             CliBridgeConfigLoader.Config.MaxRequestBodySizeBytes;
+
+        /// <summary>
+        /// Paths that remain accessible without authentication so clients
+        /// can discover and probe the bridge before presenting credentials.
+        /// </summary>
+        private static readonly HashSet<string> PublicPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "/api/health",
+            "/api/identity",
+            "/api/auth/status"
+        };
+
+        /// <summary>
+        /// Returns true if the given path requires Bearer token authentication.
+        /// Public paths (health, identity, auth status) are always open.
+        /// Non-/api paths (e.g. static files) do not require auth either.
+        /// </summary>
+        private static bool IsAuthRequired(string path)
+        {
+            if (!CliBridgeConfigLoader.IsAuthEnabled)
+                return false;
+            if (PublicPaths.Contains(path))
+                return false;
+            return path.StartsWith("/api/", StringComparison.OrdinalIgnoreCase);
+        }
 
         private async Task<string> ReadRequestBodyAsync(HttpListenerRequest request, HttpListenerResponse response)
         {
@@ -651,6 +700,23 @@ namespace RevitCliBridge
                 response.StatusCode = 400;
                 await WriteJsonResponseAsync(response, new { error = $"Invalid request: {ex.Message}" });
             }
+        }
+
+        /// <summary>
+        /// GET /api/auth/status — reports whether API key authentication is
+        /// active. Public endpoint (no Bearer token required) so clients can
+        /// discover auth requirements before sending authenticated requests.
+        /// </summary>
+        private async Task HandleAuthStatusRequestAsync(HttpListenerResponse response)
+        {
+            await WriteJsonResponseAsync(response, new
+            {
+                auth_enabled = CliBridgeConfigLoader.IsAuthEnabled,
+                scheme = "Bearer",
+                message = CliBridgeConfigLoader.IsAuthEnabled
+                    ? "API key authentication is enabled. Send 'Authorization: Bearer <api_key>' header."
+                    : "Authentication is disabled. All endpoints are open."
+            });
         }
 
         /// <summary>
