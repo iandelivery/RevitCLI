@@ -117,7 +117,7 @@ namespace RevitCliBridge.Handlers.Raw
                 return CommandResponse.Error(cmd.TaskId, "Parameter 'code' is required.").ToJson();
             }
 
-            var code = codeObj.ToString()!;
+            var code = codeObj!.ToString()!;
             var language = parameters.TryGetValue("language", out var langObj)
                 ? (langObj?.ToString() ?? "csharp").ToLowerInvariant()
                 : "csharp";
@@ -178,6 +178,11 @@ namespace RevitCliBridge.Handlers.Raw
 
                 // Invoke: Execute(UIApplication app, Document doc)
                 var doc = app.ActiveUIDocument?.Document;
+                if (doc is null)
+                {
+                    return CommandResponse.Error(cmd.TaskId, "Active document not found.").ToJson();
+                }
+                
                 var result = executeMethod.Invoke(null, new object[] { app, doc });
 
                 var resultStr = result?.ToString() ?? "null";
@@ -223,10 +228,15 @@ namespace RevitCliBridge.Handlers.Raw
                 }
 
                 // Set up scope with Revit variables
-                var doc = app.ActiveUIDocument?.Document;
+                var uiDoc = app.ActiveUIDocument;
+                if (uiDoc is null)
+                {
+                    return CommandResponse.Error(cmd.TaskId, "Active UI document not found.").ToJson();
+                }
+                var doc = uiDoc.Document;
                 pythonEngine.SetVariable("app", app);
                 pythonEngine.SetVariable("doc", doc);
-                pythonEngine.SetVariable("uidoc", app.ActiveUIDocument);
+                pythonEngine.SetVariable("uidoc", uiDoc);
 
                 // Execute the script
                 var output = new StringBuilder();
