@@ -6,6 +6,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RevitCliBridge", "RevitCliB
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RevitCliBridge.Abstractions", "RevitCliBridge.Abstractions\RevitCliBridge.Abstractions.csproj", "{C2B3D4E5-F6A7-8901-BCDE-F12345678901}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RevitCliBridge.Tests", "RevitCliBridge.Tests\RevitCliBridge.Tests.csproj", "{D3C4E5F6-A7B8-9012-CDEF-123456789012}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug R19|x64 = Debug R19|x64
@@ -50,6 +52,22 @@ Global
 		{C2B3D4E5-F6A7-8901-BCDE-F12345678901}.Release R21|x64.Build.0 = Release|Any CPU
 		{C2B3D4E5-F6A7-8901-BCDE-F12345678901}.Release R22|x64.ActiveCfg = Release|Any CPU
 		{C2B3D4E5-F6A7-8901-BCDE-F12345678901}.Release R22|x64.Build.0 = Release|Any CPU
+		{D3C4E5F6-A7B8-9012-CDEF-123456789012}.Debug R19|x64.ActiveCfg = Debug|Any CPU
+		{D3C4E5F6-A7B8-9012-CDEF-123456789012}.Debug R19|x64.Build.0 = Debug|Any CPU
+		{D3C4E5F6-A7B8-9012-CDEF-123456789012}.Debug R20|x64.ActiveCfg = Debug|Any CPU
+		{D3C4E5F6-A7B8-9012-CDEF-123456789012}.Debug R20|x64.Build.0 = Debug|Any CPU
+		{D3C4E5F6-A7B8-9012-CDEF-123456789012}.Debug R21|x64.ActiveCfg = Debug|Any CPU
+		{D3C4E5F6-A7B8-9012-CDEF-123456789012}.Debug R21|x64.Build.0 = Debug|Any CPU
+		{D3C4E5F6-A7B8-9012-CDEF-123456789012}.Debug R22|x64.ActiveCfg = Debug|Any CPU
+		{D3C4E5F6-A7B8-9012-CDEF-123456789012}.Debug R22|x64.Build.0 = Debug|Any CPU
+		{D3C4E5F6-A7B8-9012-CDEF-123456789012}.Release R19|x64.ActiveCfg = Release|Any CPU
+		{D3C4E5F6-A7B8-9012-CDEF-123456789012}.Release R19|x64.Build.0 = Release|Any CPU
+		{D3C4E5F6-A7B8-9012-CDEF-123456789012}.Release R20|x64.ActiveCfg = Release|Any CPU
+		{D3C4E5F6-A7B8-9012-CDEF-123456789012}.Release R20|x64.Build.0 = Release|Any CPU
+		{D3C4E5F6-A7B8-9012-CDEF-123456789012}.Release R21|x64.ActiveCfg = Release|Any CPU
+		{D3C4E5F6-A7B8-9012-CDEF-123456789012}.Release R21|x64.Build.0 = Release|Any CPU
+		{D3C4E5F6-A7B8-9012-CDEF-123456789012}.Release R22|x64.ActiveCfg = Release|Any CPU
+		{D3C4E5F6-A7B8-9012-CDEF-123456789012}.Release R22|x64.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
