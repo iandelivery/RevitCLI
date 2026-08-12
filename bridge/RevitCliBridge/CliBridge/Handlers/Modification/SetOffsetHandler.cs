@@ -83,13 +83,13 @@ namespace RevitCliBridge.Handlers.Modification
                 if (baseOffset is not null)
                 {
                     result["base_offset"] = baseOffset.Value;
-                    result["old_base_offset"] = oldBaseOffset?.FeetToMillimeter();
+                    result["old_base_offset"] = (oldBaseOffset ?? 0.0).FeetToMillimeter();
                 }
 
                 if (topOffset is not null)
                 {
                     result["top_offset"] = topOffset.Value;
-                    result["old_top_offset"] = oldTopOffset?.FeetToMillimeter();
+                    result["old_top_offset"] = (oldTopOffset ?? 0.0).FeetToMillimeter();
                 }
 
                 return CommandResponse.Success(cmd.TaskId, result, "Offset set successfully.").ToJson();
