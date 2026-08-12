@@ -7,6 +7,7 @@ import (
 	"strings"
 	"sync"
 
+	"revit-cli/internal/client/auth"
 	"revit-cli/internal/models"
 )
 
@@ -57,6 +58,7 @@ func (f *SchemaFetcher) FetchCommand(name string) *models.CommandDef {
 	if err != nil {
 		return nil
 	}
+	auth.WithAuth(req, f.baseURL)
 
 	resp, err := f.client.Do(req)
 	if err != nil {
@@ -110,6 +112,7 @@ func (f *SchemaFetcher) Fetch(forceRefresh bool) *models.CommandSchema {
 	if err != nil {
 		return f.cache.LoadStale()
 	}
+	auth.WithAuth(req, f.baseURL)
 
 	// Send ETag if we have one from a previous response or cache.
 	etag := f.lastEtag

@@ -11,12 +11,20 @@ import (
 	"os"
 
 	"revit-cli/internal/abstractions"
+	"revit-cli/internal/client/auth"
 )
 
-// httpGet performs a GET request and returns the pretty-printed JSON body.
-// Used by status/health/task/commands/schema built-ins.
-func httpGet(client *http.Client, url string) (string, int, error) {
-	resp, err := client.Get(url)
+// httpGet performs an authenticated GET request and returns the
+// pretty-printed JSON body. Used by status/health/task/commands/schema built-ins.
+func httpGet(client *http.Client, baseURL, path string) (string, int, error) {
+	url := baseURL + path
+	req, err := http.NewRequest(http.MethodGet, url, nil)
+	if err != nil {
+		return "", 1, err
+	}
+	auth.WithAuth(req, baseURL)
+
+	resp, err := client.Do(req)
 	if err != nil {
 		return "", 1, err
 	}
@@ -89,7 +97,7 @@ func (h StatusHandler) Metadata() abstractions.CommandMetadata {
 }
 
 func (h StatusHandler) Handle(ctx context.Context, args []string, send abstractions.SendCommandFunc) int {
-	out, code, err := httpGet(h.Client, h.BaseURL+"/api/status")
+	out, code, err := httpGet(h.Client, h.BaseURL, "/api/status")
 	if err != nil {
 		printErr(fmt.Sprintf("Cannot connect to Revit CLI server at %s: %v", h.BaseURL, err))
 		return 1
@@ -118,7 +126,7 @@ func (h HealthHandler) Metadata() abstractions.CommandMetadata {
 }
 
 func (h HealthHandler) Handle(ctx context.Context, args []string, send abstractions.SendCommandFunc) int {
-	out, code, err := httpGet(h.Client, h.BaseURL+"/api/health")
+	out, code, err := httpGet(h.Client, h.BaseURL, "/api/health")
 	if err != nil {
 		printErr(fmt.Sprintf("Cannot connect to Revit CLI server at %s: %v", h.BaseURL, err))
 		return 1
@@ -153,7 +161,7 @@ func (h TaskHandler) Metadata() abstractions.CommandMetadata {
 func (h TaskHandler) Handle(ctx context.Context, args []string, send abstractions.SendCommandFunc) int {
 	taskID, ok := abstractions.FindArg(args, "--task-id", "-ti")
 	if ok && taskID != "" {
-		out, code, err := httpGet(h.Client, h.BaseURL+"/api/task/"+taskID)
+		out, code, err := httpGet(h.Client, h.BaseURL, "/api/task/"+taskID)
 		if err != nil {
 			printErr(fmt.Sprintf("Cannot fetch task %s: %v", taskID, err))
 			return 1
@@ -162,7 +170,7 @@ func (h TaskHandler) Handle(ctx context.Context, args []string, send abstraction
 		return code
 	}
 	// No ID — list all tasks.
-	out, code, err := httpGet(h.Client, h.BaseURL+"/api/task")
+	out, code, err := httpGet(h.Client, h.BaseURL, "/api/task")
 	if err != nil {
 		printErr(fmt.Sprintf("Cannot list tasks: %v", err))
 		return 1

@@ -4,6 +4,8 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"crypto/rand"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -17,6 +19,7 @@ import (
 	"text/tabwriter"
 
 	"revit-cli/internal/abstractions"
+	"revit-cli/internal/client/auth"
 	"revit-cli/internal/client/discovery"
 	"revit-cli/internal/instance"
 )
@@ -121,12 +124,20 @@ func configureSetup(args []string) int {
 			continue
 		}
 
-		err := installBridgeForVersion(srcDir, inst)
+		apiKey, err := installBridgeForVersion(srcDir, inst)
 		if err != nil {
 			fmt.Printf("  [✗] Revit %d: %v\n", inst.Version, err)
-		} else {
-			fmt.Printf("  [✓] Revit %d — base port %d\n", inst.Version, portForVersion(inst.Version))
+			continue
 		}
+
+		// Sync the generated API key into the client auth cache so
+		// subsequent CLI commands are authenticated automatically.
+		// The cache is keyed by the server's base URL (localhost:port).
+		baseURL := fmt.Sprintf("http://localhost:%d", portForVersion(inst.Version))
+		if syncErr := auth.SetAPIKey(baseURL, apiKey); syncErr != nil {
+			fmt.Printf("  [!] Revit %d: installed but failed to sync API key: %v\n", inst.Version, syncErr)
+		}
+		fmt.Printf("  [✓] Revit %d — base port %d (API key synced)\n", inst.Version, portForVersion(inst.Version))
 	}
 
 	if skipped > 0 && skipped == len(installations) {
@@ -468,10 +479,12 @@ func findBridgeFilesForVersion(root string, version int) string {
 }
 
 // installBridgeForVersion copies bridge files to the Revit addins directory.
-func installBridgeForVersion(bridgeDir string, inst revitInstallation) error {
+// Returns the generated API key on success so the caller can sync it into
+// the client auth cache.
+func installBridgeForVersion(bridgeDir string, inst revitInstallation) (string, error) {
 	targetAddinDir := filepath.Join(inst.AddinsDir, "RevitCliBridge")
 	if err := os.MkdirAll(targetAddinDir, 0o755); err != nil {
-		return fmt.Errorf("cannot create directory %s: %w", targetAddinDir, err)
+		return "", fmt.Errorf("cannot create directory %s: %w", targetAddinDir, err)
 	}
 
 	// Copy all DLLs in the source bridge directory.  The bridge depends
@@ -480,7 +493,7 @@ func installBridgeForVersion(bridgeDir string, inst revitInstallation) error {
 	// hardcoded list of expected file names.
 	entries, err := os.ReadDir(bridgeDir)
 	if err != nil {
-		return fmt.Errorf("cannot read bridge source %s: %w", bridgeDir, err)
+		return "", fmt.Errorf("cannot read bridge source %s: %w", bridgeDir, err)
 	}
 	for _, entry := range entries {
 		if entry.IsDir() {
@@ -493,7 +506,7 @@ func installBridgeForVersion(bridgeDir string, inst revitInstallation) error {
 		src := filepath.Join(bridgeDir, name)
 		dst := filepath.Join(targetAddinDir, name)
 		if err := copyFile(src, dst); err != nil {
-			return fmt.Errorf("cannot copy %s: %w", name, err)
+			return "", fmt.Errorf("cannot copy %s: %w", name, err)
 		}
 	}
 
@@ -502,14 +515,37 @@ func installBridgeForVersion(bridgeDir string, inst revitInstallation) error {
 	addinDst := filepath.Join(inst.AddinsDir, "RevitCliBridge.addin")
 	if fileExists(addinSrc) {
 		if err := copyFile(addinSrc, addinDst); err != nil {
-			return fmt.Errorf("cannot copy .addin: %w", err)
+			return "", fmt.Errorf("cannot copy .addin: %w", err)
 		}
 	}
 
 	// Write version-specific config with auto_port.
 	configDir := filepath.Join(targetAddinDir, ".config")
 	if err := os.MkdirAll(configDir, 0o755); err != nil {
-		return fmt.Errorf("cannot create config dir: %w", err)
+		return "", fmt.Errorf("cannot create config dir: %w", err)
+	}
+
+	configPath := filepath.Join(configDir, "cli_bridge_setting.json")
+
+	// Preserve an existing API key when re-running setup so already-running
+	// bridges do not reject the client after a bridge binary upgrade.
+	existingAPIKey := ""
+	if existingData, readErr := os.ReadFile(configPath); readErr == nil {
+		var existing map[string]interface{}
+		if jsonErr := json.Unmarshal(existingData, &existing); jsonErr == nil {
+			if k, ok := existing["api_key"].(string); ok && k != "" {
+				existingAPIKey = k
+			}
+		}
+	}
+
+	apiKey := existingAPIKey
+	if apiKey == "" {
+		generated, err := generateAPIKey()
+		if err != nil {
+			return "", fmt.Errorf("cannot generate API key: %w", err)
+		}
+		apiKey = generated
 	}
 
 	config := map[string]interface{}{
@@ -520,14 +556,25 @@ func installBridgeForVersion(bridgeDir string, inst revitInstallation) error {
 		"max_command_queue_size":      100,
 		"max_request_body_size_bytes": 10 * 1024 * 1024,
 		"allow_raw_execution":         false,
+		"api_key":                     apiKey,
 	}
 	configData, _ := json.MarshalIndent(config, "", "  ")
-	configPath := filepath.Join(configDir, "cli_bridge_setting.json")
 	if err := os.WriteFile(configPath, configData, 0o644); err != nil {
-		return fmt.Errorf("cannot write config: %w", err)
+		return "", fmt.Errorf("cannot write config: %w", err)
 	}
 
-	return nil
+	return apiKey, nil
+}
+
+// generateAPIKey produces a 32-byte URL-safe Base64 random token.
+// Mirrors CliBridgeConfigLoader.GenerateApiKey() on the bridge side.
+func generateAPIKey() (string, error) {
+	b := make([]byte, 32)
+	if _, err := rand.Read(b); err != nil {
+		return "", err
+	}
+	s := base64.RawURLEncoding.EncodeToString(b)
+	return s, nil
 }
 
 func copyFile(src, dst string) error {

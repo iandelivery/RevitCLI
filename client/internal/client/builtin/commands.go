@@ -74,7 +74,7 @@ func (h SchemaHandler) Handle(ctx context.Context, args []string, send abstracti
 	name := args[0]
 
 	// Try the per-command endpoint first.
-	out, code, err := httpGet(h.Client, h.BaseURL+"/api/commands/"+name)
+	out, code, err := httpGet(h.Client, h.BaseURL, "/api/commands/"+name)
 	if err == nil && code == 0 {
 		fmt.Println(out)
 		return 0
