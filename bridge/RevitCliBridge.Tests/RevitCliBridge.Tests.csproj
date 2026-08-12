@@ -1,0 +1,35 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net48</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+    <RootNamespace>RevitCliBridge.Tests</RootNamespace>
+    <AssemblyName>RevitCliBridge.Tests</AssemblyName>
+    <Configurations>Debug;Release</Configurations>
+    <Platforms>AnyCPU</Platforms>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.8.0" />
+    <PackageReference Include="xunit" Version="2.6.6" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.5.6" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\RevitCliBridge.Abstractions\RevitCliBridge.Abstractions.csproj" />
+  </ItemGroup>
+
+  <!--
+    Link pure-logic source files from the main project so tests can run
+    without referencing Revit_API_x64. These files have no Revit API
+    dependencies. If a file starts depending on Revit, remove it from
+    this list and refactor the pure logic into Abstractions instead.
+  -->
+  <ItemGroup>
+    <Compile Include="..\RevitCliBridge\CliBridge\CliLogger.cs" Link="Linked\CliLogger.cs" />
+    <Compile Include="..\RevitCliBridge\CliBridge\PortAllocator.cs" Link="Linked\PortAllocator.cs" />
+    <Compile Include="..\RevitCliBridge\CliBridge\Models\CliBridgeConfig.cs" Link="Linked\CliBridgeConfig.cs" />
+  </ItemGroup>
+</Project>
