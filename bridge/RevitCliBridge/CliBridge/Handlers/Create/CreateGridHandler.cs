@@ -4,7 +4,7 @@ using Autodesk.Revit.UI;
 using RevitCliBridge.Handlers;
 using RevitCliBridge.Abstractions;
 
-namespace RevitCliBridge.Handlers
+namespace RevitCliBridge.Handlers.Create
 {
     public class CreateGridHandler : DocumentCommandBase
     {
