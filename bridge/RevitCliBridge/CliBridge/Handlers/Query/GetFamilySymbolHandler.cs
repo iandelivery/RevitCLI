@@ -39,7 +39,7 @@ namespace RevitCliBridge.Handlers.Query
             string? symbolName = HandlerUtilities.GetStringOrNull(parameters, "symbol_name");
 
             if (!string.IsNullOrEmpty(familyName) && !string.IsNullOrEmpty(symbolName))
-                return HandleByName(doc, cmd, familyName, symbolName, parameters);
+                return HandleByName(doc, cmd, familyName!, symbolName!, parameters);
 
             return CommandResponse.Error(cmd.TaskId,
                 "Missing required parameters. Provide either instance_id or both family_name and symbol_name.").ToJson();
