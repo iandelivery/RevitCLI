@@ -9,7 +9,7 @@ using System.Linq;
 using System.Reflection;
 using System.Text;
 
-namespace RevitCliBridge.Handlers
+namespace RevitCliBridge.Handlers.Raw
 {
     /// <summary>
     /// Executes raw C# or Python code against the Revit API.
