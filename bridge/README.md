@@ -55,7 +55,8 @@ Edit `.config\cli_bridge_setting.json`:
   "auto_port": true,
   "timeout_seconds": 180,
   "max_command_queue_size": 100,
-  "allow_raw_execution": false
+  "allow_raw_execution": false,
+  "api_key": null
 }
 ```
 
@@ -68,6 +69,28 @@ Edit `.config\cli_bridge_setting.json`:
 | `timeout_seconds` | `180` | Command execution timeout |
 | `max_command_queue_size` | `100` | Maximum pending commands |
 | `allow_raw_execution` | `false` | Allow `execute_raw` command (C#/Python code execution) |
+| `api_key` | `null` | Bearer token for `/api/*` endpoints. Auto-generated on first startup or by `configure setup`. `null`/empty disables auth (legacy mode). |
+
+### Authentication
+
+When `api_key` is non-empty, all `/api/*` endpoints (except `/api/health`,
+`/api/identity`, and `/api/auth/status`) require an `Authorization: Bearer <api_key>`
+header. The key is auto-generated on first bridge startup and persisted to
+`cli_bridge_setting.json`. The client syncs this key into its auth cache during
+`configure setup`, so authenticated commands work transparently.
+
+To rotate the key, delete the `api_key` field from the config file and restart
+Revit — a new key will be generated. Then re-run `configure setup` so the
+client cache is updated.
+
+To disable authentication, set `api_key` to `null` or `""` in the config.
+
+Public probe endpoints (no auth required):
+
+- `GET /api/health` — liveness check
+- `GET /api/identity` — instance identity (PID, version, document)
+- `GET /api/auth/status` — reports whether auth is enabled
+
 
 ### Port Allocation
 
