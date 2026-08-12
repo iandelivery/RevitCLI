@@ -4,7 +4,7 @@ using RevitCliBridge.Abstractions;
 using System;
 using System.Collections.Generic;
 
-namespace RevitCliBridge.Handlers.System
+namespace RevitCliBridge.Handlers.General
 {
     public class UndoHandler : DocumentCommandBase
     {

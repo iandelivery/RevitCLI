@@ -5,7 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace RevitCliBridge.Handlers.Parameter
+namespace RevitCliBridge.Handlers.Parameters
 {
     public class BatchSetParamHandler : DocumentCommandBase
     {

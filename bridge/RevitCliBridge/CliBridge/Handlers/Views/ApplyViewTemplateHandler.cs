@@ -5,7 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace RevitCliBridge.Handlers.View
+namespace RevitCliBridge.Handlers.Views
 {
     public class ApplyViewTemplateHandler : DocumentCommandBase
     {

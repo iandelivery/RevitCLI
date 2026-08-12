@@ -5,7 +5,7 @@ using Newtonsoft.Json.Linq;
 using RevitCliBridge.Handlers;
 using RevitCliBridge.Abstractions;
 
-namespace RevitCliBridge.Handlers.Wall
+namespace RevitCliBridge.Handlers.Architecture
 {
     public class SetWallsConstraintHandler : DocumentCommandBase
     {

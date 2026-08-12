@@ -6,7 +6,7 @@ using Autodesk.Revit.UI;
 using RevitCliBridge.Handlers;
 using RevitCliBridge.Abstractions;
 
-namespace RevitCliBridge.Handlers.View
+namespace RevitCliBridge.Handlers.Views
 {
     public class ZoomToFitHandler : DocumentCommandBase
     {

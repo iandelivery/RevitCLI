@@ -6,7 +6,7 @@ using Autodesk.Revit.UI;
 using Newtonsoft.Json;
 using RevitCliBridge.Abstractions;
 
-namespace RevitCliBridge.Handlers.View
+namespace RevitCliBridge.Handlers.Views
 {
     public class SetActiveViewHandler : DocumentCommandBase
     {

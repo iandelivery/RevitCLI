@@ -4,7 +4,7 @@ using RevitCliBridge.Abstractions;
 using System;
 using System.Collections.Generic;
 
-namespace RevitCliBridge.Handlers.View
+namespace RevitCliBridge.Handlers.Views
 {
     public class PlaceOnSheetHandler : DocumentCommandBase
     {

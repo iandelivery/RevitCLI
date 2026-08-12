@@ -5,7 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 
-namespace RevitCliBridge.Handlers.Document
+namespace RevitCliBridge.Handlers.Documents
 {
     public class DocumentInfoHandler : DocumentCommandBase
     {

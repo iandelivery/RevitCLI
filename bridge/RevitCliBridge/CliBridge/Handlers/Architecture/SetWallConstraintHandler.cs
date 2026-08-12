@@ -4,7 +4,7 @@ using Autodesk.Revit.UI;
 using RevitCliBridge.Handlers;
 using RevitCliBridge.Abstractions;
 
-namespace RevitCliBridge.Handlers.Wall
+namespace RevitCliBridge.Handlers.Architecture
 {
     public class SetWallConstraintHandler : DocumentCommandBase
     {

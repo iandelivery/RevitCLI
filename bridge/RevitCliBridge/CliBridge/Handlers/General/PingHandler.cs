@@ -3,7 +3,7 @@ using Autodesk.Revit.UI;
 using RevitCliBridge.Abstractions;
 using System;
 
-namespace RevitCliBridge.Handlers.System
+namespace RevitCliBridge.Handlers.General
 {
     public class PingHandler : BridgeCommandBase
     {
