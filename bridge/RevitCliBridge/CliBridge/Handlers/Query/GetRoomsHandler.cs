@@ -5,7 +5,7 @@ using RevitCliBridge.Abstractions;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace RevitCliBridge.Handlers
+namespace RevitCliBridge.Handlers.Query
 {
     public class GetRoomsHandler : DocumentCommandBase
     {

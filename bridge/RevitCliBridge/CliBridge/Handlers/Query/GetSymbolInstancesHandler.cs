@@ -5,7 +5,7 @@ using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
 using RevitCliBridge.Abstractions;
 
-namespace RevitCliBridge.Handlers
+namespace RevitCliBridge.Handlers.Query
 {
     public class GetSymbolInstancesHandler : DocumentCommandBase
     {

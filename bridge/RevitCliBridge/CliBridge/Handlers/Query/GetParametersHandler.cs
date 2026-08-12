@@ -4,7 +4,7 @@ using RevitCliBridge.Abstractions;
 using System;
 using System.Collections.Generic;
 
-namespace RevitCliBridge.Handlers
+namespace RevitCliBridge.Handlers.Query
 {
     public class GetParametersHandler : DocumentCommandBase
     {

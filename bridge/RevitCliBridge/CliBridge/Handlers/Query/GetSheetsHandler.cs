@@ -5,7 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace RevitCliBridge.Handlers
+namespace RevitCliBridge.Handlers.Query
 {
     public class GetSheetsHandler : DocumentCommandBase
     {
