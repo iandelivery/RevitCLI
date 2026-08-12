@@ -5,7 +5,7 @@ using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
 using RevitCliBridge.Abstractions;
 
-namespace RevitCliBridge.Handlers.Modify
+namespace RevitCliBridge.Handlers.Modification
 {
     public class HideElementsHandler : DocumentCommandBase
     {

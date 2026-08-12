@@ -20,7 +20,7 @@ namespace RevitCliBridge.Handlers.Query
             "{ \"command\": \"get_levels\", \"parameters\": {} }"
         };
 
-        protected override string Execute(UIApplication app, Document doc, Dictionary<string, object> parameters, QueuedCommand cmd)
+        protected override string Execute(UIApplication app, Autodesk.Revit.DB.Document doc, Dictionary<string, object> parameters, QueuedCommand cmd)
         {
 
             var collector = new FilteredElementCollector(doc).OfClass(typeof(Level));

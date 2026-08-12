@@ -4,7 +4,7 @@ using RevitCliBridge.Abstractions;
 using System;
 using System.Collections.Generic;
 
-namespace RevitCliBridge.Handlers.Modify
+namespace RevitCliBridge.Handlers.Modification
 {
     public class DeleteElementHandler : DocumentCommandBase
     {

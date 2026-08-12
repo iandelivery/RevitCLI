@@ -5,7 +5,7 @@ using Autodesk.Revit.DB.Structure;
 using Autodesk.Revit.UI;
 using RevitCliBridge.Abstractions;
 
-namespace RevitCliBridge.Handlers.Create
+namespace RevitCliBridge.Handlers.Creation
 {
     public class CreateFamilyInstanceHandler : DocumentCommandBase
     {

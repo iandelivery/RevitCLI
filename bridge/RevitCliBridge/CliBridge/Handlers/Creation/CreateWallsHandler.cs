@@ -7,7 +7,7 @@ using RevitCliBridge.Handlers;
 using RevitCliBridge.Abstractions;
 using RevitCliBridge.Models;
 
-namespace RevitCliBridge.Handlers.Create
+namespace RevitCliBridge.Handlers.Creation
 {
     public class CreateWallsHandler : DocumentCommandBase
     {

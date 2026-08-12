@@ -5,7 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace RevitCliBridge.Handlers.Create
+namespace RevitCliBridge.Handlers.Creation
 {
     public class CreateViewHandler : DocumentCommandBase
     {
