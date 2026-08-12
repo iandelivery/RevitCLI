@@ -1,0 +1,16 @@
+header:
+  license:
+    content: |
+      Copyright (c) [year] Ian Chan.
+      SPDX-License-Identifier: MIT
+    copyright-year: "2026"
+
+  paths:
+    - '**/*.go'
+    - '**/*.js'
+    - '**/*.py'
+
+  paths-ignore:
+    - '**/skills/**'
+
+  comment: on-failure
