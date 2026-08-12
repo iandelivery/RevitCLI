@@ -4,7 +4,7 @@ using RevitCliBridge.Abstractions;
 using System;
 using System.Collections.Generic;
 
-namespace RevitCliBridge.Handlers
+namespace RevitCliBridge.Handlers.Document
 {
     public class DocSaveHandler : DocumentCommandBase
     {

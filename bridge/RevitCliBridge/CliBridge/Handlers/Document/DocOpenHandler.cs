@@ -5,7 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 
-namespace RevitCliBridge.Handlers
+namespace RevitCliBridge.Handlers.Document
 {
     public class DocOpenHandler : DocumentCommandBase
     {

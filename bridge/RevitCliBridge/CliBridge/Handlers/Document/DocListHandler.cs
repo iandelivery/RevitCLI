@@ -5,7 +5,7 @@ using System;
 using System.IO;
 using System.Linq;
 
-namespace RevitCliBridge.Handlers
+namespace RevitCliBridge.Handlers.Document
 {
     public class DocListHandler : BridgeCommandBase
     {
