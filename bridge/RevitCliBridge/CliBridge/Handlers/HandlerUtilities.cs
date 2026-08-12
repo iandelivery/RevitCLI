@@ -14,8 +14,11 @@ namespace RevitCliBridge.Handlers
             t.SetFailureHandlingOptions(options);
         }
 
-        public static double? GetDoubleOrNull(Dictionary<string, object> parameters, string key)
+        public static double? GetDoubleOrNull(Dictionary<string, object>? parameters, string key)
         {
+            if (parameters is null)
+                return null;
+
             if (parameters.TryGetValue(key, out var val) && val is not null)
             {
                 try { return Convert.ToDouble(val); }
@@ -24,8 +27,11 @@ namespace RevitCliBridge.Handlers
             return null;
         }
 
-        public static int? GetIntOrNull(Dictionary<string, object> parameters, string key)
+        public static int? GetIntOrNull(Dictionary<string, object>? parameters, string key)
         {
+            if (parameters is null)
+                return null;
+
             if (parameters.TryGetValue(key, out var val) && val is not null)
             {
                 try { return Convert.ToInt32(val); }
@@ -34,8 +40,11 @@ namespace RevitCliBridge.Handlers
             return null;
         }
 
-        public static string? GetStringOrNull(Dictionary<string, object> parameters, string key)
+        public static string? GetStringOrNull(Dictionary<string, object>? parameters, string key)
         {
+            if (parameters is null)
+                return null;
+
             if (parameters.TryGetValue(key, out var val) && val is not null)
             {
                 return val.ToString();
