@@ -167,13 +167,13 @@ if (-not $SkipClient) {
     }
 
     $clientExe = Join-Path $ClientDir "revit-cli.exe"
-    $ldFlags = "-s -w -X main.Version=$buildVersion"
+    $ldFlags = "-s -w -X main.Version=$buildVersion -X 'main.Author=Ian Chan'"
 
     Write-Host "  Building revit-cli.exe (version: $buildVersion)..." -ForegroundColor Cyan
     $env:GOOS = "windows"
     $env:GOARCH = "amd64"
     $env:CGO_ENABLED = "0"
-    & go build -trimpath -ldflags $ldFlags -o $clientExe ./cmd/revit-cli
+    & go build -trimpath "-ldflags=$ldFlags" -o $clientExe ./cmd/revit-cli
 
     if ($LASTEXITCODE -ne 0) {
         Write-Host "[ERROR] Go build failed" -ForegroundColor Red

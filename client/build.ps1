@@ -91,14 +91,14 @@ if ($LASTEXITCODE -eq 0 -and $gitTag) {
     $buildVersion = $gitTag
 }
 
-$ldFlags = "-s -w -X main.Version=$buildVersion"
+$ldFlags = "-s -w -X main.Version=$buildVersion -X 'main.Author=Ian Chan'"
 
 Write-Host ""
 Write-Host "[3/5] Building Go binary (version: $buildVersion)..." -ForegroundColor Yellow
 $env:GOOS = "windows"
 $env:GOARCH = "amd64"
 $env:CGO_ENABLED = "0"
-& go build -trimpath -ldflags $ldFlags -o $buildOutput ./cmd/revit-cli
+& go build -trimpath -ldflags="$ldFlags" -o $buildOutput ./cmd/revit-cli
 if ($LASTEXITCODE -ne 0) {
     Write-Host "[ERROR] go build failed with exit code $LASTEXITCODE" -ForegroundColor Red
     exit 1

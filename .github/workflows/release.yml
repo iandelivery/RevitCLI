@@ -116,7 +116,7 @@ jobs:
           $tag = "${{ github.ref_name }}"
           $version = $tag -replace '^v', ''
           go vet ./...
-          go build -trimpath -ldflags="-s -w -X main.Version=$version" -o revit-cli.exe ./cmd/revit-cli
+          go build -trimpath -ldflags="-s -w -X main.Version=$version -X 'main.Author=Ian Chan'" -o revit-cli.exe ./cmd/revit-cli
           Get-ChildItem revit-cli.exe | Format-List Name,Length,LastWriteTime
           & .\revit-cli.exe --version
 

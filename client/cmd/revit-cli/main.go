@@ -23,12 +23,19 @@ import (
 // Version is set at build time via -ldflags "-X main.Version=...".
 var Version = "dev"
 
+// Author is set at build time via -ldflags "-X main.Author=...".
+var Author = "Ian Chan"
+
 // banner is the ASCII art shown in help and version output.
-const banner = `  ___    __    _ __   ___   _     __    _ __
- |_ _|  / _|  | '_ \ / __| | |__ / _|  | '_ \
-  | |  | (_   | .__/| (    | '_ \ (_   | .__/
- |___|  \__|  |_|   \___|  | | | \__|  |_|
-                              |_| |_|`
+const banner = ".-./`)    ____    ,---.   .--.            _______   .---.  .---.    ____    ,---.   .--. \n" +
+	"\\ .-.') .'  __ `. |    \\  |  |           /   __  \\  |   |  |_ _|  .'  __ `. |    \\  |  | \n" +
+	"/ `-' \\/   '  \\  \\|  ,  \\ |  |          | ,_/  \\__) |   |  ( ' ) /   '  \\  \\|  ,  \\ |  | \n" +
+	" `-'`\"`|___|  /  ||  |\\_ \\|  |        ,-./  )       |   '-(_{;}_)|___|  /  ||  |\\_ \\|  | \n" +
+	" .---.    _.-`   ||  _( )_\\  |        \\  '_ '`)     |      (_,_)    _.-`   ||  _( )_\\  | \n" +
+	" |   | .'   _    || (_ o _)  |         > (_)  )  __ | _ _--.   | .'   _    || (_ o _)  | \n" +
+	" |   | |  _( )_  ||  (_,_)\\  |        (  .  .-'_/  )|( ' ) |   | |  _( )_  ||  (_,_)\\  | \n" +
+	" |   | \\ (_ o _) /|  |    |  |         `-'`-'     / (_{;}_)|   | \\ (_ o _) /|  |    |  | \n" +
+	" '---'  '.(_,_).' '--'    '--'           `._____.'  '(_,_) '---'  '.(_,_).' '--'    '--'"
 
 // exitCode is set by command RunE functions and read by main() after Execute().
 var exitCode int
@@ -55,10 +62,12 @@ func main() {
 
 // newRootCmd creates the root cobra command with all built-in sub-commands.
 func newRootCmd() *cobra.Command {
+	longDesc := fmt.Sprintf("%s\n\nRevit CLI Client (Go) v%s\nCommand-line tool for AI agents to drive Autodesk Revit.\nDeveloped by %s.",
+		banner, Version, Author)
 	root := &cobra.Command{
 		Use:                "revit-cli [flags] <command> [args]",
 		Short:              "Command-line tool for AI agents to drive Autodesk Revit",
-		Long:               banner + "\n\nRevit CLI Client (Go) - Command-line tool for AI agents to drive Autodesk Revit.",
+		Long:               longDesc,
 		DisableFlagParsing: true,
 		SilenceUsage:       true,
 		SilenceErrors:      true,
@@ -78,6 +87,7 @@ func newRootCmd() *cobra.Command {
 				if a == "--version" || a == "-V" {
 					fmt.Println(banner)
 					fmt.Printf("revit-cli %s\n", Version)
+					fmt.Printf("Author: %s\n", Author)
 					return nil
 				}
 			}

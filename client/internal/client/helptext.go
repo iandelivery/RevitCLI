@@ -34,10 +34,12 @@ var argShortcuts = []struct {
 
 // Generate builds the help text for the CLI client.
 // Mirrors C# RevitCliClient.HelpText.Generate.
-func Generate(registry *CommandRegistry) string {
+func Generate(registry *CommandRegistry, version, author string) string {
 	var sb strings.Builder
 
-	sb.WriteString("Revit CLI Client (Go) - Command-line tool for AI agents to drive Autodesk Revit\n\n")
+	sb.WriteString(fmt.Sprintf("Revit CLI Client (Go) v%s\n", version))
+	sb.WriteString("Command-line tool for AI agents to drive Autodesk Revit\n")
+	sb.WriteString(fmt.Sprintf("Developed by %s\n\n", author))
 	sb.WriteString("Usage:\n")
 	sb.WriteString("  revit-cli.exe [--url <url>] <command> [arguments]\n\n")
 
