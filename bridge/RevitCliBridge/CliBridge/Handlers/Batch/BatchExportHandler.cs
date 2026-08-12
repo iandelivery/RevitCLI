@@ -6,7 +6,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 
-namespace RevitCliBridge.Handlers
+namespace RevitCliBridge.Handlers.Batch
 {
     public class BatchExportHandler : DocumentCommandBase
     {

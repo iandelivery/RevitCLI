@@ -7,7 +7,7 @@ using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using RevitCliBridge.Abstractions;
 
-namespace RevitCliBridge.Handlers
+namespace RevitCliBridge.Handlers.Batch
 {
     public class BatchHandler : DocumentCommandBase
     {
