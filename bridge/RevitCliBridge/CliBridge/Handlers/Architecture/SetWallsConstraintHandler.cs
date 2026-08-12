@@ -132,7 +132,10 @@ namespace RevitCliBridge.Handlers.Architecture
 
             if (!string.IsNullOrEmpty(category))
             {
-                var catFilter = new ElementCategoryFilter(GetBuiltInCategory(category));
+                var bic = GetBuiltInCategory(category);
+                if (bic == BuiltInCategory.INVALID)
+                    return CommandResponse.Error(cmd.TaskId, $"Unknown category: '{category}'. Supported: OST_Walls, OST_CurtainWallPanels").ToJson();
+                var catFilter = new ElementCategoryFilter(bic);
                 collector = collector.WherePasses(catFilter);
             }
 
@@ -207,13 +210,13 @@ namespace RevitCliBridge.Handlers.Architecture
             return result;
         }
 
-        private BuiltInCategory GetBuiltInCategory(string category)
+        private BuiltInCategory GetBuiltInCategory(string? category)
         {
             return category switch
             {
                 "OST_Walls" => BuiltInCategory.OST_Walls,
                 "OST_CurtainWallPanels" => BuiltInCategory.OST_CurtainWallPanels,
-                _ => BuiltInCategory.OST_Walls
+                _ => BuiltInCategory.INVALID
             };
         }
     }

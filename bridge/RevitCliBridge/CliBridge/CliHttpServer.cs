@@ -360,11 +360,11 @@ namespace RevitCliBridge
 
             CliLogger.Info($"Received SSE CLI request: {body}");
 
-            RevitCommandInput input;
+            RevitCommandInput? input;
             try
             {
                 input = JsonConvert.DeserializeObject<RevitCommandInput>(body);
-                if (input == null || string.IsNullOrEmpty(input.Command))
+                if (input is null || string.IsNullOrEmpty(input.Command))
                 {
                     response.StatusCode = 400;
                     await WriteJsonResponseAsync(response,
