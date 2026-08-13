@@ -63,6 +63,36 @@ namespace RevitCliBridge.Handlers
             return Execute(app, cmd);
         }
 
+        /// <summary>
+        /// Convenience binder for handlers that declare a parameter POCO
+        /// annotated with <see cref="ParamAttribute"/>. Returns null and
+        /// produces an error response (suitable for direct return from
+        /// <see cref="Execute(UIApplication, QueuedCommand)"/>) when binding
+        /// fails — so callers can write:
+        /// <code>
+        /// var p = TryBind&lt;CreateWallParams&gt;(cmd, out var error);
+        /// if (p is null) return error!;
+        /// </code>
+        /// </summary>
+        protected T? TryBind<T>(QueuedCommand cmd, out string? errorJson) where T : new()
+        {
+            try
+            {
+                errorJson = null;
+                return ParameterBinder.Bind<T>(cmd.Parameters);
+            }
+            catch (MissingParameterException ex)
+            {
+                errorJson = CommandResponse.Error(cmd.TaskId, ex.Message).ToJson();
+                return default;
+            }
+            catch (ParameterTypeException ex)
+            {
+                errorJson = CommandResponse.Error(cmd.TaskId, ex.Message).ToJson();
+                return default;
+            }
+        }
+
         protected abstract string Execute(UIApplication app, QueuedCommand cmd);
     }
 
