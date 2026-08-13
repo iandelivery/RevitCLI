@@ -31,5 +31,8 @@
     <Compile Include="..\RevitCliBridge\CliBridge\CliLogger.cs" Link="Linked\CliLogger.cs" />
     <Compile Include="..\RevitCliBridge\CliBridge\PortAllocator.cs" Link="Linked\PortAllocator.cs" />
     <Compile Include="..\RevitCliBridge\CliBridge\Models\CliBridgeConfig.cs" Link="Linked\CliBridgeConfig.cs" />
+    <Compile Include="..\RevitCliBridge\CliBridge\TaskStatus.cs" Link="Linked\TaskStatus.cs" />
+    <Compile Include="..\RevitCliBridge\CliBridge\TaskInfo.cs" Link="Linked\TaskInfo.cs" />
+    <Compile Include="..\RevitCliBridge\CliBridge\TaskStateMachine.cs" Link="Linked\TaskStateMachine.cs" />
   </ItemGroup>
 </Project>

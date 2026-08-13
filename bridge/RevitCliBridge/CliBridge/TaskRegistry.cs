@@ -3,7 +3,6 @@ using System;
 using System.Collections.Concurrent;
 using Autodesk.Revit.UI;
 using RevitCliBridge.Abstractions;
-using Newtonsoft.Json.Linq;
 
 namespace RevitCliBridge
 {
@@ -39,9 +38,7 @@ namespace RevitCliBridge
         {
             if (Tasks.TryGetValue(taskId, out var task))
             {
-                task.Status = CliTaskStatus.Running;
-                task.StartedAt = DateTime.Now;
-                task.Broadcast("progress", new { task_id = taskId, progress = 0, message = "Execution started" });
+                TaskStateMachine.SetRunning(task);
             }
         }
 
@@ -49,10 +46,7 @@ namespace RevitCliBridge
         {
             if (Tasks.TryGetValue(taskId, out var task))
             {
-                task.Progress = progress;
-                if (message != null)
-                    task.ProgressMessage = message;
-                task.Broadcast("progress", new { task_id = taskId, progress, message });
+                TaskStateMachine.SetProgress(task, progress, message);
             }
         }
 
@@ -60,12 +54,7 @@ namespace RevitCliBridge
         {
             if (Tasks.TryGetValue(taskId, out var task))
             {
-                task.Status = CliTaskStatus.Completed;
-                task.ResultJson = resultJson;
-                task.CompletedAt = DateTime.Now;
-                task.Broadcast("completed", new { task_id = taskId, status = "completed", result = SafeParseJson(resultJson) });
-                // Use TrySetResult to avoid InvalidOperationException if already set.
-                task.Tcs.TrySetResult(resultJson);
+                TaskStateMachine.SetCompleted(task, resultJson);
             }
         }
 
@@ -73,19 +62,8 @@ namespace RevitCliBridge
         {
             if (Tasks.TryGetValue(taskId, out var task))
             {
-                task.Status = CliTaskStatus.Failed;
-                task.ResultJson = errorJson;
-                task.CompletedAt = DateTime.Now;
-                task.Broadcast("failed", new { task_id = taskId, status = "failed", result = SafeParseJson(errorJson) });
-                // Use TrySetResult to avoid InvalidOperationException if already set.
-                task.Tcs.TrySetResult(errorJson);
+                TaskStateMachine.SetFailed(task, errorJson);
             }
-        }
-
-        private static object SafeParseJson(string json)
-        {
-            try { return JObject.Parse(json); }
-            catch { return json; }
         }
 
         public static void CleanupOldTasks(int maxAgeSeconds = 300)
