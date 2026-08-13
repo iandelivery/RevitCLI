@@ -7,20 +7,21 @@ using System.Linq;
 
 namespace RevitCliBridge.Handlers.Query
 {
-    public class SearchElementsHandler : DocumentCommandBase
+    public class SearchElementsHandler : PaginatedQueryHandler<object>
     {
         public override string CommandName => "search_elements";
         public override string Description => "Searches elements by category and parameter value with various comparison operators";
         public override string Category => "Query";
 
-        public override CommandParamSchema[] Parameters => new[]
+        protected override string ItemsProperty => "elements";
+        protected override string SuccessMessage(int count) => $"Found {count} elements matching criteria.";
+
+        protected override CommandParamSchema[] BaseParameters => new[]
         {
             new CommandParamSchema { Name = "category", Type = "string", Required = true, Description = "BuiltInCategory enum value (e.g. 'OST_Walls')" },
             new CommandParamSchema { Name = "param_name", Type = "string", Required = true, Description = "Parameter name to search on" },
             new CommandParamSchema { Name = "param_value", Type = "string", Required = false, Description = "Parameter value to compare (not required for 'empty' operator)" },
-            new CommandParamSchema { Name = "param_operator", Type = "string", Required = false, Description = "Comparison operator", EnumValues = new[] { "eq", "neq", "contains", "gt", "lt", "empty", "notempty" }, Default = "eq" },
-            new CommandParamSchema { Name = "limit", Type = "int", Required = false, Description = "Maximum number of results (page size)", Default = 500 },
-            new CommandParamSchema { Name = "offset", Type = "int", Required = false, Description = "Number of results to skip for pagination", Default = 0 }
+            new CommandParamSchema { Name = "param_operator", Type = "string", Required = false, Description = "Comparison operator", EnumValues = new[] { "eq", "neq", "contains", "gt", "lt", "empty", "notempty" }, Default = "eq" }
         };
 
         public override string[] Examples => new[]
@@ -31,41 +32,52 @@ namespace RevitCliBridge.Handlers.Query
             "{ \"command\": \"search_elements\", \"parameters\": { \"category\": \"OST_Walls\", \"param_name\": \"Comments\", \"param_operator\": \"contains\", \"param_value\": \"Review\", \"limit\": 100, \"offset\": 100 } }"
         };
 
-        protected override string Execute(UIApplication app, Document doc, Dictionary<string, object> parameters, QueuedCommand cmd)
+        protected override string? Validate(Dictionary<string, object> parameters)
         {
-
             string? category = HandlerUtilities.GetStringOrNull(parameters, "category");
             string? paramName = HandlerUtilities.GetStringOrNull(parameters, "param_name");
             string? paramValue = HandlerUtilities.GetStringOrNull(parameters, "param_value");
             string? paramOperator = HandlerUtilities.GetStringOrNull(parameters, "param_operator") ?? "eq";
-            var (limit, offset) = HandlerUtilities.GetPagingParams(parameters);
 
             if (string.IsNullOrEmpty(category))
-                return CommandResponse.Error(cmd.TaskId, "Missing 'category' parameter.").ToJson();
+                return "Missing 'category' parameter.";
 
             if (string.IsNullOrEmpty(paramName))
-                return CommandResponse.Error(cmd.TaskId, "Missing 'param_name' parameter.").ToJson();
+                return "Missing 'param_name' parameter.";
 
             if (paramValue is null && paramOperator != "empty")
-                return CommandResponse.Error(cmd.TaskId, "Missing 'param_value' parameter.").ToJson();
+                return "Missing 'param_value' parameter.";
 
-            BuiltInCategory bic;
-            try
-            {
-                bic = (BuiltInCategory)Enum.Parse(typeof(BuiltInCategory), category);
-            }
-            catch
-            {
-                return CommandResponse.Error(cmd.TaskId, $"Invalid category: {category}").ToJson();
-            }
+            if (!Enum.TryParse(category, out BuiltInCategory _))
+                return $"Invalid category: {category}";
+
+            return null;
+        }
+
+        protected override void MergeExtraFields(Dictionary<string, object> result, Dictionary<string, object> parameters)
+        {
+            result["category"] = HandlerUtilities.GetStringOrNull(parameters, "category") ?? "";
+            result["param_name"] = HandlerUtilities.GetStringOrNull(parameters, "param_name") ?? "";
+            result["param_operator"] = HandlerUtilities.GetStringOrNull(parameters, "param_operator") ?? "eq";
+            result["param_value"] = (object?)HandlerUtilities.GetStringOrNull(parameters, "param_value") ?? "";
+        }
+
+        protected override IEnumerable<object> QuerySource(UIApplication app, Document doc, Dictionary<string, object> parameters)
+        {
+            string? category = HandlerUtilities.GetStringOrNull(parameters, "category");
+            string? paramName = HandlerUtilities.GetStringOrNull(parameters, "param_name");
+            string? paramValue = HandlerUtilities.GetStringOrNull(parameters, "param_value");
+            string? paramOperator = HandlerUtilities.GetStringOrNull(parameters, "param_operator") ?? "eq";
+
+            // Validate already checked these are non-null / valid enum.
+            var bic = (BuiltInCategory)Enum.Parse(typeof(BuiltInCategory), category);
 
             var collector = new FilteredElementCollector(doc)
                 .OfCategory(bic)
                 .WhereElementIsNotElementType();
 
-            // OrderBy(id) ensures stable pagination; Take(limit+1) enables
-            // has_more detection without a full Count() over the source.
-            var overFetched = collector
+            // OrderBy(id) ensures stable pagination.
+            return collector
                 .Where(e => MatchesParameter(e, paramName!, paramValue, paramOperator))
                 .Select(e => new
                 {
@@ -75,27 +87,7 @@ namespace RevitCliBridge.Handlers.Query
                     class_type = e.GetType().Name
                 })
                 .OrderBy(e => e.id)
-                .Skip(offset)
-                .Take(limit + 1)
-                .ToList();
-
-            var (items, hasMore) = HandlerUtilities.ApplyPaging(overFetched, limit);
-
-            var result = new
-            {
-                category = category,
-                param_name = paramName,
-                param_operator = paramOperator,
-                param_value = paramValue,
-                count = items.Count,
-                offset = offset,
-                limit = limit,
-                has_more = hasMore,
-                elements = items
-            };
-
-            return CommandResponse.Success(cmd.TaskId, result,
-                $"Found {items.Count} elements matching criteria.").ToJson();
+                .Select(e => (object)e);
         }
 
         private bool MatchesParameter(Element element, string paramName, string? paramValue, string op)

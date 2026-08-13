@@ -5,21 +5,6 @@ using System.Linq;
 
 namespace RevitCliBridge.Handlers
 {
-    /// <summary>
-    /// Standardized paging constants shared across query handlers.
-    /// </summary>
-    public static class PagingDefaults
-    {
-        /// <summary>Default page size when caller omits <c>limit</c>.</summary>
-        public const int DefaultLimit = 500;
-
-        /// <summary>Hard upper bound on page size to protect memory.</summary>
-        public const int MaxLimit = 5000;
-
-        /// <summary>Default offset when caller omits <c>offset</c>.</summary>
-        public const int DefaultOffset = 0;
-    }
-
     public static class HandlerUtilities
     {
         public static void ConfigureFailureHandling(this Transaction t)
@@ -135,43 +120,6 @@ namespace RevitCliBridge.Handlers
                 .Select(l => l.GetLinkDocument())
                 .Where(d => d is not null)
                 .ToList()!;
-        }
-
-        /// <summary>
-        /// Parses standardized paging parameters (<c>limit</c>, <c>offset</c>)
-        /// from a command parameter dictionary. Applies defaults and clamps to
-        /// safe bounds: limit in [1, MaxLimit], offset &gt;= 0. Missing or
-        /// invalid values fall back to defaults (backward compatible).
-        /// </summary>
-        /// <returns>
-        /// (limit, offset) tuple ready to feed into Skip(offset).Take(limit+1).
-        /// </returns>
-        public static (int limit, int offset) GetPagingParams(Dictionary<string, object>? parameters)
-        {
-            int limit = GetIntOrNull(parameters, "limit") ?? PagingDefaults.DefaultLimit;
-            int offset = GetIntOrNull(parameters, "offset") ?? PagingDefaults.DefaultOffset;
-
-            if (limit < 1) limit = PagingDefaults.DefaultLimit;
-            if (limit > PagingDefaults.MaxLimit) limit = PagingDefaults.MaxLimit;
-            if (offset < 0) offset = PagingDefaults.DefaultOffset;
-
-            return (limit, offset);
-        }
-
-        /// <summary>
-        /// Applies the "has_more" paging trick: the caller must have fetched
-        /// <c>limit + 1</c> items. If <paramref name="overFetched"/> contains
-        /// more than <paramref name="limit"/> items, the extra tail is dropped
-        /// and <c>hasMore = true</c>; otherwise <c>hasMore = false</c>. This
-        /// avoids a full <c>Count()</c> over the source collection.
-        /// </summary>
-        public static (List<T> items, bool hasMore) ApplyPaging<T>(List<T> overFetched, int limit)
-        {
-            if (overFetched.Count > limit)
-            {
-                return (overFetched.GetRange(0, limit), true);
-            }
-            return (overFetched, false);
         }
     }
 }
