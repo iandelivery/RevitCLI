@@ -78,7 +78,10 @@ namespace RevitCliBridge.Handlers.Batch
                     {
                         TaskId = $"{cmd.TaskId}_{i}",
                         Command = op.Command,
-                        Parameters = resolvedParams
+                        Parameters = resolvedParams,
+                        // Inherit parent request ID so sub-commands correlate
+                        // back to the same originating HTTP request in logs.
+                        RequestId = cmd.RequestId
                     };
 
                     string resultJson;

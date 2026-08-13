@@ -23,5 +23,16 @@ namespace RevitCliBridge.Abstractions
         /// </summary>
         [JsonProperty("dry_run")]
         public bool DryRun { get; set; }
+
+        /// <summary>
+        /// End-to-end request tracing ID propagated from the HTTP
+        /// <c>X-Request-Id</c> header (or minted by the server). Carried
+        /// through the queue so handlers and logs can correlate a command
+        /// execution back to the originating HTTP request. Empty for
+        /// internally generated commands (e.g. batch sub-commands that
+        /// inherit the parent's ID).
+        /// </summary>
+        [JsonProperty("request_id", NullValueHandling = NullValueHandling.Ignore)]
+        public string? RequestId { get; set; }
     }
 }

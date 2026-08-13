@@ -168,7 +168,8 @@ namespace RevitCliBridge
                     TaskId = queuedCommand.TaskId,
                     Command = resolvedCommand,
                     Parameters = queuedCommand.Parameters,
-                    DryRun = queuedCommand.DryRun
+                    DryRun = queuedCommand.DryRun,
+                    RequestId = queuedCommand.RequestId
                 };
             }
 

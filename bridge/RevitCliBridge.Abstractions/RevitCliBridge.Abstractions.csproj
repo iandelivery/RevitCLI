@@ -11,6 +11,11 @@
 		<Version>$(Major).$(Minor).$(Patch)</Version>
 		<AssemblyVersion>$(Major).0.0.0</AssemblyVersion>
 		<FileVersion>$(Major).$(Minor).$(Patch).0</FileVersion>
+		<!-- Strong name so third-party addins can reference this assembly
+		     without type-identity splits when the bridge loads its own copy.
+		     Required for the cross-addin plugin registration pattern. -->
+		<SignAssembly>true</SignAssembly>
+		<AssemblyOriginatorKeyFile>RevitCliBridge.Abstractions.snk</AssemblyOriginatorKeyFile>
 	</PropertyGroup>
 
 	<ItemGroup>
