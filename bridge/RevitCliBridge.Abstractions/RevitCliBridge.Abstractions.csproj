@@ -5,12 +5,33 @@
 		<Nullable>enable</Nullable>
 		<RootNamespace>RevitCliBridge.Abstractions</RootNamespace>
 		<Description>Plugin interfaces for RevitCliBridge — enables third-party command handler development without Revit API dependency</Description>
-		<Major>1</Major>
-		<Minor>0</Minor>
+
+		<!-- Versioning: 0.1.0 — early development, breaking changes possible
+		     before 1.0. AssemblyVersion stays at 0.0.0.0 so binding redirects
+		     are not required across 0.x patch releases. -->
+		<Major>0</Major>
+		<Minor>1</Minor>
 		<Patch>0</Patch>
 		<Version>$(Major).$(Minor).$(Patch)</Version>
-		<AssemblyVersion>$(Major).0.0.0</AssemblyVersion>
+		<AssemblyVersion>0.0.0.0</AssemblyVersion>
 		<FileVersion>$(Major).$(Minor).$(Patch).0</FileVersion>
+
+		<!-- NuGet package metadata -->
+		<PackageId>RevitCliBridge.Abstractions</PackageId>
+		<Authors>RevitCliBridge Contributors</Authors>
+		<Company>RevitCliBridge</Company>
+		<Copyright>Copyright (c) 2026 RevitCliBridge Contributors</Copyright>
+		<PackageTags>revit;autodesk;cli;bridge;plugin;automation;api</PackageTags>
+		<PackageLicenseExpression>MIT</PackageLicenseExpression>
+		<PackageProjectUrl>https://github.com/revit-cli/revit-cli-opensource</PackageProjectUrl>
+		<RepositoryUrl>https://github.com/revit-cli/revit-cli-opensource</RepositoryUrl>
+		<RepositoryType>git</RepositoryType>
+		<PackageReadmeFile>README.md</PackageReadmeFile>
+		<!-- Icon intentionally omitted: no logo asset yet. Add
+		     <PackageIcon>icon.png</PackageIcon> + an <ItemGroup>
+		     <None Include="icon.png" Pack="true" PackagePath="\" />
+		     when a logo exists. -->
+
 		<!-- Strong name so third-party addins can reference this assembly
 		     without type-identity splits when the bridge loads its own copy.
 		     Required for the cross-addin plugin registration pattern. -->
@@ -27,5 +48,10 @@
 
 	<ItemGroup>
 		<PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+	</ItemGroup>
+
+	<!-- Ship the package README so it renders on the NuGet package page. -->
+	<ItemGroup>
+		<None Include="README.md" Pack="true" PackagePath="\" />
 	</ItemGroup>
 </Project>
