@@ -190,13 +190,13 @@ namespace RevitCliBridge
 
                     if (isSseRequested)
                     {
-                        await HandleSseExecuteRequestAsync(request, response);
+                        await HandleSseExecuteRequestAsync(request, response, requestId);
                         // SSE handles its own response lifecycle — skip finally Close().
                         responseHandled = true;
                         return;
                     }
 
-                    await HandleExecuteRequestAsync(request, response);
+                    await HandleExecuteRequestAsync(request, response, requestId);
                 }
                 else if (path == "/api/task" && request.HttpMethod == "GET")
                 {
@@ -327,7 +327,7 @@ namespace RevitCliBridge
             }
         }
 
-        private async Task HandleExecuteRequestAsync(HttpListenerRequest request, HttpListenerResponse response)
+        private async Task HandleExecuteRequestAsync(HttpListenerRequest request, HttpListenerResponse response, string requestId)
         {
             string body = await ReadRequestBodyAsync(request, response);
             if (string.IsNullOrEmpty(body) && response.StatusCode == 413) return;
@@ -366,7 +366,8 @@ namespace RevitCliBridge
                 TaskId = input.TaskId,
                 Command = input.Command,
                 Parameters = input.Parameters,
-                DryRun = input.DryRun
+                DryRun = input.DryRun,
+                RequestId = requestId
             };
 
             // Enforce max queue size to prevent unbounded command accumulation.
@@ -420,7 +421,7 @@ namespace RevitCliBridge
         /// Client triggers this mode by Accept: text/event-stream header.
         /// Server keeps the connection open and pushes real-time events until the task completes.
         /// </summary>
-        private async Task HandleSseExecuteRequestAsync(HttpListenerRequest request, HttpListenerResponse response)
+        private async Task HandleSseExecuteRequestAsync(HttpListenerRequest request, HttpListenerResponse response, string requestId)
         {
             // 1. Parse request body
             string body = await ReadRequestBodyAsync(request, response);
@@ -497,7 +498,8 @@ namespace RevitCliBridge
                 TaskId = input.TaskId,
                 Command = input.Command,
                 Parameters = input.Parameters,
-                DryRun = input.DryRun
+                DryRun = input.DryRun,
+                RequestId = requestId
             };
             TaskRegistry.CommandQueue.Enqueue(queuedCommand);
             TaskRegistry.RevitEvent?.Raise();

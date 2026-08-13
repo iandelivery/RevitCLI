@@ -53,5 +53,30 @@ namespace RevitCliBridge.Abstractions
         /// </summary>
         [JsonProperty("context", NullValueHandling = NullValueHandling.Ignore)]
         public object? Context { get; set; }
+
+        /// <summary>
+        /// Marks the parameter as deprecated. Agents and clients should prefer
+        /// the replacement indicated in <see cref="DeprecationMessage"/>.
+        /// The parameter still accepts input for backward compatibility.
+        /// </summary>
+        [JsonProperty("deprecated")]
+        public bool Deprecated { get; set; }
+
+        /// <summary>
+        /// Human-readable guidance shown when <see cref="Deprecated"/> is true.
+        /// Should name the replacement parameter and the version where removal
+        /// is planned, e.g. "Use 'level_id' instead; removed in v3."
+        /// </summary>
+        [JsonProperty("deprecation_message", NullValueHandling = NullValueHandling.Ignore)]
+        public string? DeprecationMessage { get; set; }
+
+        /// <summary>
+        /// Marks the parameter as sensitive (passwords, tokens, paths under
+        /// NDA). The bridge redacts sensitive values from structured logs and
+        /// error messages; the value itself is still passed to the handler
+        /// unchanged. Defaults to <c>false</c>.
+        /// </summary>
+        [JsonProperty("sensitive")]
+        public bool Sensitive { get; set; }
     }
 }
