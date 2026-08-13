@@ -201,5 +201,5 @@ This skill is a Go port of the C# `RevitCliClient`, following the same patterns:
 - Type-safe argument parsing (ArgHelper)
 - 30-min TTL local schema cache with ETag support
 
-See `CliBridge/ARCHITECTURE.md` in the repository for the full protocol specification.
+See `bridge/docs/README.md` in the repository for the full protocol specification.
 
