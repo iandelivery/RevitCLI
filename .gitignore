@@ -50,3 +50,6 @@ Thumbs.db
 
 # CLI Client skill folder
 client/skills/revit-cli/revit-cli.exe
+
+# Trae
+.trae/
