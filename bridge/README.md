@@ -229,7 +229,7 @@ Compile your plugin DLL and place it in a `CliBridgePlugins/` subfolder next to 
 
 ## Architecture
 
-See [ARCHITECTURE.md](ARCHITECTURE.md) for the full protocol specification.
+See [docs/README.md](docs/README.md) for the full protocol specification.
 
 ## License
 

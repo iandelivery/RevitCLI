@@ -180,7 +180,7 @@ The CLI client mirrors the C# `RevitCliClient` architecture:
 - **SSE streaming** — real-time progress via Server-Sent Events with polling fallback
 - **Embedded config** — default configuration embedded in the binary at compile time
 
-See `ARCHITECTURE.md` in the C# `CliBridge` directory for the full protocol spec.
+See [../bridge/docs/README.md](../bridge/docs/README.md) for the full protocol spec.
 
 ## License
 

@@ -298,7 +298,7 @@ Port 5000 is reserved as a legacy fallback. If all ports in a version's range ar
 | Document | Description |
 |----------|-------------|
 | [Bridge README](bridge/README.md) | Build, install, configure, and use the Revit add-in |
-| [Bridge Architecture](bridge/ARCHITECTURE.md) | Full protocol specification and internal architecture |
+| [Bridge Architecture](bridge/docs/README.md) | Full protocol specification and internal architecture |
 | [Client README](client/README.md) | Build and use the Go CLI client |
 
 ## License

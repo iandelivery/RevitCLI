@@ -295,7 +295,7 @@ revit-cli.exe raw-mode --disable
 | 文档 | 说明 |
 |------|------|
 | [桥接器 README](bridge/README.md) | 编译、安装、配置和使用 Revit 插件 |
-| [桥接器架构文档](bridge/ARCHITECTURE.md) | 完整协议规范与内部架构 |
+| [桥接器架构文档](bridge/docs/README.md) | 完整协议规范与内部架构 |
 | [客户端 README](client/README.md) | 编译和使用 Go CLI 客户端 |
 
 ## 许可证
