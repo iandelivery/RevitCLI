@@ -23,8 +23,8 @@
 		<Copyright>Copyright (c) 2026 RevitCliBridge Contributors</Copyright>
 		<PackageTags>revit;autodesk;cli;bridge;plugin;automation;api</PackageTags>
 		<PackageLicenseExpression>MIT</PackageLicenseExpression>
-		<PackageProjectUrl>https://github.com/revit-cli/revit-cli-opensource</PackageProjectUrl>
-		<RepositoryUrl>https://github.com/revit-cli/revit-cli-opensource</RepositoryUrl>
+		<PackageProjectUrl>https://github.com/iandelivery/RevitCLI</PackageProjectUrl>
+		<RepositoryUrl>https://github.com/iandelivery/RevitCLI</RepositoryUrl>
 		<RepositoryType>git</RepositoryType>
 		<PackageReadmeFile>README.md</PackageReadmeFile>
 		<!-- Icon intentionally omitted: no logo asset yet. Add
