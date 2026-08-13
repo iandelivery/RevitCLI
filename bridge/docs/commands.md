@@ -20,6 +20,29 @@
 Dimension parameters use **millimeters (mm)**, auto-converted to Revit's feet
 internally. Returns convert feet → mm.
 
+## Command Versioning
+
+Handlers expose a `Version` property (default `"v1"` via `BridgeCommandBase`).
+Overriding it lets you ship breaking changes under a new version tag without
+disrupting existing callers:
+
+```csharp
+public class CreateWallHandlerV2 : DocumentCommandBase
+{
+    public override string CommandName => "create_wall";
+    public override string Version => "v2";   // pin via create_wall@v2
+    // ...
+}
+```
+
+Clients pin a version by appending `@v2` to the command name:
+`{"command": "create_wall@v2", ...}`. Requests without a suffix resolve to the
+default version (`v1`). The router registers each handler under both
+`{name}@{version}` and (for `v1`) the bare `{name}`. The same rules apply to
+aliases and to the domain-path / underscore-reversal matching in
+`CommandNameResolver` — e.g. `domain.create_wall@v2` and `wall_create@v2` both
+resolve to `create_wall@v2`.
+
 ## Catalog (52 commands, 10 categories)
 
 | Category | Command | Modifies Model |
@@ -94,6 +117,10 @@ public class MyCommandHandler : DocumentCommandBase
 
 3. For third-party plugins: compile a DLL implementing `IBridgeCommand` and place
    it in `CliBridgePlugins/` next to `RevitCliBridge.dll`. No recompilation of
-   the bridge needed.
+   the bridge needed. By default the DLL must carry a valid Authenticode
+   signature (publisher checked against `trusted_publishers` when configured);
+   set `allow_unsigned_plugins: true` for local dev builds. See
+   [components.md](components.md#bridgepluginloader--signature-gating) for
+   details.
 
 → Next: [threading.md](threading.md) for concurrency & safety.

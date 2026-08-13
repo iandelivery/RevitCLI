@@ -60,24 +60,40 @@ namespace RevitCliBridge
                         try
                         {
                             var cmd = (IBridgeCommand)Activator.CreateInstance(handlerType);
-                            Register(cmd.CommandName, cmd);
+                            // Register under the versioned key "{name}@{version}"
+                            // so multiple versions can coexist. Unversioned
+                            // lookups fall back to the default version.
+                            var versionedKey = $"{cmd.CommandName}@{cmd.Version}";
+                            Register(versionedKey, cmd);
 
-                            // Auto-register aliases from handler's Aliases property
+                            // Also register the bare name as an alias pointing
+                            // to the default version, so legacy callers that
+                            // omit @version still resolve.
+                            if (cmd.Version == CommandNameResolver.DefaultVersion)
+                            {
+                                _handlers[cmd.CommandName] = cmd;
+                            }
+
+                            // Auto-register aliases (also versioned).
                             foreach (var alias in cmd.Aliases)
                             {
-                                _handlers[alias] = cmd;
+                                _handlers[$"{alias}@{cmd.Version}"] = cmd;
+                                if (cmd.Version == CommandNameResolver.DefaultVersion)
+                                    _handlers[alias] = cmd;
                             }
                         }
                         catch (Exception ex)
                         {
                             CliLogger.Warn($"Failed to register command handler {handlerType.Name}: {ex.Message}");
-                        }
+                    }
                     }
 
-                    // Register static aliases (legacy compatibility)
+                    // Register static aliases (legacy compatibility).
+                    // Map alias → "{targetName}@v1" (default version).
                     foreach (var alias in _aliases)
                     {
-                        if (_handlers.TryGetValue(alias.Value, out var targetCmd))
+                        var versionedTarget = $"{alias.Value}@{CommandNameResolver.DefaultVersion}";
+                        if (_handlers.TryGetValue(versionedTarget, out var targetCmd))
                         {
                             _handlers[alias.Key] = targetCmd;
                         }
@@ -112,15 +128,19 @@ namespace RevitCliBridge
         /// <summary>
         /// Returns all registered primary command handlers (excludes alias entries).
         /// Used by the schema discovery endpoint to build command metadata.
+        /// Deduplicates by (CommandName, Version) so a v1 and v2 handler of
+        /// the same command both appear.
         /// </summary>
         public static IEnumerable<IBridgeCommand> GetAllHandlers()
         {
             EnsureInitialized();
-            var seenNames = new HashSet<string>();
+            var seenKeys = new HashSet<string>();
             foreach (var kvp in _handlers)
             {
-                // Skip alias entries — they point to the same handler instance
-                if (seenNames.Add(kvp.Value.CommandName))
+                // Deduplicate by CommandName+Version — alias and bare-name
+                // entries point to the same handler instance.
+                var dedupKey = $"{kvp.Value.CommandName}@{kvp.Value.Version}";
+                if (seenKeys.Add(dedupKey))
                     yield return kvp.Value;
             }
         }
@@ -159,16 +179,29 @@ namespace RevitCliBridge
                     $"Unknown command: {queuedCommand.Command}").ToJson();
             }
 
+            var sw = System.Diagnostics.Stopwatch.StartNew();
+            bool success = true;
             try
             {
                 return handler.Handle(app, queuedCommand);
             }
             catch (Exception ex)
             {
+                success = false;
                 return CommandResponse.Error(
                     queuedCommand.TaskId,
                     $"Command '{queuedCommand.Command}' failed: {ex.Message}",
                     ex.ToString()).ToJson();
+            }
+            finally
+            {
+                sw.Stop();
+                MetricsCollector.RecordCommand(queuedCommand.Command, sw.ElapsedMilliseconds, success);
+                CliLogger.Info("command_executed",
+                    ("command", queuedCommand.Command),
+                    ("duration_ms", sw.ElapsedMilliseconds),
+                    ("status", success ? "success" : "error"),
+                    ("task_id", queuedCommand.TaskId));
             }
         }
 

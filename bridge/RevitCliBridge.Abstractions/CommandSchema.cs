@@ -12,6 +12,9 @@ namespace RevitCliBridge.Abstractions
         [JsonProperty("name")]
         public string Name { get; set; } = string.Empty;
 
+        [JsonProperty("version", NullValueHandling = NullValueHandling.Ignore)]
+        public string? Version { get; set; }
+
         [JsonProperty("description", NullValueHandling = NullValueHandling.Ignore)]
         public string? Description { get; set; }
 

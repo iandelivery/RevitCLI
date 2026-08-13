@@ -9,18 +9,22 @@
 `RevitCliBridge.Abstractions.csproj` and links pure-logic sources via
 `<Compile Include="..\RevitCliBridge\CliBridge\TaskStateMachine.cs" />`.
 
-61 tests across 6 suites run in under a second.
+93 tests across 6 suites run in under a second.
 
 ## Suites
 
 | Suite | File | Tests | Covers |
 |-------|------|:-----:|--------|
-| CommandNameResolver | `CommandNameResolverTests.cs` | 13 | Exact match, domain path suffix, underscore reversal, alias fallback, empty/null |
+| CommandNameResolver | `CommandNameResolverTests.cs` | 21 | Exact match, domain path suffix, underscore reversal, alias fallback, empty/null, `SplitVersion`, versioned resolution (domain path / underscore reversal / re-attached suffix) |
 | TaskStateMachine | `TaskStateMachineTests.cs` | 15 | Transitions, timestamps, SSE payload, TCS completion, double-set safety |
 | ParameterBinder | `ParameterBinderTests.cs` | 17 | Required/default/optional, type conversion, `List<object>`→`int[]`, nullable, errors, snake_case |
 | CommandResponse | `CommandResponseTests.cs` | 4 | Success/Error JSON shape, `task_id` propagation |
 | PortAllocator | `PortAllocatorTests.cs` | 3 | Base port by version, fallback chain |
 | CliBridgeConfigAuth | `CliBridgeConfigAuthTests.cs` | 9 | API key validation, constant-time comparison, empty-key disables auth |
+
+> New in Phase 4: 8 tests cover `@version` suffix handling in
+> `CommandNameResolver` (splitting, versioned domain-path resolution,
+> versioned underscore reversal, and re-attachment of the suffix).
 
 ## Running
 

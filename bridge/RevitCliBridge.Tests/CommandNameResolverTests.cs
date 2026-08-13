@@ -106,5 +106,75 @@ namespace RevitCliBridge.Tests
             var names = new HashSet<string> { "c.d" };
             Assert.Equal("c.d", CommandNameResolver.Resolve("a.b.c.d", names));
         }
+
+        // ---------- SplitVersion ----------
+
+        [Fact]
+        public void SplitVersion_NoAtSign_ReturnsBaseAndNullVersion()
+        {
+            var (baseName, version) = CommandNameResolver.SplitVersion("create_wall");
+            Assert.Equal("create_wall", baseName);
+            Assert.Null(version);
+        }
+
+        [Fact]
+        public void SplitVersion_WithAtSign_SplitsCorrectly()
+        {
+            var (baseName, version) = CommandNameResolver.SplitVersion("create_wall@v2");
+            Assert.Equal("create_wall", baseName);
+            Assert.Equal("v2", version);
+        }
+
+        [Fact]
+        public void SplitVersion_DomainPathWithVersion_OnlyLastAtIsVersion()
+        {
+            // Only the last @segment is treated as a version tag — the base
+            // name may itself contain dots (domain path).
+            var (baseName, version) = CommandNameResolver.SplitVersion("elements.walls.create@v2");
+            Assert.Equal("elements.walls.create", baseName);
+            Assert.Equal("v2", version);
+        }
+
+        [Fact]
+        public void SplitVersion_NullInput_ReturnsEmptyAndNull()
+        {
+            var (baseName, version) = CommandNameResolver.SplitVersion(null!);
+            Assert.Equal(string.Empty, baseName);
+            Assert.Null(version);
+        }
+
+        // ---------- Versioned Resolve ----------
+
+        [Fact]
+        public void Resolve_VersionedExactMatch_ReturnsAsIs()
+        {
+            var names = new HashSet<string> { "create_wall@v1", "create_wall@v2" };
+            Assert.Equal("create_wall@v2", CommandNameResolver.Resolve("create_wall@v2", names));
+        }
+
+        [Fact]
+        public void Resolve_VersionedDomainPath_ReattachesVersion()
+        {
+            // "domain.create_wall@v2" → domain path strips "domain." →
+            // "create_wall" matches "create_wall@v2" → return "create_wall@v2"
+            var names = new HashSet<string> { "create_wall@v1", "create_wall@v2" };
+            Assert.Equal("create_wall@v2", CommandNameResolver.Resolve("domain.create_wall@v2", names));
+        }
+
+        [Fact]
+        public void Resolve_VersionedUnderscoreReversal_ReattachesVersion()
+        {
+            // "wall_create@v2" → base reverses to "create_wall" →
+            // re-attach @v2 → "create_wall@v2"
+            var names = new HashSet<string> { "create_wall@v2" };
+            Assert.Equal("create_wall@v2", CommandNameResolver.Resolve("wall_create@v2", names));
+        }
+
+        [Fact]
+        public void Resolve_VersionedNoMatch_ReturnsVersionedInput()
+        {
+            var names = new HashSet<string> { "create_wall@v1" };
+            Assert.Equal("create_wall@v9", CommandNameResolver.Resolve("create_wall@v9", names));
+        }
     }
 }

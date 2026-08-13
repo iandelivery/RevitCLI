@@ -143,11 +143,23 @@ namespace RevitCliBridge
         private async Task HandleRequestAsync(HttpListenerContext context)
         {
             bool responseHandled = false;
+            // Generate or reuse a request ID for end-to-end tracing. Clients
+            // may pass X-Request-Id to correlate; otherwise we mint a short one.
+            string requestId = context.Request.Headers["X-Request-Id"];
+            if (string.IsNullOrWhiteSpace(requestId))
+                requestId = Guid.NewGuid().ToString("N").Substring(0, 8);
+            context.Response.Headers["X-Request-Id"] = requestId;
+
             try
             {
                 var request = context.Request;
                 var response = context.Response;
                 var path = request.Url?.AbsolutePath ?? "";
+
+                CliLogger.Info("request_received",
+                    ("request_id", requestId),
+                    ("method", request.HttpMethod),
+                    ("path", path));
 
                 // Authentication gate. /api/health and /api/identity remain
                 // public so clients can probe the bridge and discover the
@@ -158,6 +170,8 @@ namespace RevitCliBridge
                     var authHeader = request.Headers["Authorization"];
                     if (!CliBridgeConfigLoader.ValidateToken(authHeader))
                     {
+                        CliLogger.Warn("auth_rejected",
+                            ("request_id", requestId), ("path", path));
                         response.StatusCode = 401;
                         response.Headers["WWW-Authenticate"] = "Bearer";
                         await WriteJsonResponseAsync(response, new
@@ -196,6 +210,10 @@ namespace RevitCliBridge
                 else if (path == "/api/status" && request.HttpMethod == "GET")
                 {
                     await HandleStatusRequestAsync(response);
+                }
+                else if (path == "/api/metrics" && request.HttpMethod == "GET")
+                {
+                    await HandleMetricsRequestAsync(response);
                 }
                 else if (path == "/api/health" && request.HttpMethod == "GET")
                 {
@@ -242,7 +260,8 @@ namespace RevitCliBridge
             }
             catch (Exception ex)
             {
-                CliLogger.Error($"Error handling HTTP request: {ex.Message}");
+                CliLogger.Error("request_error",
+                    ("request_id", requestId), ("error", ex.Message));
                 if (!responseHandled)
                 {
                     try
@@ -618,6 +637,15 @@ namespace RevitCliBridge
             await WriteJsonResponseAsync(response, status);
         }
 
+        /// <summary>
+        /// GET /api/metrics — returns aggregate command metrics (count, errors,
+        /// avg duration) for observability. Requires auth like other /api endpoints.
+        /// </summary>
+        private async Task HandleMetricsRequestAsync(HttpListenerResponse response)
+        {
+            await WriteJsonResponseAsync(response, MetricsCollector.GetSnapshot());
+        }
+
         private async Task HandleHealthCheckAsync(HttpListenerResponse response)
         {
             var health = new { status = "ok", timestamp = DateTime.Now.ToString("o") };
@@ -983,6 +1011,7 @@ namespace RevitCliBridge
             return new CommandDef
             {
                 Name = handler.CommandName,
+                Version = handler.Version,
                 Description = handler.Description,
                 Category = handler.Category,
                 Aliases = handler.Aliases.Length > 0 ? handler.Aliases : null,

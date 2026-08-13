@@ -22,6 +22,13 @@ namespace RevitCliBridge.Abstractions
         string CommandName { get; }
 
         /// <summary>
+        /// Command version tag (e.g. "v1", "v2"). Used for versioned routing:
+        /// callers may request <c>command@v2</c> to pin a specific version.
+        /// Defaults to "v1" when not overridden.
+        /// </summary>
+        string Version { get; }
+
+        /// <summary>
         /// Execute the command on the Revit main thread.
         /// </summary>
         /// <param name="uiApplication">
