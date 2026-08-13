@@ -189,7 +189,7 @@ if (-not $SkipClient) {
 
     Pop-Location
 } else {
-    Write-Host "[2/3] Skipping client build (-SkipClient)" -ForegroundColor DarkGray
+    Write-Host "[2/4] Skipping client build (-SkipClient)" -ForegroundColor DarkGray
     # Try to find existing exe
     $clientExe = Join-Path $ClientDir "revit-cli.exe"
     if (-not (Test-Path $clientExe)) {
@@ -287,7 +287,7 @@ if (-not $SkipPackage) {
         Write-Host "    $($_.Name.PadRight(50)) $size KB" -ForegroundColor DarkGray
     }
 } else {
-    Write-Host "[3/3] Skipping packaging (-SkipPackage)" -ForegroundColor DarkGray
+    Write-Host "[4/4] Skipping packaging (-SkipPackage)" -ForegroundColor DarkGray
 }
 
 # ---------------------------------------------------------------------------

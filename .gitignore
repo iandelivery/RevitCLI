@@ -38,6 +38,8 @@ x86/
 [Oo]bj/
 dist/
 
+# Auto-generated API docs (produced by build.ps1 via XMLDoc2Markdown)
+bridge/docs/api/
 
 # OS files
 Thumbs.db

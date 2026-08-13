@@ -4,14 +4,14 @@ namespace RevitCliBridge.Abstractions
     /// Interface for bridge command handlers. Implement this to create plugin commands.
     /// </summary>
     /// <remarks>
-    /// The <paramref name="uiApplication"/> parameter in <see cref="Handle"/>
+    /// The <c>uiApplication</c> parameter in <see cref="Handle"/>
     /// is passed as <c>object</c> to avoid requiring Revit API references in the
     /// abstractions project. Cast it to <c>Autodesk.Revit.UI.UIApplication</c>
     /// inside your handler implementation.
     ///
     /// Metadata properties (Description, Category, Parameters, Aliases, SupportsDryRun)
-    /// are declared here but have safe defaults in <see cref="BridgeCommandBase"/>.
-    /// Existing implementations that inherit from <see cref="BridgeCommandBase"/>
+    /// are declared here but have safe defaults in <c>BridgeCommandBase</c>.
+    /// Existing implementations that inherit from <c>BridgeCommandBase</c>
     /// remain compatible without changes.
     /// </remarks>
     public interface IBridgeCommand

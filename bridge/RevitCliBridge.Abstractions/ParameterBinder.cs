@@ -19,7 +19,7 @@ namespace RevitCliBridge.Abstractions
     /// <c>ParameterBinder.Bind&lt;T&gt;(parameters)</c> — missing required
     /// params raise <see cref="MissingParameterException"/>, type mismatches
     /// raise <see cref="ParameterTypeException"/>, both of which
-    /// <see cref="BridgeCommandBase"/> converts to a 400-style error response.
+    /// <c>BridgeCommandBase</c> converts to a 400-style error response.
     ///
     /// Supported property types: <c>int</c>, <c>int?</c>, <c>double</c>,
     /// <c>double?</c>, <c>string</c>, <c>int[]</c>, <c>bool</c>, <c>bool?</c>.

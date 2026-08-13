@@ -16,6 +16,13 @@
 		     Required for the cross-addin plugin registration pattern. -->
 		<SignAssembly>true</SignAssembly>
 		<AssemblyOriginatorKeyFile>RevitCliBridge.Abstractions.snk</AssemblyOriginatorKeyFile>
+		<!-- Emit the XML doc file next to the DLL. Consumers (company plugins)
+		     get IntelliSense from it, and it is the input for API doc
+		     generators such as XMLDoc2Markdown / DocFX. -->
+		<GenerateDocumentationFile>true</GenerateDocumentationFile>
+		<!-- Don't fail the build if a public member lacks XML docs; the doc
+		     file is still emitted for the members that do have them. -->
+		<NoWarn>$(NoWarn);1591</NoWarn>
 	</PropertyGroup>
 
 	<ItemGroup>

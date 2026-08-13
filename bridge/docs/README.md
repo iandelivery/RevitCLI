@@ -19,6 +19,7 @@ Revit's API is single-threaded and bound to the Revit process, so a
 | Integrate with Revit or use the Go CLI client | [integration.md](integration.md) | ~5 min |
 | Run or extend the test suite | [testing.md](testing.md) | ~2 min |
 | Operate: dependencies, config paths, CI/CD | [operations.md](operations.md) | ~3 min |
+| Browse the abstractions API reference | [api/index.md](api/index.md) | reference |
 
 ## At a Glance
 

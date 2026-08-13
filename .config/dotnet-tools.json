@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "isRoot": true,
+  "tools": {
+    "XMLDoc2Markdown": {
+      "version": "3.0.2",
+      "commands": [
+        "xmldoc2md"
+      ]
+    }
+  }
+}

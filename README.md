@@ -139,11 +139,12 @@ cd C:\path\to\revit-cli-opensource
 .\build.ps1
 ```
 
-The script performs three phases, mirroring the CI release pipeline:
+The script performs four phases, mirroring the CI release pipeline:
 
 1. **Build the bridge** for every supported Revit version (2019, 2020, 2021, 2022). Output lands in `bridge/dist/Revit20XX/`, including a per-version `.config/cli_bridge_setting.json` with the correct port (5011, 5021, 5031, 5041).
 2. **Build the Go client** (`go vet` + `go build`) and inject the version string via `-ldflags "-X main.Version=…"`.
-3. **Package** the artifacts into three kinds of zip in the repo-root `dist/` folder:
+3. **Generate API documentation** from the `RevitCliBridge.Abstractions` XML doc comments into `bridge/docs/api/` via the `XMLDoc2Markdown` dotnet tool (restored automatically from `.config/dotnet-tools.json`).
+4. **Package** the artifacts into three kinds of zip in the repo-root `dist/` folder:
    - `revit-cli-<version>.zip` — full bundle (client + SKILL.md + all bridges)
    - `revit-cli-client-<version>.zip` — client + SKILL.md only
    - `RevitCliBridge-Revit<year>-<version>.zip` — per-version bridge
@@ -177,6 +178,7 @@ RevitCliBridge-Revit2022-1.0.0.zip
 |------|--------|
 | `-RevitVersions "2021,2022"` | Build the bridge for a subset of Revit versions |
 | `-SkipBridge` | Reuse existing `bridge/dist/` output and only build/package the client |
+| `-SkipDocs` | Skip API documentation generation (XMLDoc2Markdown) |
 | `-SkipClient` | Reuse an existing `revit-cli.exe` and only build/package the bridge |
 | `-SkipPackage` | Run the builds but don't create zips (faster iteration) |
 | `-SkipVet` | Skip `go vet` for a quicker client build |
@@ -187,10 +189,7 @@ Examples:
 # Quick iteration on the Go client only
 .\build.ps1 -SkipBridge
 
-# Build and package only the Revit 2022 bridge
-.\build.ps1 -RevitVersions "2022" -SkipVet
-```
-
+# Build and package only the Revit 2022 
 **Building components independently**
 
 The root `build.ps1` is the recommended one-stop script, but you can still build either component on its own when you only need a quick local iteration cycle. Each sub-project ships with its own build script that performs the same steps the root script would for that component.

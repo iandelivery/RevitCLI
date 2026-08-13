@@ -19,7 +19,7 @@ namespace RevitCliBridge.Abstractions
 
         /// <summary>
         /// Whether the parameter is required. When true and the value is
-        /// missing or null, <see cref="ParameterBinder.Bind{T}"/> throws
+        /// missing or null, <c>ParameterBinder.Bind&lt;T&gt;</c> throws
         /// <see cref="MissingParameterException"/>.
         /// </summary>
         public bool Required { get; set; }
