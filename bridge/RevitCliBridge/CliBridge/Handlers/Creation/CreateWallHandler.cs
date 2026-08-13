@@ -31,30 +31,21 @@ namespace RevitCliBridge.Handlers.Creation
 
         protected override string Execute(UIApplication app, Document doc, Dictionary<string, object> parameters, QueuedCommand cmd)
         {
-
-            double? startX = HandlerUtilities.GetDoubleOrNull(parameters, "start_x");
-            double? startY = HandlerUtilities.GetDoubleOrNull(parameters, "start_y");
-            double? endX = HandlerUtilities.GetDoubleOrNull(parameters, "end_x");
-            double? endY = HandlerUtilities.GetDoubleOrNull(parameters, "end_y");
-            double? height = HandlerUtilities.GetDoubleOrNull(parameters, "height");
-            int? level_id = HandlerUtilities.GetIntOrNull(parameters, "level_id");
-
-            if (startX is null || startY is null || endX is null || endY is null || level_id is null)
-                return CommandResponse.Error(cmd.TaskId,
-                    "Missing required parameters: start_x, start_y, end_x, end_y, level_id.").ToJson();
+            var p = TryBind<CreateWallParams>(cmd, out var error);
+            if (p is null) return error!;
 
             using (Transaction t = new Transaction(doc, "CLI Create Wall"))
             {
                 t.Start();
                 t.ConfigureFailureHandling();
 
-                var start = new XYZ(startX.Value.MillimeterToFeet(), startY.Value.MillimeterToFeet(), 0);
-                var end = new XYZ(endX.Value.MillimeterToFeet(), endY.Value.MillimeterToFeet(), 0);
+                var start = new XYZ(p.StartX.MillimeterToFeet(), p.StartY.MillimeterToFeet(), 0);
+                var end = new XYZ(p.EndX.MillimeterToFeet(), p.EndY.MillimeterToFeet(), 0);
 
                 var wall = Wall.Create(
                     doc,
                     Line.CreateBound(start, end),
-                    new ElementId(level_id.Value),
+                    new ElementId(p.LevelId),
                     false);
 
                 t.Commit();
@@ -62,16 +53,42 @@ namespace RevitCliBridge.Handlers.Creation
                 var result = new
                 {
                     element_id = wall.Id.IntegerValue,
-                    start_x = startX,
-                    start_y = startY,
-                    end_x = endX,
-                    end_y = endY,
-                    level_id = level_id,
-                    height = height ?? 3000.0
+                    start_x = p.StartX,
+                    start_y = p.StartY,
+                    end_x = p.EndX,
+                    end_y = p.EndY,
+                    level_id = p.LevelId,
+                    height = p.Height
                 };
 
                 return CommandResponse.Success(cmd.TaskId, result, "Wall created successfully.").ToJson();
             }
         }
+    }
+
+    /// <summary>
+    /// Typed parameter bag for <see cref="CreateWallHandler"/>.
+    /// Replaces six HandlerUtilities.GetXxxOrNull calls plus a manual
+    /// null-check error response with a single ParameterBinder.Bind call.
+    /// </summary>
+    public class CreateWallParams
+    {
+        [Param("start_x", Required = true)]
+        public double StartX { get; set; }
+
+        [Param("start_y", Required = true)]
+        public double StartY { get; set; }
+
+        [Param("end_x", Required = true)]
+        public double EndX { get; set; }
+
+        [Param("end_y", Required = true)]
+        public double EndY { get; set; }
+
+        [Param("level_id", Required = true)]
+        public int LevelId { get; set; }
+
+        [Param("height", Default = 3000.0)]
+        public double Height { get; set; }
     }
 }

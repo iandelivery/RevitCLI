@@ -30,28 +30,19 @@ namespace RevitCliBridge.Handlers.Modification
 
         protected override string Execute(UIApplication app, Document doc, Dictionary<string, object> parameters, QueuedCommand cmd)
         {
+            var p = TryBind<MoveElementParams>(cmd, out var error);
+            if (p is null) return error!;
 
-            int? elementId = HandlerUtilities.GetIntOrNull(parameters, "element_id");
-            double? dx = HandlerUtilities.GetDoubleOrNull(parameters, "dx");
-            double? dy = HandlerUtilities.GetDoubleOrNull(parameters, "dy");
-            double? dz = HandlerUtilities.GetDoubleOrNull(parameters, "dz");
-
-            if (elementId is null)
-                return CommandResponse.Error(cmd.TaskId, "Missing required parameter: element_id.").ToJson();
-
-            if (dx is null || dy is null)
-                return CommandResponse.Error(cmd.TaskId, "Missing required parameters: dx and dy.").ToJson();
-
-            var element = doc.GetElement(new ElementId(elementId.Value));
+            var element = doc.GetElement(new ElementId(p.ElementId));
             if (element is null)
-                return CommandResponse.Error(cmd.TaskId, $"Element with ID {elementId.Value} not found.").ToJson();
+                return CommandResponse.Error(cmd.TaskId, $"Element with ID {p.ElementId} not found.").ToJson();
 
             using (Transaction t = new Transaction(doc, "CLI Move Element"))
             {
                 t.Start();
                 t.ConfigureFailureHandling();
 
-                var translation = new XYZ(dx.Value.MillimeterToFeet(), dy.Value.MillimeterToFeet(), (dz ?? 0).MillimeterToFeet());
+                var translation = new XYZ(p.Dx.MillimeterToFeet(), p.Dy.MillimeterToFeet(), p.Dz.MillimeterToFeet());
                 ElementTransformUtils.MoveElement(doc, element.Id, translation);
 
                 t.Commit();
@@ -60,10 +51,10 @@ namespace RevitCliBridge.Handlers.Modification
 
                 var result = new
                 {
-                    element_id = elementId.Value,
-                    translation_x = dx.Value,
-                    translation_y = dy.Value,
-                    translation_z = dz ?? 0,
+                    element_id = p.ElementId,
+                    translation_x = p.Dx,
+                    translation_y = p.Dy,
+                    translation_z = p.Dz,
                     new_location = location
                 };
 
@@ -96,5 +87,23 @@ namespace RevitCliBridge.Handlers.Modification
             }
             return null;
         }
+    }
+
+    /// <summary>
+    /// Typed parameter bag for <see cref="MoveElementHandler"/>.
+    /// </summary>
+    public class MoveElementParams
+    {
+        [Param("element_id", Required = true)]
+        public int ElementId { get; set; }
+
+        [Param("dx", Required = true)]
+        public double Dx { get; set; }
+
+        [Param("dy", Required = true)]
+        public double Dy { get; set; }
+
+        [Param("dz", Default = 0.0)]
+        public double Dz { get; set; }
     }
 }

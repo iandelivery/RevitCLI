@@ -32,37 +32,23 @@ namespace RevitCliBridge.Handlers.Creation
 
         protected override string Execute(UIApplication app, Document doc, Dictionary<string, object> parameters, QueuedCommand cmd)
         {
+            var p = TryBind<CreateFamilyInstanceParams>(cmd, out var error);
+            if (p is null) return error!;
 
-            int? symbolId = HandlerUtilities.GetIntOrNull(parameters, "symbol_id");
-            int? levelId = HandlerUtilities.GetIntOrNull(parameters, "level_id");
-            double? x = HandlerUtilities.GetDoubleOrNull(parameters, "x");
-            double? y = HandlerUtilities.GetDoubleOrNull(parameters, "y");
-            double? z = HandlerUtilities.GetDoubleOrNull(parameters, "z");
-            string? structuralTypeStr = HandlerUtilities.GetStringOrNull(parameters, "structural_type");
-
-            if (symbolId is null)
-                return CommandResponse.Error(cmd.TaskId, "Missing required parameter: symbol_id.").ToJson();
-
-            if (levelId is null)
-                return CommandResponse.Error(cmd.TaskId, "Missing required parameter: level_id.").ToJson();
-
-            if (x is null || y is null)
-                return CommandResponse.Error(cmd.TaskId, "Missing required parameters: x and y.").ToJson();
-
-            var symbol = doc.GetElement(new ElementId(symbolId.Value)) as FamilySymbol;
+            var symbol = doc.GetElement(new ElementId(p.SymbolId)) as FamilySymbol;
             if (symbol is null)
-                return CommandResponse.Error(cmd.TaskId, $"FamilySymbol with ID {symbolId.Value} not found.").ToJson();
+                return CommandResponse.Error(cmd.TaskId, $"FamilySymbol with ID {p.SymbolId} not found.").ToJson();
 
-            var level = doc.GetElement(new ElementId(levelId.Value)) as Level;
+            var level = doc.GetElement(new ElementId(p.LevelId)) as Level;
             if (level is null)
-                return CommandResponse.Error(cmd.TaskId, $"Level with ID {levelId.Value} not found.").ToJson();
+                return CommandResponse.Error(cmd.TaskId, $"Level with ID {p.LevelId} not found.").ToJson();
 
             StructuralType structuralType = StructuralType.NonStructural;
-            if (!string.IsNullOrEmpty(structuralTypeStr))
+            if (!string.IsNullOrEmpty(p.StructuralType))
             {
-                if (!Enum.TryParse(structuralTypeStr, out structuralType))
+                if (!Enum.TryParse(p.StructuralType, out structuralType))
                     return CommandResponse.Error(cmd.TaskId,
-                        $"Invalid StructuralType: {structuralTypeStr}. Valid values: {string.Join(", ", Enum.GetNames(typeof(StructuralType)))}").ToJson();
+                        $"Invalid StructuralType: {p.StructuralType}. Valid values: {string.Join(", ", Enum.GetNames(typeof(StructuralType)))}").ToJson();
             }
 
             using (Transaction t = new Transaction(doc, "CLI Create Family Instance"))
@@ -73,7 +59,7 @@ namespace RevitCliBridge.Handlers.Creation
                 if (!symbol.IsActive)
                     symbol.Activate();
 
-                var location = new XYZ(x.Value.MillimeterToFeet(), y.Value.MillimeterToFeet(), (z ?? 0).MillimeterToFeet());
+                var location = new XYZ(p.X.MillimeterToFeet(), p.Y.MillimeterToFeet(), p.Z.MillimeterToFeet());
                 var instance = doc.Create.NewFamilyInstance(location, symbol, level, structuralType);
 
                 t.Commit();
@@ -81,12 +67,36 @@ namespace RevitCliBridge.Handlers.Creation
                 var result = new
                 {
                     element_id = instance?.Id.IntegerValue,
-                    symbol_id = symbolId.Value,
-                    level_id = levelId.Value
+                    symbol_id = p.SymbolId,
+                    level_id = p.LevelId
                 };
 
                 return CommandResponse.Success(cmd.TaskId, result, "Family instance created successfully.").ToJson();
             }
         }
+    }
+
+    /// <summary>
+    /// Typed parameter bag for <see cref="CreateFamilyInstanceHandler"/>.
+    /// </summary>
+    public class CreateFamilyInstanceParams
+    {
+        [Param("symbol_id", Required = true)]
+        public int SymbolId { get; set; }
+
+        [Param("level_id", Required = true)]
+        public int LevelId { get; set; }
+
+        [Param("x", Required = true)]
+        public double X { get; set; }
+
+        [Param("y", Required = true)]
+        public double Y { get; set; }
+
+        [Param("z", Default = 0.0)]
+        public double Z { get; set; }
+
+        [Param("structural_type", Default = "NonStructural")]
+        public string? StructuralType { get; set; }
     }
 }
