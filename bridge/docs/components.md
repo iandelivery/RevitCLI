@@ -82,6 +82,12 @@ matching rules so they're unit-testable:
 2. **Domain path suffix** — `"elements.walls.create"` → `"walls.create"` → `"create"`.
 3. **Underscore reversal** — `"wall_create"` → `"create_wall"` (two segments).
 
+**Versioned routing**: each handler is registered under `{name}@{version}`.
+The default version (`v1`) is *also* registered under the bare `{name}` so
+legacy callers are unaffected. The resolver strips any `@version` suffix
+before applying rules 2–3, then re-attaches it; see
+[commands.md](commands.md#command-versioning).
+
 See [commands.md](commands.md) for the full 52-command catalog and how to add one.
 
 ## CliBridgeStateManager — Bridge State
@@ -165,5 +171,60 @@ Supported types: `int`, `int?`, `double`, `double?`, `string`, `int[]`, `bool`,
 **Migration status**: 3 handlers migrated as reference (`create_wall`,
 `move_element`, `create_family_instance`); the rest use legacy
 `HandlerUtilities` incrementally. Old API remains fully supported.
+
+## Observability — Logging & Metrics
+
+**Files**: `CliBridge/CliLogger.cs` + `CliBridge/MetricsCollector.cs`
+
+### CliLogger
+
+Structured logger writing to a daily-rotated file under the bridge log
+directory. Each line is grep-filterable:
+
+```
+[2026-08-13 14:30:45.123] [INFO] request_received request_id=ab12cd34 method=POST path=/api/execute
+[2026-08-13 14:30:45.500] [INFO] command_completed request_id=ab12cd34 command=create_wall duration_ms=42 status=success
+[2026-08-13 14:31:02.000] [WARN] plugin_rejected_unsigned dll=evil.dll reason="unsigned and allow_unsigned_plugins is false"
+```
+
+- **Buffered I/O**: 4 KB `StreamWriter` with auto-flush; `Shutdown()` forces a
+  final flush during teardown (called from `CliBridgeStateManager.Cleanup`).
+- **Levels**: `Info`, `Warn`, `Error` — each accepts `params (string, object)[]`
+  fields rendered as `key=value` pairs.
+- **Daily rotation**: file name includes `yyyy-MM-dd`; new day → new file.
+
+### MetricsCollector
+
+Process-wide counters updated by `CommandRouter` after every command and
+served by `GET /api/metrics`. All counters use `Interlocked` so they're safe
+under concurrent Revit-event execution:
+
+- `total_commands`, `total_errors`, `total_duration_ms`
+- per-command `CommandStats { Count, Errors, TotalDurationMs }` keyed by bare
+  command name (so `create_wall@v1` and `create_wall@v2` aggregate together)
+- `active_tasks` snapshot from `TaskRegistry`
+
+`GetSnapshot()` returns a JSON-serializable DTO; see
+[api-reference.md](api-reference.md#metrics-response--get-apimetrics) for the
+shape. No persistence — counters reset on bridge restart.
+
+## BridgePluginLoader — Signature Gating
+
+**File**: `CliBridge/BridgePluginLoader.cs`
+
+Loads third-party `IBridgeCommand` DLLs from `CliBridgePlugins/`. Before
+calling `Assembly.LoadFrom`, each DLL is checked for an Authenticode signature
+via `X509Certificate.CreateFromSignedFile`:
+
+| Config | Unsigned DLL | Signed DLL, publisher not in `trusted_publishers` | Signed DLL, publisher trusted |
+|--------|:------------:|:--------------------------------------------------:|:-----------------------------:|
+| `allow_unsigned_plugins: false` (default), `trusted_publishers: []` | rejected | loaded (any valid sig accepted) | loaded |
+| `allow_unsigned_plugins: false`, `trusted_publishers: ["CN=MyCorp"]` | rejected | rejected | loaded |
+| `allow_unsigned_plugins: true` | loaded | loaded | loaded |
+
+The publisher is extracted as the `CN=` segment of the certificate subject.
+Every accept/reject decision is logged via `CliLogger` for audit. Signature
+*presence* is checked; full WinVerifyTrust chain validation is intentionally
+deferred (P/Invoke) and noted in code comments for a future hardening pass.
 
 → Next: [api-reference.md](api-reference.md) or [commands.md](commands.md).

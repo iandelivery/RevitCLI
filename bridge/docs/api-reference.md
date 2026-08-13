@@ -12,6 +12,7 @@
 | GET  | `/api/task/{task_id}` | ✓ | Query task status & result |
 | GET  | `/api/task` | ✓ | List all tasks (latest 50) |
 | GET  | `/api/status` | ✓ | Server status |
+| GET  | `/api/metrics` | ✓ | Aggregate command metrics (count, errors, avg duration) |
 | GET  | `/api/health` | — | Health check (public) |
 | GET  | `/api/identity` | — | Instance identity: version, PID, port (public) |
 | GET  | `/api/auth/status` | — | Whether API key auth is active (public) |
@@ -26,6 +27,33 @@
 **except** `/api/health`, `/api/identity`, `/api/auth/status` require
 `Authorization: Bearer <api_key>`. Comparison is constant-time. Empty/null key
 disables auth (open access). Server listens on `localhost` only.
+
+**Request tracing**: Every response includes an `X-Request-Id` header. Clients
+may pass their own `X-Request-Id` to correlate; otherwise a short ID is
+generated. The ID appears in structured log lines as `request_id=xxx`.
+
+## Command Versioning
+
+Command names support an optional `@version` suffix for pinning a specific
+handler version: `create_wall@v2`. Requests without a suffix resolve to the
+default version (`v1`). The `version` field in the `/api/commands` schema
+indicates each handler's version.
+
+## Metrics Response — `GET /api/metrics`
+
+```json
+{
+  "uptime_seconds": 3600,
+  "total_commands": 1523,
+  "total_errors": 12,
+  "avg_duration_ms": 245,
+  "active_tasks": 0,
+  "by_command": {
+    "get_elements": { "count": 450, "errors": 2, "avg_duration_ms": 180 },
+    "create_wall":  { "count": 120, "errors": 5, "avg_duration_ms": 890 }
+  }
+}
+```
 
 ## Request Model — `RevitCommandInput`
 
@@ -88,7 +116,9 @@ disables auth (open access). Server listens on `localhost` only.
   "timeout_seconds": 180,
   "max_command_queue_size": 100,
   "allow_raw_execution": false,
-  "api_key": ""
+  "api_key": "",
+  "allow_unsigned_plugins": false,
+  "trusted_publishers": []
 }
 ```
 
@@ -102,6 +132,8 @@ disables auth (open access). Server listens on `localhost` only.
 | `max_command_queue_size` | `int` | `100` | Max pending commands (min 1) |
 | `allow_raw_execution` | `bool` | `false` | Allow `execute_raw` |
 | `api_key` | `string?` | `""` | API key; empty disables auth |
+| `allow_unsigned_plugins` | `bool` | `false` | Load unsigned plugin DLLs (dev only) |
+| `trusted_publishers` | `string[]?` | `[]` | Trusted cert subject CNs; empty = accept any valid signature |
 
 `CliBridgeConfigLoader.Config` uses double-check locking. Both Go and C# loaders
 validate port/timeout/queue ranges on load.

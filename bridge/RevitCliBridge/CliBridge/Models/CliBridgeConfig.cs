@@ -71,6 +71,25 @@ namespace RevitCliBridge.Models
         public string? ApiKey { get; set; }
 
         /// <summary>
+        /// Whether unsigned plugins can be loaded from the CliBridgePlugins
+        /// directory. When false (default), only DLLs with a valid Authenticode
+        /// signature from a trusted publisher are loaded. Set to true for
+        /// development environments where DLLs are self-compiled.
+        /// </summary>
+        [JsonProperty("allow_unsigned_plugins")]
+        public bool AllowUnsignedPlugins { get; set; } = false;
+
+        /// <summary>
+        /// List of trusted publisher certificate subject CNs (e.g.
+        /// "CN=Your Company Name"). When a plugin DLL is signed, its
+        /// publisher must match one of these entries. Ignored when
+        /// <see cref="AllowUnsignedPlugins"/> is true.
+        /// Empty list = accept any valid signature.
+        /// </summary>
+        [JsonProperty("trusted_publishers", NullValueHandling = NullValueHandling.Ignore)]
+        public string[]? TrustedPublishers { get; set; }
+
+        /// <summary>
         /// Default values aligned with `cli_bridge_setting.json`.
         /// </summary>
         public CliBridgeConfig()

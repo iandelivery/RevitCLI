@@ -17,6 +17,14 @@ namespace RevitCliBridge.Handlers
         public abstract string CommandName { get; }
 
         /// <summary>
+        /// Command version tag. Defaults to "v1"; override to "v2" etc. when
+        /// introducing a breaking change under the same command name. The
+        /// router registers handlers as <c>{CommandName}@{Version}</c> and
+        /// resolves <c>command@v2</c> requests to the pinned version.
+        /// </summary>
+        public virtual string Version => "v1";
+
+        /// <summary>
         /// Command description. Subclasses can override to provide a specific description
         /// for the schema discovery endpoint.
         /// </summary>

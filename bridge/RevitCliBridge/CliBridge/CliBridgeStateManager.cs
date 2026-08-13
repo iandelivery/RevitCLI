@@ -166,7 +166,10 @@ namespace RevitCliBridge
                 var pluginDir = System.IO.Path.Combine(
                     System.IO.Path.GetDirectoryName(typeof(CliBridgeStateManager).Assembly.Location) ?? "",
                     "CliBridgePlugins");
-                BridgePluginLoader.LoadPlugins(pluginDir);
+                BridgePluginLoader.LoadPlugins(
+                    pluginDir,
+                    allowUnsigned: CliBridgeConfigLoader.Config.AllowUnsignedPlugins,
+                    trustedPublishers: CliBridgeConfigLoader.Config.TrustedPublishers);
 
                 // Write instance registry file.
                 InstanceRegistry.Register(new InstanceRegistry.InstanceInfo
@@ -251,6 +254,8 @@ namespace RevitCliBridge
             {
                 _ = Stop();
             }
+            // Flush any buffered log lines so nothing is lost on shutdown.
+            CliLogger.Shutdown();
         }
 
         /// <summary>
