@@ -5,7 +5,6 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
-
 namespace RevitCliBridge
 {
     /// <summary>
@@ -180,35 +179,9 @@ namespace RevitCliBridge
         /// </summary>
         private static string ResolveCommandName(string input)
         {
-            if (_handlers.ContainsKey(input)) return input;
-
-            // Domain path: try progressively shorter suffixes
-            if (input.Contains("."))
-            {
-                var parts = input.Split('.');
-                for (int i = 1; i < parts.Length; i++)
-                {
-                    var candidate = string.Join(".", parts, i, parts.Length - i);
-                    if (_handlers.ContainsKey(candidate)) return candidate;
-                }
-
-                // Try last segment only
-                var lastSegment = parts[parts.Length - 1];
-                if (_handlers.ContainsKey(lastSegment)) return lastSegment;
-            }
-
-            // Underscore reversal: "wall_create" → "create_wall"
-            if (input.Contains("_"))
-            {
-                var parts = input.Split('_');
-                if (parts.Length == 2)
-                {
-                    var reversed = $"{parts[1]}_{parts[0]}";
-                    if (_handlers.ContainsKey(reversed)) return reversed;
-                }
-            }
-
-            return input;
+            // Delegate to the pure-logic resolver so the routing rules can be
+            // unit-tested without loading the executing assembly.
+            return CommandNameResolver.Resolve(input, _handlers.Keys);
         }
     }
 }
