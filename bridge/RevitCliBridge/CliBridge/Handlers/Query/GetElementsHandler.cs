@@ -7,13 +7,16 @@ using System.Linq;
 
 namespace RevitCliBridge.Handlers.Query
 {
-    public class GetElementsHandler : DocumentCommandBase
+    public class GetElementsHandler : PaginatedQueryHandler<object>
     {
         public override string CommandName => "get_elements";
         public override string Description => "Retrieves elements from the active document, optionally filtered by category";
         public override string Category => "Query";
 
-        public override CommandParamSchema[] Parameters => new[]
+        protected override string ItemsProperty => "elements";
+        protected override string SuccessMessage(int count) => $"Retrieved {count} elements.";
+
+        protected override CommandParamSchema[] BaseParameters => new[]
         {
             new CommandParamSchema { Name = "category", Type = "string", Required = false, Description = "BuiltInCategory enum value to filter (e.g. 'OST_Walls', 'OST_Doors')" }
         };
@@ -21,12 +24,12 @@ namespace RevitCliBridge.Handlers.Query
         public override string[] Examples => new[]
         {
             "{ \"command\": \"get_elements\", \"parameters\": {} }",
-            "{ \"command\": \"get_elements\", \"parameters\": { \"category\": \"OST_Walls\" } }"
+            "{ \"command\": \"get_elements\", \"parameters\": { \"category\": \"OST_Walls\" } }",
+            "{ \"command\": \"get_elements\", \"parameters\": { \"category\": \"OST_Walls\", \"limit\": 100, \"offset\": 200 } }"
         };
 
-        protected override string Execute(UIApplication app, Document doc, Dictionary<string, object> parameters, QueuedCommand cmd)
+        protected override IEnumerable<object> QuerySource(UIApplication app, Document doc, Dictionary<string, object> parameters)
         {
-
             string? category = null;
             if (parameters.TryGetValue("category", out var catVal))
                 category = catVal?.ToString();
@@ -50,7 +53,8 @@ namespace RevitCliBridge.Handlers.Query
                 collector = collector.WhereElementIsNotElementType();
             }
 
-            var elements = collector
+            // OrderBy(id) ensures stable pagination.
+            return collector
                 .WhereElementIsNotElementType()
                 .Select(e => new
                 {
@@ -59,17 +63,8 @@ namespace RevitCliBridge.Handlers.Query
                     category = e.Category?.Name,
                     class_type = e.GetType().Name
                 })
-                .Take(500)
-                .ToList();
-
-            var result = new
-            {
-                count = elements.Count,
-                elements = elements
-            };
-
-            return CommandResponse.Success(cmd.TaskId, result,
-                $"Retrieved {elements.Count} elements.").ToJson();
+                .OrderBy(e => e.id)
+                .Select(e => (object)e);
         }
     }
 }

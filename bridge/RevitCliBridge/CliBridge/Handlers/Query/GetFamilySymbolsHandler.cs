@@ -7,13 +7,16 @@ using System.Linq;
 
 namespace RevitCliBridge.Handlers.Query
 {
-    public class GetFamilySymbolsHandler : DocumentCommandBase
+    public class GetFamilySymbolsHandler : PaginatedQueryHandler<object>
     {
         public override string CommandName => "get_family_symbols";
         public override string Description => "Retrieves family symbols, optionally filtered by family name and/or category";
         public override string Category => "Query";
 
-        public override CommandParamSchema[] Parameters => new[]
+        protected override string ItemsProperty => "symbols";
+        protected override string SuccessMessage(int count) => $"Retrieved {count} family symbols.";
+
+        protected override CommandParamSchema[] BaseParameters => new[]
         {
             new CommandParamSchema { Name = "family_name", Type = "string", Required = false, Description = "Filter by family name (contains match)" },
             new CommandParamSchema { Name = "category", Type = "string", Required = false, Description = "BuiltInCategory enum value to filter" }
@@ -23,12 +26,12 @@ namespace RevitCliBridge.Handlers.Query
         {
             "{ \"command\": \"get_family_symbols\", \"parameters\": {} }",
             "{ \"command\": \"get_family_symbols\", \"parameters\": { \"family_name\": \"M_Single-Flush\" } }",
-            "{ \"command\": \"get_family_symbols\", \"parameters\": { \"category\": \"OST_Doors\" } }"
+            "{ \"command\": \"get_family_symbols\", \"parameters\": { \"category\": \"OST_Doors\" } }",
+            "{ \"command\": \"get_family_symbols\", \"parameters\": { \"limit\": 100, \"offset\": 100 } }"
         };
 
-        protected override string Execute(UIApplication app, Document doc, Dictionary<string, object> parameters, QueuedCommand cmd)
+        protected override IEnumerable<object> QuerySource(UIApplication app, Document doc, Dictionary<string, object> parameters)
         {
-
             string? familyName = HandlerUtilities.GetStringOrNull(parameters, "family_name");
             string? categoryStr = HandlerUtilities.GetStringOrNull(parameters, "category");
 
@@ -49,7 +52,8 @@ namespace RevitCliBridge.Handlers.Query
                 symbols = symbols.Where(s => s.Family.Name.Contains(familyName));
             }
 
-            var results = symbols
+            // OrderBy(id) ensures stable pagination.
+            return symbols
                 .Select(s => new
                 {
                     element_id = s.Id.IntegerValue,
@@ -57,12 +61,8 @@ namespace RevitCliBridge.Handlers.Query
                     symbol_name = s.Name,
                     category = s.Category?.Name
                 })
-                .Take(500)
-                .ToList();
-
-            var result = new { count = results.Count, symbols = results };
-            return CommandResponse.Success(cmd.TaskId, result,
-                $"Retrieved {results.Count} family symbols.").ToJson();
+                .OrderBy(e => e.element_id)
+                .Select(e => (object)e);
         }
     }
 }
