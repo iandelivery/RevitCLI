@@ -19,14 +19,16 @@ namespace RevitCliBridge.Handlers.Query
             new CommandParamSchema { Name = "param_name", Type = "string", Required = true, Description = "Parameter name to search on" },
             new CommandParamSchema { Name = "param_value", Type = "string", Required = false, Description = "Parameter value to compare (not required for 'empty' operator)" },
             new CommandParamSchema { Name = "param_operator", Type = "string", Required = false, Description = "Comparison operator", EnumValues = new[] { "eq", "neq", "contains", "gt", "lt", "empty", "notempty" }, Default = "eq" },
-            new CommandParamSchema { Name = "limit", Type = "int", Required = false, Description = "Maximum number of results", Default = 500 }
+            new CommandParamSchema { Name = "limit", Type = "int", Required = false, Description = "Maximum number of results (page size)", Default = 500 },
+            new CommandParamSchema { Name = "offset", Type = "int", Required = false, Description = "Number of results to skip for pagination", Default = 0 }
         };
 
         public override string[] Examples => new[]
         {
             "{ \"command\": \"search_elements\", \"parameters\": { \"category\": \"OST_Walls\", \"param_name\": \"Comments\", \"param_value\": \"Review\", \"param_operator\": \"contains\" } }",
             "{ \"command\": \"search_elements\", \"parameters\": { \"category\": \"OST_Doors\", \"param_name\": \"Mark\", \"param_value\": \"A-1\", \"param_operator\": \"eq\" } }",
-            "{ \"command\": \"search_elements\", \"parameters\": { \"category\": \"OST_Walls\", \"param_name\": \"Comments\", \"param_operator\": \"empty\" } }"
+            "{ \"command\": \"search_elements\", \"parameters\": { \"category\": \"OST_Walls\", \"param_name\": \"Comments\", \"param_operator\": \"empty\" } }",
+            "{ \"command\": \"search_elements\", \"parameters\": { \"category\": \"OST_Walls\", \"param_name\": \"Comments\", \"param_operator\": \"contains\", \"param_value\": \"Review\", \"limit\": 100, \"offset\": 100 } }"
         };
 
         protected override string Execute(UIApplication app, Document doc, Dictionary<string, object> parameters, QueuedCommand cmd)
@@ -36,7 +38,7 @@ namespace RevitCliBridge.Handlers.Query
             string? paramName = HandlerUtilities.GetStringOrNull(parameters, "param_name");
             string? paramValue = HandlerUtilities.GetStringOrNull(parameters, "param_value");
             string? paramOperator = HandlerUtilities.GetStringOrNull(parameters, "param_operator") ?? "eq";
-            int? limit = HandlerUtilities.GetIntOrNull(parameters, "limit") ?? 500;
+            var (limit, offset) = HandlerUtilities.GetPagingParams(parameters);
 
             if (string.IsNullOrEmpty(category))
                 return CommandResponse.Error(cmd.TaskId, "Missing 'category' parameter.").ToJson();
@@ -61,7 +63,9 @@ namespace RevitCliBridge.Handlers.Query
                 .OfCategory(bic)
                 .WhereElementIsNotElementType();
 
-            var elements = collector
+            // OrderBy(id) ensures stable pagination; Take(limit+1) enables
+            // has_more detection without a full Count() over the source.
+            var overFetched = collector
                 .Where(e => MatchesParameter(e, paramName!, paramValue, paramOperator))
                 .Select(e => new
                 {
@@ -70,8 +74,12 @@ namespace RevitCliBridge.Handlers.Query
                     category = e.Category?.Name,
                     class_type = e.GetType().Name
                 })
-                .Take(limit.Value)
+                .OrderBy(e => e.id)
+                .Skip(offset)
+                .Take(limit + 1)
                 .ToList();
+
+            var (items, hasMore) = HandlerUtilities.ApplyPaging(overFetched, limit);
 
             var result = new
             {
@@ -79,12 +87,15 @@ namespace RevitCliBridge.Handlers.Query
                 param_name = paramName,
                 param_operator = paramOperator,
                 param_value = paramValue,
-                count = elements.Count,
-                elements = elements
+                count = items.Count,
+                offset = offset,
+                limit = limit,
+                has_more = hasMore,
+                elements = items
             };
 
             return CommandResponse.Success(cmd.TaskId, result,
-                $"Found {elements.Count} elements matching criteria.").ToJson();
+                $"Found {items.Count} elements matching criteria.").ToJson();
         }
 
         private bool MatchesParameter(Element element, string paramName, string? paramValue, string op)

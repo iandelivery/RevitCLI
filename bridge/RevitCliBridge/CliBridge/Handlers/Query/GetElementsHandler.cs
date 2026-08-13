@@ -15,13 +15,16 @@ namespace RevitCliBridge.Handlers.Query
 
         public override CommandParamSchema[] Parameters => new[]
         {
-            new CommandParamSchema { Name = "category", Type = "string", Required = false, Description = "BuiltInCategory enum value to filter (e.g. 'OST_Walls', 'OST_Doors')" }
+            new CommandParamSchema { Name = "category", Type = "string", Required = false, Description = "BuiltInCategory enum value to filter (e.g. 'OST_Walls', 'OST_Doors')" },
+            new CommandParamSchema { Name = "limit", Type = "int", Required = false, Description = "Maximum number of results (page size)", Default = 500 },
+            new CommandParamSchema { Name = "offset", Type = "int", Required = false, Description = "Number of results to skip for pagination", Default = 0 }
         };
 
         public override string[] Examples => new[]
         {
             "{ \"command\": \"get_elements\", \"parameters\": {} }",
-            "{ \"command\": \"get_elements\", \"parameters\": { \"category\": \"OST_Walls\" } }"
+            "{ \"command\": \"get_elements\", \"parameters\": { \"category\": \"OST_Walls\" } }",
+            "{ \"command\": \"get_elements\", \"parameters\": { \"category\": \"OST_Walls\", \"limit\": 100, \"offset\": 200 } }"
         };
 
         protected override string Execute(UIApplication app, Document doc, Dictionary<string, object> parameters, QueuedCommand cmd)
@@ -30,6 +33,8 @@ namespace RevitCliBridge.Handlers.Query
             string? category = null;
             if (parameters.TryGetValue("category", out var catVal))
                 category = catVal?.ToString();
+
+            var (limit, offset) = HandlerUtilities.GetPagingParams(parameters);
 
             var collector = new FilteredElementCollector(doc);
 
@@ -50,7 +55,9 @@ namespace RevitCliBridge.Handlers.Query
                 collector = collector.WhereElementIsNotElementType();
             }
 
-            var elements = collector
+            // OrderBy(id) ensures stable pagination; Take(limit+1) enables
+            // has_more detection without a full Count() over the source.
+            var overFetched = collector
                 .WhereElementIsNotElementType()
                 .Select(e => new
                 {
@@ -59,17 +66,24 @@ namespace RevitCliBridge.Handlers.Query
                     category = e.Category?.Name,
                     class_type = e.GetType().Name
                 })
-                .Take(500)
+                .OrderBy(e => e.id)
+                .Skip(offset)
+                .Take(limit + 1)
                 .ToList();
+
+            var (items, hasMore) = HandlerUtilities.ApplyPaging(overFetched, limit);
 
             var result = new
             {
-                count = elements.Count,
-                elements = elements
+                count = items.Count,
+                offset = offset,
+                limit = limit,
+                has_more = hasMore,
+                elements = items
             };
 
             return CommandResponse.Success(cmd.TaskId, result,
-                $"Retrieved {elements.Count} elements.").ToJson();
+                $"Retrieved {items.Count} elements.").ToJson();
         }
     }
 }
