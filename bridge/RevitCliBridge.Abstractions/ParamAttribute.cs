@@ -31,7 +31,7 @@ namespace RevitCliBridge.Abstractions
         /// </summary>
         public object? Default { get; set; }
 
-        public ParamAttribute(string name)
+        public ParamAttribute(string name = "")
         {
             Name = name ?? string.Empty;
         }
