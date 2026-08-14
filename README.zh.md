@@ -136,11 +136,12 @@ cd C:\path\to\revit-cli-opensource
 .\build.ps1
 ```
 
-脚本按三个阶段运行，完全对应 CI 发布流水线：
+脚本按四个阶段运行，完全对应 CI 发布流水线：
 
 1. **编译 Bridge**：依次构建所有受支持的 Revit 版本（2019、2020、2021、2022）。产物输出到 `bridge/dist/Revit20XX/`，并为每个版本生成包含正确端口（5011、5021、5031、5041）的 `.config/cli_bridge_setting.json`。
 2. **编译 Go 客户端**：`go vet` + `go build`，并通过 `-ldflags "-X main.Version=…"` 注入版本号。
-3. **打包**：在仓库根目录的 `dist/` 下生成三类 zip：
+3. **生成 API 文档**：使用 [XMLDoc2Markdown](https://github.com/charlesdevandiere/xmldoc2markdown) 把 `RevitCliBridge.Abstractions` 的 XML 文档注释转成 Markdown，输出到 `bridge/docs/api/`。工具通过 `dotnet tool restore` 自动从 `.config/dotnet-tools.json` 还原，无需手动安装。
+4. **打包**：在仓库根目录的 `dist/` 下生成三类 zip：
    - `revit-cli-<version>.zip` — 完整包（客户端 + SKILL.md + 所有 Bridge 版本）
    - `revit-cli-client-<version>.zip` — 仅客户端 + SKILL.md
    - `RevitCliBridge-Revit<year>-<version>.zip` — 单个 Bridge 版本
@@ -175,6 +176,7 @@ RevitCliBridge-Revit2022-1.0.0.zip
 | `-RevitVersions "2021,2022"` | 仅编译指定的 Revit 版本 Bridge |
 | `-SkipBridge` | 复用现有 `bridge/dist/` 产物，只构建/打包客户端 |
 | `-SkipClient` | 复用现有 `revit-cli.exe`，只构建/打包 Bridge |
+| `-SkipDocs` | 跳过 API 文档生成阶段 |
 | `-SkipPackage` | 执行构建但跳过打包 zip（适合快速迭代） |
 | `-SkipVet` | 跳过 `go vet`，加快客户端编译速度 |
 
@@ -186,6 +188,9 @@ RevitCliBridge-Revit2022-1.0.0.zip
 
 # 仅编译并打包 Revit 2022 Bridge
 .\build.ps1 -RevitVersions "2022" -SkipVet
+
+# 仅重新生成 API 文档
+.\build.ps1 -SkipBridge -SkipClient -SkipPackage
 ```
 
 **单独构建某个组件**
