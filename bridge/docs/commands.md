@@ -43,7 +43,7 @@ aliases and to the domain-path / underscore-reversal matching in
 `CommandNameResolver` — e.g. `domain.create_wall@v2` and `wall_create@v2` both
 resolve to `create_wall@v2`.
 
-## Catalog (52 commands, 10 categories)
+## Catalog (61 commands, 11 categories)
 
 | Category | Command | Modifies Model |
 |------|------|:------------:|
@@ -55,6 +55,7 @@ resolve to `create_wall@v2`.
 | **Parameters** | `set_parameter`, `set_parameter_by_id`, `batch_set_param` | Yes |
 | **Architecture** | `set_wall_constraint`, `set_walls_constraint` | Yes |
 | **Views** | `set_active_view`, `zoom_to_fit`, `export_view`, `apply_view_template`, `place_on_sheet`, `tag_rooms` | apply_view_template, place_on_sheet, tag_rooms: Yes |
+| **Electrical** | `get_cable_tray_types`, `get_cable_trays`, `create_cable_tray`, `modify_cable_tray`, `create_elbow_fitting`, `create_transition_fitting`, `create_union_fitting`, `create_tee_fitting`, `create_cross_fitting` | create/modify/fitting: Yes |
 | **Batch** | `batch`, `batch_export` | Yes |
 | **Raw** | `execute_raw` (gated by `allow_raw_execution`) | Yes |
 
@@ -122,5 +123,80 @@ public class MyCommandHandler : DocumentCommandBase
    set `allow_unsigned_plugins: true` for local dev builds. See
    [components.md](components.md#bridgepluginloader--signature-gating) for
    details.
+
+## Cable Tray & Fittings
+
+The Electrical category provides 9 commands for cable tray management. All
+coordinates are in millimeters. Fitting handlers auto-select the closest
+connector pair when explicit indices are not provided.
+
+### Query
+
+```bash
+# List available cable tray types
+revit-cli.exe get_cable_tray_types
+
+# List cable tray instances (optionally filtered by level or type)
+revit-cli.exe get_cable_trays
+revit-cli.exe get_cable_trays --level-id 3001
+revit-cli.exe get_cable_trays --type-id 12345 --limit 100
+```
+
+### Create & Modify
+
+```bash
+# Create a straight segment
+revit-cli.exe create_cable_tray \
+  --start-x 0 --start-y 0 --start-z 3000 \
+  --end-x 5000 --end-y 0 --end-z 3000 \
+  --level-id 3001
+
+# Create with explicit type and dimensions
+revit-cli.exe create_cable_tray \
+  --start-x 0 --start-y 0 --start-z 3000 \
+  --end-x 5000 --end-y 0 --end-z 3000 \
+  --level-id 3001 --type-id 12345 --width-mm 200 --height-mm 100
+
+# Modify endpoints (partial update — only provided fields change)
+revit-cli.exe modify_cable_tray --element-id 12345 --end-x 6000
+
+# Change type and dimensions
+revit-cli.exe modify_cable_tray --element-id 12345 --width-mm 300 --height-mm 150
+```
+
+### Fittings
+
+All fitting commands accept `--dry-run` to validate without committing.
+
+```bash
+# Elbow: 2 trays meeting at an angle (2°–95°)
+revit-cli.exe create_elbow_fitting --element-id-1 12345 --element-id-2 12346
+
+# Transition: 2 collinear trays of differing cross-section
+revit-cli.exe create_transition_fitting --element-id-1 12345 --element-id-2 12346
+
+# Union: 2 collinear trays of identical cross-section
+revit-cli.exe create_union_fitting --element-id-1 12345 --element-id-2 12346
+
+# Tee: branch meets main (main is auto-split at the intersection)
+revit-cli.exe create_tee_fitting --main-element-id 12345 --branch-element-id 12346
+
+# Cross: 2 branches meet a pre-split main (caller splits main first)
+revit-cli.exe create_cross_fitting \
+  --main-element-id-1 12345 --main-element-id-2 12346 \
+  --branch-element-id-1 12347 --branch-element-id-2 12348
+```
+
+| Fitting | Connectors | Constraint |
+|------|:---:|------|
+| Elbow | 2 | Angle 2°–95° |
+| Transition | 2 | Collinear, different width/height |
+| Union | 2 | Collinear, same width/height |
+| Tee | 3 | Branch ⊥ main within 1°; main auto-split |
+| Cross | 4 | Main pre-split; both branches ⊥ main within 1° |
+
+> **Note**: `create_takeoff_fitting` is intentionally omitted — the Revit API's
+> `NewTakeoffFitting` is documented as duct/pipe-only and throws
+> `ArgumentException` for cable trays.
 
 → Next: [threading.md](threading.md) for concurrency & safety.
