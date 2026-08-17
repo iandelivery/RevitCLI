@@ -31,7 +31,7 @@ AI Agent ──HTTP──► CliHttpServer ──enqueue──► TaskRegistry �
 
 - **3 projects**: `RevitCliBridge` (Revit add-in, multi-target R19–R22), `RevitCliBridge.Abstractions` (netstandard2.0 SDK), `RevitCliBridge.Tests` (xUnit).
 - **52 commands** across 10 category folders, auto-discovered via reflection.
-- **61 unit tests** covering pure-logic components extracted for testability.
+- **292 tests** (unit + integration + scalability) covering pure-logic components and end-to-end workflows; runs in ~700 ms. See [testing.md](testing.md).
 - **Auth**: optional API key (constant-time comparison); listens on `localhost` only.
 
 ## For AI Agents
