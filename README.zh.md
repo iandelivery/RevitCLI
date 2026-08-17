@@ -248,6 +248,12 @@ revit-cli.exe elements -c OST_Walls
 # 创建墙体
 revit-cli.exe create_wall --start-x 0 --start-y 0 --end-x 5000 --end-y 0 -l 3001
 
+# 创建电缆桥架段
+revit-cli.exe create_cable_tray --start-x 0 --start-y 0 --start-z 3000 --end-x 5000 --end-y 0 --end-z 3000 -l 3001
+
+# 在两个电缆桥架之间创建弯头配件
+revit-cli.exe create_elbow_fitting --element-id-1 12345 --element-id-2 12346
+
 # 查看 Revit API 参考（用于未覆盖的操作）
 revit-cli.exe llms
 ```

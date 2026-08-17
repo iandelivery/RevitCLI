@@ -245,6 +245,12 @@ revit-cli.exe elements -c OST_Walls
 # Create a wall
 revit-cli.exe create_wall --start-x 0 --start-y 0 --end-x 5000 --end-y 0 -l 3001
 
+# Create a cable tray segment
+revit-cli.exe create_cable_tray --start-x 0 --start-y 0 --start-z 3000 --end-x 5000 --end-y 0 --end-z 3000 -l 3001
+
+# Create an elbow fitting between two cable trays
+revit-cli.exe create_elbow_fitting --element-id-1 12345 --element-id-2 12346
+
 # View the Revit API reference for uncovered operations
 revit-cli.exe llms
 ```

@@ -62,6 +62,16 @@ namespace RevitCliBridge.Handlers
             return _transaction.GetStatus();
         }
 
+        /// <summary>
+        /// Applies the CLI failure-handling options (CliFailurePreprocessor)
+        /// to the wrapped transaction. Equivalent to calling
+        /// <c>t.ConfigureFailureHandling()</c> on a raw Transaction.
+        /// </summary>
+        public void ConfigureFailureHandling()
+        {
+            _transaction.ConfigureFailureHandling();
+        }
+
         public void Dispose()
         {
             if (!_committed)
