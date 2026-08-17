@@ -135,7 +135,7 @@ Returns identity information about the bridge instance, enabling the CLI client 
   "pid": 5678,
   "port": 5041,
   "hostname": "localhost",
-  "commands_count": 64
+  "commands_count": 72
 }
 ```
 
