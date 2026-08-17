@@ -300,5 +300,228 @@ namespace RevitCliBridge.Tests
             Assert.True(p.IncludeHidden);
             Assert.False(p.DryRun);
         }
+
+        // ---------- Edge cases: nullable value types ----------
+
+        // Nullable value types are optional — absent param leaves default (null).
+        class NullableParams
+        {
+            [Param("level_id")]
+            public int? LevelId { get; set; }
+
+            [Param("offset")]
+            public double? Offset { get; set; }
+
+            [Param("flag")]
+            public bool? Flag { get; set; }
+        }
+
+        [Fact]
+        public void Bind_NullableInt_Absent_LeavesPropertyNull()
+        {
+            var p = ParameterBinder.Bind<NullableParams>(
+                new Dictionary<string, object>());
+            Assert.Null(p.LevelId);
+        }
+
+        [Fact]
+        public void Bind_NullableInt_Present_ConvertsFromLong()
+        {
+            // JSON deserializer yields long; binder must convert to int?.
+            var dict = new Dictionary<string, object> { ["level_id"] = 42L };
+            var p = ParameterBinder.Bind<NullableParams>(dict);
+            Assert.Equal(42, p.LevelId);
+        }
+
+        [Fact]
+        public void Bind_NullableDouble_Present_ConvertsFromInt()
+        {
+            var dict = new Dictionary<string, object> { ["offset"] = 7 };
+            var p = ParameterBinder.Bind<NullableParams>(dict);
+            Assert.Equal(7.0, p.Offset);
+        }
+
+        [Fact]
+        public void Bind_NullableBool_Present_ConvertsFromTrue()
+        {
+            var dict = new Dictionary<string, object> { ["flag"] = true };
+            var p = ParameterBinder.Bind<NullableParams>(dict);
+            Assert.True(p.Flag);
+        }
+
+        // ---------- Edge cases: string → numeric/bool conversions ----------
+
+        [Fact]
+        public void Bind_StringValueForInt_ParsesSuccessfully()
+        {
+            var dict = new Dictionary<string, object>
+            {
+                ["start_x"] = 0.0, ["start_y"] = 0.0, ["end_x"] = 1.0, ["end_y"] = 1.0,
+                ["level_id"] = "3001",
+            };
+            var p = ParameterBinder.Bind<WallParams>(dict);
+            Assert.Equal(3001, p.LevelId);
+        }
+
+        [Fact]
+        public void Bind_StringValueForDouble_ParsesSuccessfully()
+        {
+            var dict = new Dictionary<string, object>
+            {
+                ["start_x"] = "1.5", ["start_y"] = 0.0, ["end_x"] = 1.0, ["end_y"] = 1.0,
+                ["level_id"] = 3,
+            };
+            var p = ParameterBinder.Bind<WallParams>(dict);
+            Assert.Equal(1.5, p.StartX);
+        }
+
+        [Fact]
+        public void Bind_BoolFromString_True_IsTrue()
+        {
+            var dict = new Dictionary<string, object> { ["include_hidden"] = "true" };
+            var p = ParameterBinder.Bind<BoolParams>(dict);
+            Assert.True(p.IncludeHidden);
+        }
+
+        [Fact]
+        public void Bind_BoolFromString_False_IsFalse()
+        {
+            var dict = new Dictionary<string, object> { ["include_hidden"] = "false" };
+            var p = ParameterBinder.Bind<BoolParams>(dict);
+            Assert.False(p.IncludeHidden);
+        }
+
+        [Fact]
+        public void Bind_BoolFromInvalidString_ThrowsTypeException()
+        {
+            var dict = new Dictionary<string, object> { ["include_hidden"] = "yes" };
+            var ex = Assert.Throws<ParameterTypeException>(() => ParameterBinder.Bind<BoolParams>(dict));
+            Assert.Equal("include_hidden", ex.ParameterName);
+            Assert.Equal(typeof(bool), ex.TargetType);
+        }
+
+        // ---------- Edge cases: int[] variants ----------
+
+        [Fact]
+        public void Bind_IntArray_FromActualIntArray()
+        {
+            var dict = new Dictionary<string, object>
+            {
+                ["start_x"] = 0.0, ["start_y"] = 0.0, ["end_x"] = 1.0, ["end_y"] = 1.0,
+                ["level_id"] = 3,
+                ["tag_ids"] = new[] { 1, 2, 3 },
+            };
+            var p = ParameterBinder.Bind<WallParams>(dict);
+            Assert.Equal(new[] { 1, 2, 3 }, p.TagIds);
+        }
+
+        [Fact]
+        public void Bind_IntArray_FromMixedLongAndInt_PreservesAllValues()
+        {
+            var dict = new Dictionary<string, object>
+            {
+                ["start_x"] = 0.0, ["start_y"] = 0.0, ["end_x"] = 1.0, ["end_y"] = 1.0,
+                ["level_id"] = 3,
+                ["tag_ids"] = new List<object> { 1, 2L, 3 },
+            };
+            var p = ParameterBinder.Bind<WallParams>(dict);
+            Assert.Equal(new[] { 1, 2, 3 }, p.TagIds);
+        }
+
+        [Fact]
+        public void Bind_IntArray_FromSingleInt_WrappedAsSingleElement()
+        {
+            // Non-string IEnumerable of one element.
+            var dict = new Dictionary<string, object>
+            {
+                ["start_x"] = 0.0, ["start_y"] = 0.0, ["end_x"] = 1.0, ["end_y"] = 1.0,
+                ["level_id"] = 3,
+                ["tag_ids"] = new List<object> { 999 },
+            };
+            var p = ParameterBinder.Bind<WallParams>(dict);
+            Assert.Equal(new[] { 999 }, p.TagIds);
+        }
+
+        [Fact]
+        public void Bind_IntArray_FromEmptyList_ProducesEmptyArray()
+        {
+            var dict = new Dictionary<string, object>
+            {
+                ["start_x"] = 0.0, ["start_y"] = 0.0, ["end_x"] = 1.0, ["end_y"] = 1.0,
+                ["level_id"] = 3,
+                ["tag_ids"] = new List<object>(),
+            };
+            var p = ParameterBinder.Bind<WallParams>(dict);
+            Assert.NotNull(p.TagIds);
+            Assert.Empty(p.TagIds);
+        }
+
+        [Fact]
+        public void Bind_IntArray_FromNonConvertibleElement_ThrowsTypeException()
+        {
+            var dict = new Dictionary<string, object>
+            {
+                ["start_x"] = 0.0, ["start_y"] = 0.0, ["end_x"] = 1.0, ["end_y"] = 1.0,
+                ["level_id"] = 3,
+                ["tag_ids"] = new List<object> { 1, "abc", 3 },
+            };
+            var ex = Assert.Throws<ParameterTypeException>(() => ParameterBinder.Bind<WallParams>(dict));
+            Assert.Equal("tag_ids", ex.ParameterName);
+            Assert.Equal(typeof(int[]), ex.TargetType);
+        }
+
+        [Fact]
+        public void Bind_IntArray_FromString_ThrowsTypeException()
+        {
+            // A string is IEnumerable<char> but not int-convertible; the
+            // binder explicitly excludes string from array conversion.
+            var dict = new Dictionary<string, object>
+            {
+                ["start_x"] = 0.0, ["start_y"] = 0.0, ["end_x"] = 1.0, ["end_y"] = 1.0,
+                ["level_id"] = 3,
+                ["tag_ids"] = "1,2,3",
+            };
+            var ex = Assert.Throws<ParameterTypeException>(() => ParameterBinder.Bind<WallParams>(dict));
+            Assert.Equal("tag_ids", ex.ParameterName);
+        }
+
+        // ---------- Edge cases: Required + Default interaction ----------
+
+        class RequiredWithDefaultParams
+        {
+            // Required=true but Default=3000 — the default satisfies the
+            // required check, so a missing param does NOT throw.
+            [Param("height", Required = true, Default = 3000.0)]
+            public double Height { get; set; }
+        }
+
+        [Fact]
+        public void Bind_RequiredWithDefault_Absent_DoesNotThrow()
+        {
+            var p = ParameterBinder.Bind<RequiredWithDefaultParams>(
+                new Dictionary<string, object>());
+            Assert.Equal(3000.0, p.Height);
+        }
+
+        // ---------- Edge cases: Loose object (non-dictionary) inputs ----------
+
+        [Fact]
+        public void Bind_NonDictionaryObject_TreatedAsEmpty_NoErrorsForNoParams()
+        {
+            // An arbitrary object (not IDictionary) yields no parameters,
+            // which is fine for POCOs with no required fields.
+            var p = ParameterBinder.Bind<EmptyParams>("not a dictionary");
+            Assert.Equal(42, p.Unused);
+        }
+
+        [Fact]
+        public void Bind_NonDictionaryObjectWithRequiredParams_ThrowsMissing()
+        {
+            // An arbitrary object is treated as empty, so required params
+            // in WallParams are missing.
+            var ex = Assert.Throws<MissingParameterException>(
+                () => ParameterBinder.Bind<WallParams>("not a dict"));
+            Assert.Equal("start_x", ex.ParameterName);
+        }
     }
 }

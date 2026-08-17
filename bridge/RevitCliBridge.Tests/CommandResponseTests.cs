@@ -49,5 +49,108 @@ namespace RevitCliBridge.Tests
             Assert.DoesNotContain("\"data\"", json);
             Assert.DoesNotContain("\"error_details\"", json);
         }
+
+        // ---------- Edge cases: factory defaults ----------
+
+        [Fact]
+        public void Success_WithCustomMessage_PropagatesMessage()
+        {
+            var resp = CommandResponse.Success("t", new { x = 1 }, "Done");
+            Assert.Equal("Done", resp.Message);
+        }
+
+        [Fact]
+        public void Success_WithNullTaskId_AllowsNullAndSerializesAsNull()
+        {
+            // The factory doesn't null-coerce; TaskId is set directly to
+            // null. The property's default ("") is only used when the
+            // setter is never called. Verify ToJson still succeeds and
+            // produces "task_id":null (the property lacks
+            // NullValueHandling.Ignore).
+            var resp = CommandResponse.Success(null!, null);
+            var json = resp.ToJson();
+            Assert.Contains("\"task_id\":null", json);
+        }
+
+        [Fact]
+        public void Error_WithoutErrorDetails_LeavesErrorDetailsNull()
+        {
+            var resp = CommandResponse.Error("t", "fail");
+            Assert.Null(resp.ErrorDetails);
+            // Data is never set by Error — should remain null.
+            Assert.Null(resp.Data);
+        }
+
+        [Fact]
+        public void Error_WithEmptyMessage_PreservesEmptyString()
+        {
+            var resp = CommandResponse.Error("t", "");
+            Assert.Equal("", resp.Message);
+            Assert.Equal("error", resp.Status);
+        }
+
+        // ---------- Edge cases: JSON serialization ----------
+
+        [Fact]
+        public void ToJson_ErrorIncludesErrorDetails_WhenNonNull()
+        {
+            var resp = CommandResponse.Error("t", "fail", "trace@1");
+            var json = resp.ToJson();
+            Assert.Contains("\"error_details\":\"trace@1\"", json);
+            // Error responses never set Data, so data should be omitted.
+            Assert.DoesNotContain("\"data\"", json);
+        }
+
+        [Fact]
+        public void ToJson_SerializesComplexDataPayload()
+        {
+            var resp = CommandResponse.Success("t", new
+            {
+                items = new[] { 1, 2, 3 },
+                meta = new { total = 10, page = 1 }
+            });
+            var json = resp.ToJson();
+            Assert.Contains("\"data\":", json);
+            Assert.Contains("\"items\":[1,2,3]", json);
+            Assert.Contains("\"meta\":", json);
+            Assert.Contains("\"total\":10", json);
+            Assert.Contains("\"page\":1", json);
+        }
+
+        [Fact]
+        public void ToJson_ProducesStableKeyOrdering()
+        {
+            // Newtonsoft serializes properties in declaration order; for the
+            // CommandResponse class, the expected order is task_id, status,
+            // message, data, error_details. Verify the serialized string
+            // respects this ordering for client compatibility.
+            var resp = CommandResponse.Success("t", new { x = 1 }, "m");
+            var json = resp.ToJson();
+
+            int idxTaskId = json.IndexOf("\"task_id\"");
+            int idxStatus = json.IndexOf("\"status\"");
+            int idxMessage = json.IndexOf("\"message\"");
+            int idxData = json.IndexOf("\"data\"");
+
+            Assert.True(idxTaskId < idxStatus, "task_id must precede status");
+            Assert.True(idxStatus < idxMessage, "status must precede message");
+            Assert.True(idxMessage < idxData, "message must precede data");
+        }
+
+        [Fact]
+        public void ToJson_RoundTripsThroughDeserialization()
+        {
+            // Verify the JSON can be deserialized back to a CommandResponse
+            // with matching field values.
+            var original = CommandResponse.Error("t-rt", "fail", "details-here");
+            var json = original.ToJson();
+            var deserialized = Newtonsoft.Json.JsonConvert.DeserializeObject<CommandResponse>(json);
+
+            Assert.NotNull(deserialized);
+            Assert.Equal("t-rt", deserialized!.TaskId);
+            Assert.Equal("error", deserialized.Status);
+            Assert.Equal("fail", deserialized.Message);
+            Assert.Equal("details-here", deserialized.ErrorDetails);
+        }
     }
 }

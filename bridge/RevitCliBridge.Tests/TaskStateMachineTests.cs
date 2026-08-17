@@ -189,5 +189,214 @@ namespace RevitCliBridge.Tests
 
             Assert.Equal(CliTaskStatus.Completed, task.Status);
         }
+
+        // ---------- Edge cases: state transition ordering ----------
+
+        [Fact]
+        public void SetRunning_Twice_SecondCallIsIdempotentForStatus()
+        {
+            // No exception is thrown and the task remains Running. This
+            // mirrors the production guarantee that re-entering the executor
+            // loop does not corrupt task state.
+            var task = NewTask();
+            TaskStateMachine.SetRunning(task);
+
+            TaskStateMachine.SetRunning(task);
+
+            Assert.Equal(CliTaskStatus.Running, task.Status);
+            // Re-stamping StartedAt is allowed by the state machine — the
+            // contract is just "must be non-null after SetRunning".
+            Assert.NotNull(task.StartedAt);
+        }
+
+        [Fact]
+        public void SetProgress_BeforeSetRunning_StillUpdatesProgress()
+        {
+            // No state precondition — SetProgress updates fields regardless
+            // of prior status. Production code normally calls SetRunning
+            // first, but the state machine doesn't enforce the ordering.
+            var task = NewTask();
+
+            TaskStateMachine.SetProgress(task, 25, "early");
+
+            Assert.Equal(25, task.Progress);
+            Assert.Equal("early", task.ProgressMessage);
+            Assert.Equal(CliTaskStatus.Pending, task.Status);
+        }
+
+        [Fact]
+        public void SetProgress_NegativeProgress_IsStoredWithoutClamping()
+        {
+            // No clamping in the state machine — contract is "store what
+            // caller gives". Clamping, if ever added, must be intentional
+            // and would update this test.
+            var task = NewTask();
+            TaskStateMachine.SetRunning(task);
+
+            TaskStateMachine.SetProgress(task, -5, "oops");
+
+            Assert.Equal(-5, task.Progress);
+        }
+
+        [Fact]
+        public void SetProgress_ProgressAbove100_IsStoredWithoutClamping()
+        {
+            var task = NewTask();
+            TaskStateMachine.SetRunning(task);
+
+            TaskStateMachine.SetProgress(task, 150, "overflow");
+
+            Assert.Equal(150, task.Progress);
+        }
+
+        [Fact]
+        public void SetCompleted_OverwritesPreviousFailedState()
+        {
+            // A task that was marked Failed may be re-marked Completed by
+            // a recovery path. The state machine allows this; the TCS
+            // already has the failed result, so TrySetResult returns false
+            // and the Failed result remains as the awaitable value.
+            var task = NewTask();
+            TaskStateMachine.SetFailed(task, "{\"err\":true}");
+
+            TaskStateMachine.SetCompleted(task, "{\"ok\":true}");
+
+            Assert.Equal(CliTaskStatus.Completed, task.Status);
+            Assert.Equal("{\"ok\":true}", task.ResultJson);
+        }
+
+        [Fact]
+        public async Task SetCompleted_AfterSetFailed_TcsKeepsFirstResult()
+        {
+            // TrySetResult is one-shot: the first completion wins.
+            var task = NewTask();
+            TaskStateMachine.SetFailed(task, "first");
+
+            TaskStateMachine.SetCompleted(task, "second");
+
+            Assert.Equal("first", await task.Tcs.Task);
+        }
+
+        [Fact]
+        public async Task SetFailed_AfterSetCompleted_TcsKeepsFirstResult()
+        {
+            var task = NewTask();
+            TaskStateMachine.SetCompleted(task, "first-ok");
+
+            TaskStateMachine.SetFailed(task, "later-fail");
+
+            Assert.Equal("first-ok", await task.Tcs.Task);
+            Assert.Equal(CliTaskStatus.Failed, task.Status);
+        }
+
+        [Fact]
+        public void Lifecycle_TimestampOrdering_StartedBeforeCompleted()
+        {
+            var task = NewTask();
+            TaskStateMachine.SetRunning(task);
+            TaskStateMachine.SetCompleted(task, "{}");
+
+            Assert.NotNull(task.StartedAt);
+            Assert.NotNull(task.CompletedAt);
+            Assert.True(task.StartedAt <= task.CompletedAt);
+        }
+
+        [Fact]
+        public void SetCompleted_BroadcastsParsedJson_WhenInputIsValidJson()
+        {
+            // SafeParseJson should produce a JObject in the broadcast payload
+            // when the input is valid JSON. We can't inspect the parsed
+            // object directly (it's an anonymous-typed payload), but the
+            // serialized broadcast JSON should contain the nested fields
+            // rather than a quoted string.
+            var task = NewTask();
+            string? seenJson = null;
+            task.OnSseEvent += (_, json) => seenJson = json;
+
+            TaskStateMachine.SetCompleted(task, "{\"count\":3,\"name\":\"wall\"}");
+
+            Assert.NotNull(seenJson);
+            // The broadcast payload nests the parsed object under "result".
+            Assert.Contains("\"result\":", seenJson!);
+            Assert.Contains("\"count\":3", seenJson!);
+            Assert.Contains("\"name\":\"wall\"", seenJson!);
+        }
+
+        [Fact]
+        public void SetCompleted_BroadcastContainsTaskIdAndStatus()
+        {
+            var task = NewTask(id: "task-99");
+            string? seenJson = null;
+            task.OnSseEvent += (_, json) => seenJson = json;
+
+            TaskStateMachine.SetCompleted(task, "{}");
+
+            Assert.Contains("\"task_id\":\"task-99\"", seenJson);
+            Assert.Contains("\"status\":\"completed\"", seenJson);
+        }
+
+        [Fact]
+        public void SetFailed_BroadcastContainsTaskIdAndFailedStatus()
+        {
+            var task = NewTask(id: "task-fail");
+            string? seenJson = null;
+            task.OnSseEvent += (_, json) => seenJson = json;
+
+            TaskStateMachine.SetFailed(task, "{\"error\":\"boom\"}");
+
+            Assert.Contains("\"task_id\":\"task-fail\"", seenJson);
+            Assert.Contains("\"status\":\"failed\"", seenJson);
+        }
+
+        [Fact]
+        public void SetRunning_BroadcastProgressZero_ContainsTaskId()
+        {
+            var task = NewTask(id: "task-run");
+            string? seenJson = null;
+            task.OnSseEvent += (name, json) =>
+            {
+                if (name == "progress") seenJson = json;
+            };
+
+            TaskStateMachine.SetRunning(task);
+
+            Assert.Contains("\"task_id\":\"task-run\"", seenJson);
+            Assert.Contains("\"progress\":0", seenJson);
+        }
+
+        [Fact]
+        public void SetProgress_BroadcastIncludesCurrentMessage_WhenProvided()
+        {
+            var task = NewTask();
+            TaskStateMachine.SetRunning(task);
+            string? seenJson = null;
+            task.OnSseEvent += (_, json) => seenJson = json;
+
+            TaskStateMachine.SetProgress(task, 50, "halfway there");
+
+            Assert.Contains("\"progress\":50", seenJson);
+            Assert.Contains("\"message\":\"halfway there\"", seenJson);
+        }
+
+        [Fact]
+        public void SetProgress_BroadcastMessageIsNull_WhenNullPassed()
+        {
+            // The state machine passes the (possibly null) message straight
+            // to the broadcast payload, and the ProgressMessage field on
+            // the task is NOT overwritten when null is passed (the
+            // `if (message is not null)` guard skips the assignment).
+            var task = NewTask();
+            TaskStateMachine.SetRunning(task);
+            string? seenJson = null;
+            task.OnSseEvent += (_, json) => seenJson = json;
+
+            TaskStateMachine.SetProgress(task, 50, null);
+
+            Assert.Contains("\"progress\":50", seenJson);
+            // SetRunning broadcasts "Execution started" inline but does NOT
+            // update task.ProgressMessage, so it stays null. SetProgress with
+            // a null message must preserve this null (not overwrite).
+            Assert.Null(task.ProgressMessage);
+        }
     }
 }
