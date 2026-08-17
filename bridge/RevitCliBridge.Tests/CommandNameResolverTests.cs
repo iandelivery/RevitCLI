@@ -176,5 +176,141 @@ namespace RevitCliBridge.Tests
             var names = new HashSet<string> { "create_wall@v1" };
             Assert.Equal("create_wall@v9", CommandNameResolver.Resolve("create_wall@v9", names));
         }
+
+        // ---------- Edge cases: empty / unusual inputs ----------
+
+        [Fact]
+        public void Resolve_EmptyStringInput_ReturnsEmpty()
+        {
+            Assert.Equal(string.Empty, CommandNameResolver.Resolve(string.Empty, SampleNames));
+        }
+
+        [Fact]
+        public void Resolve_WhitespaceOnlyInput_TreatedAsExactMatchOrReturnedAsIs()
+        {
+            // Whitespace is not normalized — resolver returns it unchanged
+            // when not an exact match.
+            Assert.Equal("   ", CommandNameResolver.Resolve("   ", SampleNames));
+        }
+
+        [Fact]
+        public void Resolve_InputWithTrailingDot_ReturnsInputWhenNoMatch()
+        {
+            var names = new HashSet<string> { "create_wall" };
+            // Trailing dot yields an empty final segment; resolver returns
+            // input unchanged since no suffix matches.
+            Assert.Equal("create_wall.", CommandNameResolver.Resolve("create_wall.", names));
+        }
+
+        [Fact]
+        public void Resolve_InputWithLeadingDot_StillFindsMatch()
+        {
+            // ".create_wall" → first suffix candidate is "create_wall".
+            var names = new HashSet<string> { "create_wall" };
+            Assert.Equal("create_wall", CommandNameResolver.Resolve(".create_wall", names));
+        }
+
+        [Fact]
+        public void Resolve_DomainPathWithTrailingDot_PreservesExactMatch()
+        {
+            var names = new HashSet<string> { "create_wall." };
+            Assert.Equal("create_wall.", CommandNameResolver.Resolve("create_wall.", names));
+        }
+
+        // ---------- Edge cases: underscore reversal ----------
+
+        [Fact]
+        public void Resolve_UnderscoreReversal_ThreeSegmentsNotReversed()
+        {
+            // Three-segment names do NOT trigger underscore reversal.
+            var names = new HashSet<string> { "c_b_a" };
+            Assert.Equal("a_b_c", CommandNameResolver.Resolve("a_b_c", names));
+        }
+
+        [Fact]
+        public void Resolve_UnderscoreReversal_SingleSegmentNotReversed()
+        {
+            // No underscore → no reversal attempted.
+            var names = new HashSet<string> { "create" };
+            Assert.Equal("create", CommandNameResolver.Resolve("create", names));
+        }
+
+        [Fact]
+        public void Resolve_UnderscoreReversal_OnlyUnderscoreChar_ReturnedAsIs()
+        {
+            // "_" splits into two empty segments; reversed is still "_" and
+            // unlikely to match. Verify no exception is thrown.
+            var names = new HashSet<string> { "create_wall" };
+            Assert.Equal("_", CommandNameResolver.Resolve("_", names));
+        }
+
+        // ---------- Edge cases: version handling ----------
+
+        [Fact]
+        public void SplitVersion_LeadingAtSign_TreatsAsBase()
+        {
+            // "@v1" → baseName="", version="v1"
+            var (baseName, version) = CommandNameResolver.SplitVersion("@v1");
+            Assert.Equal(string.Empty, baseName);
+            Assert.Equal("v1", version);
+        }
+
+        [Fact]
+        public void SplitVersion_TrailingAtSign_ReturnsEmptyVersion()
+        {
+            var (baseName, version) = CommandNameResolver.SplitVersion("create_wall@");
+            Assert.Equal("create_wall", baseName);
+            Assert.Equal(string.Empty, version);
+        }
+
+        [Fact]
+        public void SplitVersion_MultipleAtSigns_OnlyLastSplitsVersion()
+        {
+            // "a@b@v2" → baseName="a@b", version="v2"
+            var (baseName, version) = CommandNameResolver.SplitVersion("a@b@v2");
+            Assert.Equal("a@b", baseName);
+            Assert.Equal("v2", version);
+        }
+
+        [Fact]
+        public void SplitVersion_EmptyStringInput_ReturnsEmptyAndNull()
+        {
+            var (baseName, version) = CommandNameResolver.SplitVersion(string.Empty);
+            Assert.Equal(string.Empty, baseName);
+            Assert.Null(version);
+        }
+
+        // ---------- Edge cases: combined rules ----------
+
+        [Fact]
+        public void Resolve_VersionedDomainPath_FallsBackToBareName()
+        {
+            // Versioned domain path where neither the versioned nor bare
+            // base-name-with-version matches falls back to the versioned
+            // input string.
+            var names = new HashSet<string> { "create_wall@v1", "create_wall@v2" };
+            Assert.Equal("domain.create_wall@v9",
+                CommandNameResolver.Resolve("domain.create_wall@v9", names));
+        }
+
+        [Fact]
+        public void Resolve_VersionedBareName_FallsBackToVersionedInput()
+        {
+            // Direct versioned name not registered → returned as-is (no
+            // underscore/domain rules apply since there are no dots/underscores
+            // in the base name).
+            var names = new HashSet<string> { "create_wall@v1" };
+            Assert.Equal("create_wall@v3", CommandNameResolver.Resolve("create_wall@v3", names));
+        }
+
+        [Fact]
+        public void Resolve_VersionedUnderscoreNotMatched_ReturnsVersionedInput()
+        {
+            // "wall_other@v1" reverses to "other_wall@v1" — if not registered,
+            // returns the input unchanged.
+            var names = new HashSet<string> { "create_wall@v1" };
+            Assert.Equal("wall_other@v1",
+                CommandNameResolver.Resolve("wall_other@v1", names));
+        }
     }
 }
