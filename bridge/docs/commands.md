@@ -43,7 +43,7 @@ aliases and to the domain-path / underscore-reversal matching in
 `CommandNameResolver` — e.g. `domain.create_wall@v2` and `wall_create@v2` both
 resolve to `create_wall@v2`.
 
-## Catalog (61 commands, 11 categories)
+## Catalog (72 commands, 12 categories)
 
 | Category | Command | Modifies Model |
 |------|------|:------------:|
@@ -56,6 +56,7 @@ resolve to `create_wall@v2`.
 | **Architecture** | `set_wall_constraint`, `set_walls_constraint` | Yes |
 | **Views** | `set_active_view`, `zoom_to_fit`, `export_view`, `apply_view_template`, `place_on_sheet`, `tag_rooms` | apply_view_template, place_on_sheet, tag_rooms: Yes |
 | **Electrical** | `get_cable_tray_types`, `get_cable_trays`, `create_cable_tray`, `modify_cable_tray`, `create_elbow_fitting`, `create_transition_fitting`, `create_union_fitting`, `create_tee_fitting`, `create_cross_fitting` | create/modify/fitting: Yes |
+| **Mechanical** | `get_duct_types`, `get_duct_system_types`, `get_ducts`, `create_duct`, `modify_duct`, `create_duct_elbow_fitting`, `create_duct_transition_fitting`, `create_duct_union_fitting`, `create_duct_tee_fitting`, `create_duct_cross_fitting`, `create_duct_takeoff_fitting` | create/modify/fitting: Yes |
 | **Batch** | `batch`, `batch_export` | Yes |
 | **Raw** | `execute_raw` (gated by `allow_raw_execution`) | Yes |
 
@@ -198,5 +199,97 @@ revit-cli.exe create_cross_fitting \
 > **Note**: `create_takeoff_fitting` is intentionally omitted — the Revit API's
 > `NewTakeoffFitting` is documented as duct/pipe-only and throws
 > `ArgumentException` for cable trays.
+
+## Ducts & Fittings
+
+The Mechanical category provides 11 commands for HVAC duct management. All
+coordinates are in millimeters. Like cable trays, fitting handlers auto-select
+the closest connector pair when explicit indices are not provided. Duct
+commands are prefixed with `duct_` to avoid clashing with the cable tray
+fitting handlers (the command registry keys by `CommandName`).
+
+### Query
+
+```bash
+# List available duct types (round / rectangular / oval)
+revit-cli.exe get_duct_types
+
+# List HVAC mechanical system types (SupplyAir, ReturnAir, ExhaustAir, ...)
+revit-cli.exe get_duct_system_types
+
+# List duct instances (optionally filtered by level, system type, or shape)
+revit-cli.exe get_ducts
+revit-cli.exe get_ducts --level-id 3001
+revit-cli.exe get_ducts --system-type-id 4 --shape round
+```
+
+### Create & Modify
+
+`create_duct` requires a `system_type_id` (resolve it via
+`get_duct_system_types`). Shape-specific size params are applied only when
+they match the duct type's shape — `diameter_mm` for round, `width_mm` /
+`height_mm` for rectangular or oval. Mismatched params are silently ignored
+at create time but rejected at modify time.
+
+```bash
+# Round duct: diameter_mm applies
+revit-cli.exe create_duct \
+  --start-x 0 --start-y 0 --start-z 3000 \
+  --end-x 5000 --end-y 0 --end-z 3000 \
+  --level-id 3001 --system-type-id 4 --diameter-mm 200
+
+# Rectangular duct: width_mm / height_mm apply
+revit-cli.exe create_duct \
+  --start-x 0 --start-y 0 --start-z 3000 \
+  --end-x 5000 --end-y 0 --end-z 3000 \
+  --level-id 3001 --system-type-id 4 --duct-type-id 12345 \
+  --width-mm 400 --height-mm 200
+
+# Partial update — only provided fields change
+revit-cli.exe modify_duct --element-id 12345 --end-x 6000
+
+# Change size (shape-aware: rejects diameter_mm on a rectangular duct)
+revit-cli.exe modify_duct --element-id 12345 --width-mm 500 --height-mm 250
+```
+
+### Fittings
+
+All fitting commands accept `--dry-run` to validate without committing.
+
+```bash
+# Elbow: 2 ducts meeting at an angle (2°–95°)
+revit-cli.exe create_duct_elbow_fitting --element-id-1 12345 --element-id-2 12346
+
+# Transition: 2 collinear ducts of differing size
+revit-cli.exe create_duct_transition_fitting --element-id-1 12345 --element-id-2 12346
+
+# Union: 2 collinear ducts of identical size
+revit-cli.exe create_duct_union_fitting --element-id-1 12345 --element-id-2 12346
+
+# Tee: branch meets main (main is auto-split at the intersection)
+revit-cli.exe create_duct_tee_fitting --main-element-id 12345 --branch-element-id 12346
+
+# Cross: 2 branches meet a pre-split main (caller splits main first)
+revit-cli.exe create_duct_cross_fitting \
+  --main-element-id-1 12345 --main-element-id-2 12346 \
+  --branch-element-id-1 12347 --branch-element-id-2 12348
+
+# Takeoff: branch taps the main body (duct-specific, no pre-split needed)
+revit-cli.exe create_duct_takeoff_fitting --branch-element-id 12346 --main-element-id 12345
+```
+
+| Fitting | Connectors | Constraint |
+|------|:---:|------|
+| Elbow | 2 | Angle 2°–95° |
+| Transition | 2 | Collinear, different diameter/width/height |
+| Union | 2 | Collinear, same diameter/width/height |
+| Tee | 3 | Branch ⊥ main within 1°; main auto-split |
+| Cross | 4 | Main pre-split; both branches ⊥ main within 1° |
+| Takeoff | 2 | Branch connector taps main body; duct-specific |
+
+> **Note**: Unlike cable trays, ducts support `create_duct_takeoff_fitting`
+> because the Revit API's `NewTakeoffFitting` accepts duct (and pipe) curves.
+> The branch connector is passed first, then the main duct; Revit places the
+> tap on the main body automatically — no manual splitting required.
 
 → Next: [threading.md](threading.md) for concurrency & safety.

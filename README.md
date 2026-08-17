@@ -274,7 +274,7 @@ This calls `GET /api/raw-mode` to query and `POST /api/raw-mode` to toggle. The 
 
 ## Features
 
-- **60+ built-in commands** — create walls/doors/windows, query elements, modify parameters, export views, manage documents
+- **70+ built-in commands** — create walls/doors/windows, manage cable trays and ducts, query elements, modify parameters, export views, manage documents
 - **SSE real-time streaming** — live progress updates for long-running operations
 - **Schema discovery** — the client auto-discovers available commands from the bridge
 - **Multi-instance support** — run multiple Revit versions simultaneously with auto port allocation
