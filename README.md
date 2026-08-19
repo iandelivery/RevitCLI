@@ -144,10 +144,11 @@ The script performs four phases, mirroring the CI release pipeline:
 1. **Build the bridge** for every supported Revit version (2019, 2020, 2021, 2022). Output lands in `bridge/dist/Revit20XX/`, including a per-version `.config/cli_bridge_setting.json` with the correct port (5011, 5021, 5031, 5041).
 2. **Build the Go client** (`go vet` + `go build`) and inject the version string via `-ldflags "-X main.Version=…"`.
 3. **Generate API documentation** from the `RevitCliBridge.Abstractions` XML doc comments into `bridge/docs/api/` via the `XMLDoc2Markdown` dotnet tool (restored automatically from `.config/dotnet-tools.json`).
-4. **Package** the artifacts into three kinds of zip in the repo-root `dist/` folder:
+4. **Package** the artifacts into the repo-root `dist/` folder:
    - `revit-cli-<version>.zip` — full bundle (client + SKILL.md + all bridges)
    - `revit-cli-client-<version>.zip` — client + SKILL.md only
-   - `RevitCliBridge-Revit<year>-<version>.zip` — per-version bridge
+   - `RevitCliBridge-<revitYear>.<major>.<minor>.zip` — per-version bridge, named after the bridge assembly version (e.g. `RevitCliBridge-2022.1.0.zip`)
+   - `dist/nuget/RevitCliBridge.Abstractions.<revitYear>.<major>.<minor>.nupkg` — Plugin SDK NuGet package, one per Revit version (e.g. `RevitCliBridge.Abstractions.2022.1.0.nupkg`)
 
 **Step 2 — Verify the build succeeded**
 
@@ -157,8 +158,9 @@ A successful run prints each phase in cyan/yellow and finishes with a green `Bui
 # Confirm the exit code was zero
 echo $LASTEXITCODE   # should print 0
 
-# Confirm the zip artifacts exist
+# Confirm the artifacts exist
 Get-ChildItem .\dist\*.zip
+Get-ChildItem .\dist\nuget\*.nupkg
 ```
 
 Expected output (example for tag `v1.0.0`):
@@ -166,10 +168,14 @@ Expected output (example for tag `v1.0.0`):
 ```
 revit-cli-1.0.0.zip
 revit-cli-client-1.0.0.zip
-RevitCliBridge-Revit2019-1.0.0.zip
-RevitCliBridge-Revit2020-1.0.0.zip
-RevitCliBridge-Revit2021-1.0.0.zip
-RevitCliBridge-Revit2022-1.0.0.zip
+RevitCliBridge-2019.1.0.zip
+RevitCliBridge-2020.1.0.zip
+RevitCliBridge-2021.1.0.zip
+RevitCliBridge-2022.1.0.zip
+nuget\RevitCliBridge.Abstractions.2019.1.0.nupkg
+nuget\RevitCliBridge.Abstractions.2020.1.0.nupkg
+nuget\RevitCliBridge.Abstractions.2021.1.0.nupkg
+nuget\RevitCliBridge.Abstractions.2022.1.0.nupkg
 ```
 
 **Common options**

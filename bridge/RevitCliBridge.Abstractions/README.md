@@ -16,8 +16,16 @@ Target framework: **netstandard2.0** — no Revit API reference required, compat
 
 ## Install
 
+The package is published once per supported Revit version, using Nice3point-style version numbers (`{RevitYear}.{Major}.{Minor}`):
+
 ```
-dotnet add package RevitCliBridge.Abstractions --version 0.1.0
+dotnet add package RevitCliBridge.Abstractions --version 2022.1.5
+```
+
+Multi-version plugin solutions can align all their Revit dependencies on the `RevitVersion` MSBuild property:
+
+```xml
+<PackageReference Include="RevitCliBridge.Abstractions" Version="$(RevitVersion).*"/>
 ```
 
 ## Quick start: expose a plugin command
@@ -59,8 +67,9 @@ This assembly is strong-name signed. Third-party addins can reference it from a 
 
 ## Versioning
 
-0.x — early development; breaking changes possible before 1.0.
-The `AssemblyVersion` is pinned to `0.0.0.0` so patch releases don't require binding redirects.
+Versions follow the Nice3point convention used by Revit NuGet packages: `{RevitYear}.{Major}.{Minor}`, e.g. `2022.1.5`. The package is built once per supported Revit version (2019–2022); the binary itself is identical across years (netstandard2.0, no Revit API reference) — the version communicates which bridge release line it pairs with.
+
+The `AssemblyVersion` pins the minor component to `0` (e.g. `2022.1.0.0`), so minor/patch releases within a major line do not require binding redirects when the bridge's own copy and a plugin's copy meet in the same Revit process.
 
 ## License
 

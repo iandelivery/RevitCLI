@@ -141,10 +141,11 @@ cd C:\path\to\revit-cli-opensource
 1. **编译 Bridge**：依次构建所有受支持的 Revit 版本（2019、2020、2021、2022）。产物输出到 `bridge/dist/Revit20XX/`，并为每个版本生成包含正确端口（5011、5021、5031、5041）的 `.config/cli_bridge_setting.json`。
 2. **编译 Go 客户端**：`go vet` + `go build`，并通过 `-ldflags "-X main.Version=…"` 注入版本号。
 3. **生成 API 文档**：使用 [XMLDoc2Markdown](https://github.com/charlesdevandiere/xmldoc2markdown) 把 `RevitCliBridge.Abstractions` 的 XML 文档注释转成 Markdown，输出到 `bridge/docs/api/`。工具通过 `dotnet tool restore` 自动从 `.config/dotnet-tools.json` 还原，无需手动安装。
-4. **打包**：在仓库根目录的 `dist/` 下生成三类 zip：
+4. **打包**：在仓库根目录的 `dist/` 下生成发布产物：
    - `revit-cli-<version>.zip` — 完整包（客户端 + SKILL.md + 所有 Bridge 版本）
    - `revit-cli-client-<version>.zip` — 仅客户端 + SKILL.md
-   - `RevitCliBridge-Revit<year>-<version>.zip` — 单个 Bridge 版本
+   - `RevitCliBridge-<revitYear>.<major>.<minor>.zip` — 单个 Bridge 版本，以 Bridge 程序集版本号命名（如 `RevitCliBridge-2022.1.0.zip`）
+   - `dist/nuget/RevitCliBridge.Abstractions.<revitYear>.<major>.<minor>.nupkg` — 插件 SDK NuGet 包，每个 Revit 版本一份（如 `RevitCliBridge.Abstractions.2022.1.0.nupkg`）
 
 **步骤 2 — 验证构建结果**
 
@@ -154,8 +155,9 @@ cd C:\path\to\revit-cli-opensource
 # 检查退出码是否为零
 echo $LASTEXITCODE   # 应输出 0
 
-# 确认 zip 产物已生成
+# 确认产物已生成
 Get-ChildItem .\dist\*.zip
+Get-ChildItem .\dist\nuget\*.nupkg
 ```
 
 预期输出（以 `v1.0.0` 标签为例）：
@@ -163,10 +165,14 @@ Get-ChildItem .\dist\*.zip
 ```
 revit-cli-1.0.0.zip
 revit-cli-client-1.0.0.zip
-RevitCliBridge-Revit2019-1.0.0.zip
-RevitCliBridge-Revit2020-1.0.0.zip
-RevitCliBridge-Revit2021-1.0.0.zip
-RevitCliBridge-Revit2022-1.0.0.zip
+RevitCliBridge-2019.1.0.zip
+RevitCliBridge-2020.1.0.zip
+RevitCliBridge-2021.1.0.zip
+RevitCliBridge-2022.1.0.zip
+nuget\RevitCliBridge.Abstractions.2019.1.0.nupkg
+nuget\RevitCliBridge.Abstractions.2020.1.0.nupkg
+nuget\RevitCliBridge.Abstractions.2021.1.0.nupkg
+nuget\RevitCliBridge.Abstractions.2022.1.0.nupkg
 ```
 
 **常用参数**
