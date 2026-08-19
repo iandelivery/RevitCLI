@@ -46,12 +46,19 @@
   </PropertyGroup>
 
   <PropertyGroup>
+    <!-- Versioning follows the Nice3point convention used by Revit NuGet
+         packages (e.g. Nice3point.Revit.Toolkit 2025.0.3):
+         {RevitYear}.{Major}.{Minor}. RevitVersion comes from the
+         configuration-specific property groups above, so each Revit build
+         gets its own version line (Release R22 -> 2022.1.2). Release tags
+         (vX.Y.Z) override Major/Minor/Patch via -p: flags in the release
+         workflow; Patch is preserved as the FileVersion revision. -->
     <Major>1</Major>
     <Minor>2</Minor>
     <Patch>0</Patch>
-    <Version>$(Major).$(Minor).$(Patch)</Version>
-    <AssemblyVersion>$(Major).0.0.0</AssemblyVersion>
-    <FileVersion>$(Major).$(Minor).$(Patch).0</FileVersion>
+    <Version>$(RevitVersion).$(Major).$(Minor)</Version>
+    <AssemblyVersion>$(RevitVersion).$(Major).0.0</AssemblyVersion>
+    <FileVersion>$(RevitVersion).$(Major).$(Minor).$(Patch)</FileVersion>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
     <Company>ianDelivery</Company>
     <Copyright>Copyright (c) 2026 ianDelivery and contributors</Copyright>
