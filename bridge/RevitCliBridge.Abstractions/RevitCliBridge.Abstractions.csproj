@@ -5,46 +5,18 @@
 		<Nullable>enable</Nullable>
 		<RootNamespace>RevitCliBridge.Abstractions</RootNamespace>
 		<Description>Plugin interfaces for RevitCliBridge — enables third-party command handler development without Revit API dependency</Description>
-		<Configurations>Debug R19;Debug R20;Debug R21;Debug R22</Configurations>
-		<Configurations>$(Configurations);Release R19;Release R20;Release R21;Release R22</Configurations>
-	</PropertyGroup>
-
-	<!-- Per-Revit-version configurations select the Revit year that feeds
-	     the Nice3point-style version composition below. -->
-	<PropertyGroup Condition="$(Configuration.Contains('R19'))">
-		<RevitVersion>2019</RevitVersion>
-	</PropertyGroup>
-	<PropertyGroup Condition="$(Configuration.Contains('R20'))">
-		<RevitVersion>2020</RevitVersion>
-	</PropertyGroup>
-	<PropertyGroup Condition="$(Configuration.Contains('R21'))">
-		<RevitVersion>2021</RevitVersion>
-	</PropertyGroup>
-	<PropertyGroup Condition="$(Configuration.Contains('R22'))">
-		<RevitVersion>2022</RevitVersion>
-	</PropertyGroup>
-	<!-- Plain Debug/Release builds (e.g. from the test project) fall back
-	     to the latest supported Revit year so the composed version stays
-	     valid. -->
-	<PropertyGroup>
-		<RevitVersion Condition="'$(RevitVersion)' == ''">2022</RevitVersion>
 	</PropertyGroup>
 
 	<PropertyGroup>
-		<!-- Versioning follows the Nice3point convention used by Revit NuGet
-		     packages (e.g. Nice3point.Revit.Toolkit 2025.0.3):
-		     {RevitYear}.{Major}.{Minor}, e.g. 2022.1.5. The package is built
-		     once per supported Revit version so multi-version plugin solutions
-		     can pin Version="$(RevitVersion).*" uniformly across their Revit
-		     dependencies. AssemblyVersion pins the minor component to 0 so
-		     minor/patch releases within a major line do not require binding
-		     redirects. -->
-		<Major>1</Major>
-		<Minor>6</Minor>
-		<Patch>0</Patch>
-		<Version>$(RevitVersion).$(Major).$(Minor)</Version>
-		<AssemblyVersion>$(RevitVersion).$(Major).0.0</AssemblyVersion>
-		<FileVersion>$(RevitVersion).$(Major).$(Minor).$(Patch)</FileVersion>
+		<!-- Semantic versioning for the plugin SDK. This project is
+		     netstandard2.0 with no Revit API reference, so the binary is
+		     identical across every supported Revit version — a single version
+		     line (not the Nice3point {RevitYear}.{Major}.{Minor} scheme) is
+		     sufficient. The package version, assembly identity and file version
+		     all track 1.6.0. -->
+		<Version>1.6.0</Version>
+		<AssemblyVersion>1.6.0.0</AssemblyVersion>
+		<FileVersion>1.6.0.0</FileVersion>
 
 		<!-- NuGet package metadata -->
 		<PackageId>RevitCliBridge.Abstractions</PackageId>

@@ -201,13 +201,7 @@ nuget\RevitCliBridge.Abstractions.2022.1.0.nupkg
 
 **版本号管理**
 
-Bridge 与 Abstractions 的版本号来自相同的两个输入：Git 标签（`v1.5.0` → Major/Minor/Patch，无标签时回落 csproj 默认值）和构建配置（`Release R19`–`R22` → Revit 年份）。两个项目用同一套公式组合，因此 NuGet 包、程序集与 zip 的版本始终对齐：
-
-| 属性 | 公式 | 示例（v1.5.0，R22）|
-|------|------|-------------------|
-| `Version`（NuGet 包）| `{RevitYear}.{Major}.{Minor}` | 2022.1.5 |
-| `AssemblyVersion` | `{RevitYear}.{Major}.0.0` | 2022.1.0.0 |
-| `FileVersion` | `{RevitYear}.{Major}.{Minor}.{Patch}` | 2022.1.5.0 |
+版本号来自 Git 标签（`v1.6.0` → Major/Minor/Patch，无标签时回落 csproj 默认值）。Bridge 因绑定 Revit API 类型，采用 Nice3point 风格版本（`{RevitYear}.{Major}.{Minor}`，如 `2022.1.6`）；Abstractions SDK 为 netstandard2.0、无 Revit API 依赖，故使用与 Revit 年份无关的纯语义版本（`1.6.0`）。
 
 **单独构建某个组件**
 
