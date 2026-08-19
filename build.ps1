@@ -2,13 +2,19 @@
 .SYNOPSIS
     Local build script that mirrors the GitHub Release workflow.
     Builds the C# bridge for all Revit versions and the Go client,
-    then packages everything into distribution zips.
+    packs the Abstractions NuGet package per Revit version, then
+    packages everything into distribution zips.
 
 .DESCRIPTION
     Replicates the three CI jobs locally:
       1. build-bridge  — dotnet build for Revit 2019/2020/2021/2022
       2. build-client  — go vet + go build the CLI
-      3. package       — create zips identical to the release artifacts
+      3. package       — create zips and NuGet packages identical to
+                         the release artifacts
+
+    Bridge artifacts are versioned Nice3point-style
+    ({RevitYear}.{Major}.{Minor}, e.g. 2022.1.5) and the per-version
+    bridge zips are named after that version.
 
 .PARAMETER RevitVersions
     Comma-separated Revit versions to build the bridge for.
@@ -62,6 +68,21 @@ if ($LASTEXITCODE -eq 0 -and $gitTag) {
 }
 $version = $buildVersion -replace '^v', ''
 
+# Parse Major/Minor/Patch from a clean version tag so the bridge and
+# Abstractions versions align with the release tag (mirrors the CI
+# workflow). Dirty or missing tags fall back to the csproj defaults.
+$major = $null; $minor = $null; $patch = $null
+if ($version -match '^(\d+)\.(\d+)(?:\.(\d+))?') {
+    $major = $Matches[1]
+    $minor = $Matches[2]
+    $patch = $Matches[3]
+}
+# Version overrides passed to dotnet build/pack (-p:Major etc.)
+$versionArgs = @()
+if ($major) { $versionArgs += "-p:Major=$major" }
+if ($minor) { $versionArgs += "-p:Minor=$minor" }
+if ($patch) { $versionArgs += "-p:Patch=$patch" }
+
 $versions = $RevitVersions -split ',' | ForEach-Object { $_.Trim() }
 
 Write-Host ""
@@ -105,6 +126,7 @@ if (-not $SkipBridge) {
         & dotnet build (Join-Path $BridgeDir "RevitCliBridge\RevitCliBridge.csproj") `
             -p:Configuration="$buildConfig" `
             -p:Platform=x64 `
+            @versionArgs `
             -o $outputDir
 
         if ($LASTEXITCODE -ne 0) {
@@ -218,6 +240,32 @@ if (-not $SkipPackage) {
     }
     New-Item -ItemType Directory -Path $DistDir -Force | Out-Null
 
+    # --- Abstractions NuGet packages: one per Revit version ---
+    # Versioned Nice3point-style ({RevitYear}.{Major}.{Minor}) so plugin
+    # solutions can pin Version="$(RevitVersion).*".
+    if (Get-Command dotnet -ErrorAction SilentlyContinue) {
+        $nugetDir = Join-Path $DistDir "nuget"
+        New-Item -ItemType Directory -Path $nugetDir -Force | Out-Null
+        $abstractionsProj = Join-Path $BridgeDir "RevitCliBridge.Abstractions\RevitCliBridge.Abstractions.csproj"
+        $configTagMap = @{ "2019" = "R19"; "2020" = "R20"; "2021" = "R21"; "2022" = "R22" }
+
+        foreach ($v in $versions) {
+            $configTag = $configTagMap[$v]
+            Write-Host "  Packing Abstractions for Revit $v (Release $configTag)..." -ForegroundColor Cyan
+            & dotnet pack $abstractionsProj -c "Release $configTag" -o $nugetDir @versionArgs
+            if ($LASTEXITCODE -ne 0) {
+                Write-Host "[ERROR] Abstractions pack failed for Revit $v" -ForegroundColor Red
+                exit 1
+            }
+        }
+
+        Get-ChildItem $nugetDir -Filter *.nupkg | ForEach-Object {
+            Write-Host "  Created: $($_.Name)" -ForegroundColor Green
+        }
+    } else {
+        Write-Host "[WARN] dotnet not found - skipping Abstractions NuGet packages." -ForegroundColor Yellow
+    }
+
     # --- Primary package: revit-cli + bridge bundled ---
     $stagingDir = Join-Path $DistDir "staging\revit-cli"
     New-Item -ItemType Directory -Path $stagingDir -Force | Out-Null
@@ -266,10 +314,14 @@ if (-not $SkipPackage) {
     }
 
     # --- Per-version bridge zips ---
+    # Named after the bridge assembly version ({RevitYear}.{Major}.{Minor}),
+    # e.g. RevitCliBridge-2022.1.5.zip
     foreach ($v in $versions) {
         $srcDir = Join-Path $BridgeDir "dist\Revit$v"
         if (Test-Path $srcDir) {
-            $zipName = "RevitCliBridge-Revit$v-$version.zip"
+            $bridgeDll = Join-Path $srcDir "RevitCliBridge.dll"
+            $bridgeVersion = (Get-Item $bridgeDll).VersionInfo.ProductVersion.Split('+')[0]
+            $zipName = "RevitCliBridge-$bridgeVersion.zip"
             $zipPath = Join-Path $DistDir $zipName
             Compress-Archive -Path "$srcDir\*" -DestinationPath $zipPath -Force
             Write-Host "  Created: $zipName" -ForegroundColor Green
@@ -285,6 +337,13 @@ if (-not $SkipPackage) {
     Get-ChildItem -Path $DistDir -Filter *.zip | ForEach-Object {
         $size = [math]::Round($_.Length / 1KB, 1)
         Write-Host "    $($_.Name.PadRight(50)) $size KB" -ForegroundColor DarkGray
+    }
+    $nugetOutDir = Join-Path $DistDir "nuget"
+    if (Test-Path $nugetOutDir) {
+        Get-ChildItem -Path $nugetOutDir -Filter *.nupkg | ForEach-Object {
+            $size = [math]::Round($_.Length / 1KB, 1)
+            Write-Host "    nuget\$($_.Name.PadRight(43)) $size KB" -ForegroundColor DarkGray
+        }
     }
 } else {
     Write-Host "[4/4] Skipping packaging (-SkipPackage)" -ForegroundColor DarkGray
@@ -303,6 +362,10 @@ if (-not $SkipPackage) {
     Get-ChildItem $DistDir -Filter *.zip | ForEach-Object {
         $size = [math]::Round($_.Length / 1MB, 2)
         Write-Host "  $($_.Name) ($size MB)"
+    }
+    Get-ChildItem (Join-Path $DistDir "nuget") -Filter *.nupkg -ErrorAction SilentlyContinue | ForEach-Object {
+        $size = [math]::Round($_.Length / 1KB, 1)
+        Write-Host "  nuget\$($_.Name) ($size KB)"
     }
 }
 Write-Host ""

@@ -62,8 +62,8 @@ jobs:
           $buildConfig = "Release $configTag"
           $outputDir = "dist/Revit${{ matrix.revit-version }}"
           # Bridge version follows the Nice3point convention:
-          # {RevitYear}.{Major}.{Minor} — e.g. tag v1.2.0 on Revit 2022
-          # produces bridge version 2022.1.2 (csproj composes it from
+          # {RevitYear}.{Major}.{Minor} — e.g. tag v1.5.0 on Revit 2022
+          # produces bridge version 2022.1.5 (csproj composes it from
           # the per-configuration RevitVersion property).
           dotnet build RevitCliBridge\RevitCliBridge.csproj -p:Configuration="$buildConfig" -p:Platform=x64 -p:Major=$major -p:Minor=$minor -p:Patch=$patch -o "$outputDir"
 
@@ -85,6 +85,33 @@ jobs:
             allow_raw_execution   = $false
           } | ConvertTo-Json -Depth 10
           Set-Content -Path "$configDir/cli_bridge_setting.json" -Value $setting -Encoding UTF8
+
+      # Abstractions is packed once per Revit version so the NuGet package
+      # version carries the Nice3point-style {RevitYear}.{Major}.{Minor}.
+      - name: Pack Abstractions (Revit ${{ matrix.revit-version }})
+        working-directory: bridge
+        shell: pwsh
+        run: |
+          $tag = "${{ github.ref_name }}"
+          $version = $tag -replace '^v', ''
+          $parts = $version -split '\.'
+          $major = if ($parts.Length -gt 0) { $parts[0] } else { "1" }
+          $minor = if ($parts.Length -gt 1) { $parts[1] } else { "0" }
+          $patch = if ($parts.Length -gt 2) { $parts[2] } else { "0" }
+          $configTag = switch ("${{ matrix.revit-version }}") {
+            "2019" { "R19" }
+            "2020" { "R20" }
+            "2021" { "R21" }
+            "2022" { "R22" }
+          }
+          dotnet pack RevitCliBridge.Abstractions\RevitCliBridge.Abstractions.csproj -c "Release $configTag" -p:Major=$major -p:Minor=$minor -p:Patch=$patch -o dist/nuget
+
+      - name: Upload Abstractions package (Revit ${{ matrix.revit-version }})
+        uses: actions/upload-artifact@v4
+        with:
+          name: nuget-Revit${{ matrix.revit-version }}
+          path: bridge/dist/nuget/*.nupkg
+          retention-days: 7
 
       - name: Upload bridge artifact (Revit ${{ matrix.revit-version }})
         uses: actions/upload-artifact@v4
@@ -157,6 +184,9 @@ jobs:
         run: |
           $tag = "${{ github.ref_name }}"
           $version = $tag -replace '^v', ''
+          $parts = $version -split '\.'
+          $major = if ($parts.Length -gt 0) { $parts[0] } else { "1" }
+          $minor = if ($parts.Length -gt 1) { $parts[1] } else { "0" }
           $bridgeVersions = @(2019, 2020, 2021, 2022)
 
           # --- Primary package: revit-cli + bridge bundled together ---
@@ -198,12 +228,23 @@ jobs:
 
           # --- Secondary packages: per-version bridge zips for users who
           #      only need the add-in without the CLI client ---
+          # Named after the bridge assembly version ({RevitYear}.{Major}.{Minor}),
+          # e.g. tag v1.5.0 on Revit 2022 -> RevitCliBridge-2022.1.5.zip
           foreach ($v in $bridgeVersions) {
             $srcDir = "artifacts/bridge-Revit$v"
-            $zipName = "RevitCliBridge-Revit$v-$version.zip"
+            $zipName = "RevitCliBridge-$v.$major.$minor.zip"
             Compress-Archive -Path "$srcDir\*" -DestinationPath $zipName -Force
             Write-Host "Created: $zipName"
           }
+
+          # --- Abstractions NuGet packages: one per Revit version ---
+          # Attach the packed nupkgs as release assets so they can be pushed
+          # to an internal NuGet feed (GitHub Packages is intentionally
+          # not used for distribution).
+          foreach ($v in $bridgeVersions) {
+            Copy-Item -Path "artifacts/nuget-Revit$v/*.nupkg" -Destination .
+          }
+          Get-ChildItem -Filter *.nupkg | ForEach-Object { Write-Host "Created: $($_.Name)" }
 
       - name: Verify release packages
         shell: pwsh
@@ -220,6 +261,9 @@ jobs:
             }
           }
           Remove-Item -Recurse -Force verify
+          # One Abstractions nupkg per supported Revit version (2019-2022)
+          $nupkgCount = (Get-ChildItem -Filter *.nupkg).Count
+          if ($nupkgCount -lt 4) { throw "Expected 4 Abstractions nupkgs, found $nupkgCount" }
 
       - name: Generate release notes
         id: release-notes
@@ -227,6 +271,9 @@ jobs:
         run: |
           $tag = "${{ github.ref_name }}"
           $version = $tag -replace '^v', ''
+          $parts = $version -split '\.'
+          $major = if ($parts.Length -gt 0) { $parts[0] } else { "1" }
+          $minor = if ($parts.Length -gt 1) { $parts[1] } else { "0" }
 
           $notes = @"
           ## Revit CLI $version
@@ -237,10 +284,11 @@ jobs:
           |--------|-------------|
           | ``revit-cli-$version.zip`` | Complete package — CLI client + bridge for all Revit versions (recommended) |
           | ``revit-cli-client-$version.zip`` | CLI client and ``SKILL.md`` only — no bridge |
-          | ``RevitCliBridge-Revit2019-$version.zip`` | Bridge add-in for Revit 2019 only |
-          | ``RevitCliBridge-Revit2020-$version.zip`` | Bridge add-in for Revit 2020 only |
-          | ``RevitCliBridge-Revit2021-$version.zip`` | Bridge add-in for Revit 2021 only |
-          | ``RevitCliBridge-Revit2022-$version.zip`` | Bridge add-in for Revit 2022 only |
+          | ``RevitCliBridge-2019.$major.$minor.zip`` | Bridge add-in for Revit 2019 only |
+          | ``RevitCliBridge-2020.$major.$minor.zip`` | Bridge add-in for Revit 2020 only |
+          | ``RevitCliBridge-2021.$major.$minor.zip`` | Bridge add-in for Revit 2021 only |
+          | ``RevitCliBridge-2022.$major.$minor.zip`` | Bridge add-in for Revit 2022 only |
+          | ``RevitCliBridge.Abstractions.<year>.$major.$minor.nupkg`` | Plugin SDK NuGet packages — one per Revit version (2019–2022), push to your internal NuGet feed |
 
           ### Quick Start
 
@@ -281,7 +329,7 @@ jobs:
       - name: Generate SHA256 checksums
         shell: pwsh
         run: |
-          $hashes = Get-ChildItem -Filter *.zip | ForEach-Object {
+          $hashes = Get-ChildItem -File | Where-Object { $_.Extension -in '.zip', '.nupkg' } | ForEach-Object {
             $hash = (Get-FileHash -Path $_.FullName -Algorithm SHA256).Hash.ToLower()
             "$hash  $($_.Name)"
           }
@@ -295,6 +343,7 @@ jobs:
           body_path: release-notes.md
           files: |
             *.zip
+            *.nupkg
             checksums-sha256.txt
           draft: false
           prerelease: ${{ contains(github.ref_name, '-rc') || contains(github.ref_name, '-beta') || contains(github.ref_name, '-alpha') }}
