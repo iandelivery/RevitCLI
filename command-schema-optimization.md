@@ -10,7 +10,7 @@ JSON
 
 ```
 {
-  "catalog_version": "1.2.0",
+  "catalog_version": "2022.1.5",
   "domains": [
     {
       "name": "architecture",
