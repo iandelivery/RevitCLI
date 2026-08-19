@@ -61,6 +61,10 @@ jobs:
           }
           $buildConfig = "Release $configTag"
           $outputDir = "dist/Revit${{ matrix.revit-version }}"
+          # Bridge version follows the Nice3point convention:
+          # {RevitYear}.{Major}.{Minor} — e.g. tag v1.2.0 on Revit 2022
+          # produces bridge version 2022.1.2 (csproj composes it from
+          # the per-configuration RevitVersion property).
           dotnet build RevitCliBridge\RevitCliBridge.csproj -p:Configuration="$buildConfig" -p:Platform=x64 -p:Major=$major -p:Minor=$minor -p:Patch=$patch -o "$outputDir"
 
       - name: Generate version-specific config

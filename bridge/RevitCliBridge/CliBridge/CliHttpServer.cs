@@ -880,9 +880,10 @@ namespace RevitCliBridge
         }
 
         /// <summary>
-        /// Bridge version derived from the assembly FileVersion (e.g. "1.2.0").
-        /// Used as part of the version-stamped ETag so clients detect upgrades
-        /// even when the content hash happens to collide.
+        /// Bridge version derived from the assembly FileVersion (Nice3point
+        /// style, e.g. "2022.1.2"). Used as part of the version-stamped ETag
+        /// so clients detect upgrades even when the content hash happens to
+        /// collide.
         /// </summary>
         private static string BridgeVersionString
         {
@@ -891,7 +892,7 @@ namespace RevitCliBridge
                 var v = typeof(CliHttpServer).Assembly
                     .GetCustomAttribute<AssemblyFileVersionAttribute>()?.Version;
                 if (string.IsNullOrEmpty(v)) return "0.0.0";
-                // "1.2.0.0" -> "1.2.0"; v is non-null here (IsNullOrEmpty checked).
+                // "2022.1.2.0" -> "2022.1.2"; v is non-null here (IsNullOrEmpty checked).
                 var parts = v!.Split('.');
                 return parts.Length >= 3 ? $"{parts[0]}.{parts[1]}.{parts[2]}" : v!;
             }
