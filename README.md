@@ -204,13 +204,7 @@ Examples:
 
 **Versioning**
 
-Bridge and Abstractions versions derive from the same two inputs: the Git tag (`v1.5.0` → Major/Minor/Patch; falls back to the csproj defaults without a tag) and the build configuration (`Release R19`–`R22` → Revit year). Both projects compose them with the same formula, so the NuGet package, assemblies, and zips always align:
-
-| Property | Formula | Example (v1.5.0, R22) |
-|----------|---------|----------------------|
-| `Version` (NuGet package) | `{RevitYear}.{Major}.{Minor}` | 2022.1.5 |
-| `AssemblyVersion` | `{RevitYear}.{Major}.0.0` | 2022.1.0.0 |
-| `FileVersion` | `{RevitYear}.{Major}.{Minor}.{Patch}` | 2022.1.5.0 |
+Versions derive from the Git tag (`v1.6.0` → Major/Minor/Patch; falls back to csproj defaults without a tag). The bridge binds Revit API types, so it uses Nice3point-style versions (`{RevitYear}.{Major}.{Minor}`, e.g. `2022.1.6`); the Abstractions SDK is netstandard2.0 with no Revit API reference, so it uses plain semantic versions (`1.6.0`) independent of the Revit year.
 
 **Building components independently**
 

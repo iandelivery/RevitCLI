@@ -240,30 +240,27 @@ if (-not $SkipPackage) {
     }
     New-Item -ItemType Directory -Path $DistDir -Force | Out-Null
 
-    # --- Abstractions NuGet packages: one per Revit version ---
-    # Versioned Nice3point-style ({RevitYear}.{Major}.{Minor}) so plugin
-    # solutions can pin Version="$(RevitVersion).*".
+    # --- Abstractions NuGet package: single, pure-semantic-versioned ---
+    # This SDK is netstandard2.0 with no Revit API reference, so the binary
+    # is identical across every Revit version. One package (1.6.0) serves all
+    # of them — no per-Revit packing, no RevitVersion in the version string.
     if (Get-Command dotnet -ErrorAction SilentlyContinue) {
         $nugetDir = Join-Path $DistDir "nuget"
         New-Item -ItemType Directory -Path $nugetDir -Force | Out-Null
         $abstractionsProj = Join-Path $BridgeDir "RevitCliBridge.Abstractions\RevitCliBridge.Abstractions.csproj"
-        $configTagMap = @{ "2019" = "R19"; "2020" = "R20"; "2021" = "R21"; "2022" = "R22" }
 
-        foreach ($v in $versions) {
-            $configTag = $configTagMap[$v]
-            Write-Host "  Packing Abstractions for Revit $v (Release $configTag)..." -ForegroundColor Cyan
-            & dotnet pack $abstractionsProj -c "Release $configTag" -o $nugetDir @versionArgs
-            if ($LASTEXITCODE -ne 0) {
-                Write-Host "[ERROR] Abstractions pack failed for Revit $v" -ForegroundColor Red
-                exit 1
-            }
+        Write-Host "  Packing Abstractions (single, branch-free version)..." -ForegroundColor Cyan
+        & dotnet pack $abstractionsProj -c Release -o $nugetDir
+        if ($LASTEXITCODE -ne 0) {
+            Write-Host "[ERROR] Abstractions pack failed" -ForegroundColor Red
+            exit 1
         }
 
         Get-ChildItem $nugetDir -Filter *.nupkg | ForEach-Object {
             Write-Host "  Created: $($_.Name)" -ForegroundColor Green
         }
     } else {
-        Write-Host "[WARN] dotnet not found - skipping Abstractions NuGet packages." -ForegroundColor Yellow
+        Write-Host "[WARN] dotnet not found - skipping Abstractions NuGet package." -ForegroundColor Yellow
     }
 
     # --- Primary package: revit-cli + bridge bundled ---

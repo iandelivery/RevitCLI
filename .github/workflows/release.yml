@@ -86,33 +86,6 @@ jobs:
           } | ConvertTo-Json -Depth 10
           Set-Content -Path "$configDir/cli_bridge_setting.json" -Value $setting -Encoding UTF8
 
-      # Abstractions is packed once per Revit version so the NuGet package
-      # version carries the Nice3point-style {RevitYear}.{Major}.{Minor}.
-      - name: Pack Abstractions (Revit ${{ matrix.revit-version }})
-        working-directory: bridge
-        shell: pwsh
-        run: |
-          $tag = "${{ github.ref_name }}"
-          $version = $tag -replace '^v', ''
-          $parts = $version -split '\.'
-          $major = if ($parts.Length -gt 0) { $parts[0] } else { "1" }
-          $minor = if ($parts.Length -gt 1) { $parts[1] } else { "0" }
-          $patch = if ($parts.Length -gt 2) { $parts[2] } else { "0" }
-          $configTag = switch ("${{ matrix.revit-version }}") {
-            "2019" { "R19" }
-            "2020" { "R20" }
-            "2021" { "R21" }
-            "2022" { "R22" }
-          }
-          dotnet pack RevitCliBridge.Abstractions\RevitCliBridge.Abstractions.csproj -c "Release $configTag" -p:Major=$major -p:Minor=$minor -p:Patch=$patch -o dist/nuget
-
-      - name: Upload Abstractions package (Revit ${{ matrix.revit-version }})
-        uses: actions/upload-artifact@v4
-        with:
-          name: nuget-Revit${{ matrix.revit-version }}
-          path: bridge/dist/nuget/*.nupkg
-          retention-days: 7
-
       - name: Upload bridge artifact (Revit ${{ matrix.revit-version }})
         uses: actions/upload-artifact@v4
         with:
@@ -170,6 +143,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v4
 
       - name: Download all artifacts
         uses: actions/download-artifact@v4
@@ -237,13 +213,13 @@ jobs:
             Write-Host "Created: $zipName"
           }
 
-          # --- Abstractions NuGet packages: one per Revit version ---
-          # Attach the packed nupkgs as release assets so they can be pushed
-          # to an internal NuGet feed (GitHub Packages is intentionally
+          # --- Abstractions NuGet package: single, pure-semantic-versioned ---
+          # The SDK is netstandard2.0 with no Revit API reference, so one
+          # package (version 1.6.0) serves every Revit version. Pack it here
+          # once (not per Revit) and attach it as a release asset so it can be
+          # pushed to an internal NuGet feed (GitHub Packages is intentionally
           # not used for distribution).
-          foreach ($v in $bridgeVersions) {
-            Copy-Item -Path "artifacts/nuget-Revit$v/*.nupkg" -Destination .
-          }
+          dotnet pack bridge/RevitCliBridge.Abstractions/RevitCliBridge.Abstractions.csproj -c Release -o .
           Get-ChildItem -Filter *.nupkg | ForEach-Object { Write-Host "Created: $($_.Name)" }
 
       - name: Verify release packages
@@ -261,9 +237,9 @@ jobs:
             }
           }
           Remove-Item -Recurse -Force verify
-          # One Abstractions nupkg per supported Revit version (2019-2022)
+          # A single Abstractions nupkg (Revit-version independent)
           $nupkgCount = (Get-ChildItem -Filter *.nupkg).Count
-          if ($nupkgCount -lt 4) { throw "Expected 4 Abstractions nupkgs, found $nupkgCount" }
+          if ($nupkgCount -lt 1) { throw "Expected at least 1 Abstractions nupkg, found $nupkgCount" }
 
       - name: Generate release notes
         id: release-notes
@@ -288,7 +264,7 @@ jobs:
           | ``RevitCliBridge-2020.$major.$minor.zip`` | Bridge add-in for Revit 2020 only |
           | ``RevitCliBridge-2021.$major.$minor.zip`` | Bridge add-in for Revit 2021 only |
           | ``RevitCliBridge-2022.$major.$minor.zip`` | Bridge add-in for Revit 2022 only |
-          | ``RevitCliBridge.Abstractions.<year>.$major.$minor.nupkg`` | Plugin SDK NuGet packages — one per Revit version (2019–2022), push to your internal NuGet feed |
+          | ``RevitCliBridge.Abstractions.$major.$minor.nupkg`` | Plugin SDK NuGet package — Revit-version independent (netstandard2.0), push to your internal NuGet feed |
 
           ### Quick Start
 

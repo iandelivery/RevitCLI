@@ -16,16 +16,16 @@ Target framework: **netstandard2.0** — no Revit API reference required, compat
 
 ## Install
 
-The package is published once per supported Revit version, using Nice3point-style version numbers (`{RevitYear}.{Major}.{Minor}`):
+The package uses plain semantic versioning (`1.6.0`). It is **Revit-version independent** — the same package works with every supported Revit version (2019–2022):
 
 ```
-dotnet add package RevitCliBridge.Abstractions --version 2022.1.5
+dotnet add package RevitCliBridge.Abstractions --version 1.6.0
 ```
 
-Multi-version plugin solutions can align all their Revit dependencies on the `RevitVersion` MSBuild property:
+To always stay on the latest patch in a minor line:
 
 ```xml
-<PackageReference Include="RevitCliBridge.Abstractions" Version="$(RevitVersion).*"/>
+<PackageReference Include="RevitCliBridge.Abstractions" Version="1.6.*"/>
 ```
 
 ## Quick start: expose a plugin command
@@ -67,9 +67,9 @@ This assembly is strong-name signed. Third-party addins can reference it from a 
 
 ## Versioning
 
-Versions follow the Nice3point convention used by Revit NuGet packages: `{RevitYear}.{Major}.{Minor}`, e.g. `2022.1.5`. The package is built once per supported Revit version (2019–2022); the binary itself is identical across years (netstandard2.0, no Revit API reference) — the version communicates which bridge release line it pairs with.
+This package uses plain semantic versioning (`1.6.0`), not the Nice3point `{RevitYear}.{Major}.{Minor}` scheme. Because the assembly is netstandard2.0 with no Revit API reference, the binary is identical across every supported Revit version — a single version line is honest about that, and one package serves all Revit versions (the bridge itself, which _does_ bind Revit API types, keeps the Nice3point-style version).
 
-The `AssemblyVersion` pins the minor component to `0` (e.g. `2022.1.0.0`), so minor/patch releases within a major line do not require binding redirects when the bridge's own copy and a plugin's copy meet in the same Revit process.
+`AssemblyVersion`, `FileVersion` and the package `Version` all track `1.6.0`.
 
 ## License
 
