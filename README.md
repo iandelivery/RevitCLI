@@ -195,7 +195,23 @@ Examples:
 # Quick iteration on the Go client only
 .\build.ps1 -SkipBridge
 
-# Build and package only the Revit 2022 
+# Build and package only the Revit 2022 bridge
+.\build.ps1 -RevitVersions "2022" -SkipVet
+
+# Regenerate API docs only
+.\build.ps1 -SkipBridge -SkipClient -SkipPackage
+```
+
+**Versioning**
+
+Bridge and Abstractions versions derive from the same two inputs: the Git tag (`v1.5.0` → Major/Minor/Patch; falls back to the csproj defaults without a tag) and the build configuration (`Release R19`–`R22` → Revit year). Both projects compose them with the same formula, so the NuGet package, assemblies, and zips always align:
+
+| Property | Formula | Example (v1.5.0, R22) |
+|----------|---------|----------------------|
+| `Version` (NuGet package) | `{RevitYear}.{Major}.{Minor}` | 2022.1.5 |
+| `AssemblyVersion` | `{RevitYear}.{Major}.0.0` | 2022.1.0.0 |
+| `FileVersion` | `{RevitYear}.{Major}.{Minor}.{Patch}` | 2022.1.5.0 |
+
 **Building components independently**
 
 The root `build.ps1` is the recommended one-stop script, but you can still build either component on its own when you only need a quick local iteration cycle. Each sub-project ships with its own build script that performs the same steps the root script would for that component.

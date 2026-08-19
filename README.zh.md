@@ -199,6 +199,16 @@ nuget\RevitCliBridge.Abstractions.2022.1.0.nupkg
 .\build.ps1 -SkipBridge -SkipClient -SkipPackage
 ```
 
+**版本号管理**
+
+Bridge 与 Abstractions 的版本号来自相同的两个输入：Git 标签（`v1.5.0` → Major/Minor/Patch，无标签时回落 csproj 默认值）和构建配置（`Release R19`–`R22` → Revit 年份）。两个项目用同一套公式组合，因此 NuGet 包、程序集与 zip 的版本始终对齐：
+
+| 属性 | 公式 | 示例（v1.5.0，R22）|
+|------|------|-------------------|
+| `Version`（NuGet 包）| `{RevitYear}.{Major}.{Minor}` | 2022.1.5 |
+| `AssemblyVersion` | `{RevitYear}.{Major}.0.0` | 2022.1.0.0 |
+| `FileVersion` | `{RevitYear}.{Major}.{Minor}.{Patch}` | 2022.1.5.0 |
+
 **单独构建某个组件**
 
 根目录的 `build.ps1` 是一站式的推荐脚本，但当你只想做本地快速迭代时，仍然可以单独构建某一个组件。每个子项目都自带 `build.ps1`，执行的就是根脚本里针对该组件的那部分步骤。
