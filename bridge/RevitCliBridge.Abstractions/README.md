@@ -14,6 +14,7 @@ Plugin SDK for [RevitCliBridge](https://github.com/iandelivery/RevitCLI) — imp
 | `ParamAttribute` + `ParameterBinder` | Typed binding from the raw parameters dictionary to a POCO (`Bind<T>`); throws `MissingParameterException` / `ParameterTypeException`. |
 | `PagedResult<T>` + `PagedResultBuilder` | Paging helper (`limit`/`offset` parsing, clamping, `has_more`). |
 | `CommandNameResolver` | Command-name resolution: `@version` splitting, domain paths, underscore reversal. |
+| `BridgeRegistration` | **Programmatic registration entry point** — register commands from your own add-in using only this package. |
 | `ICommandRegistry` | Abstraction over the bridge's command registry, for tests that verify registration logic. |
 | `IBridgePlugin` | *Reserved* for structured plugin lifecycle hooks. The current bridge loader auto-discovers `IBridgeCommand` only and does not invoke this interface yet. |
 
@@ -106,18 +107,17 @@ For unsigned development builds, set `"allow_unsigned_plugins": true` in `cli_br
 
 ## Alternative: register from your own add-in (recommended)
 
-DLL discovery is convenient for zero-code deployments, but if you already ship a Revit add-in you can register commands explicitly and skip the `CliBridgePlugins` folder entirely:
+DLL discovery is convenient for zero-code deployments, but if you already ship a Revit add-in you can register commands explicitly with `BridgeRegistration` — using **only this package**, with no reference to the bridge assembly and no `CliBridgePlugins` folder:
 
 ```csharp
 using Autodesk.Revit.UI;
-using RevitCliBridge;              // bridge assembly
-using RevitCliBridge.Abstractions;
+using RevitCliBridge.Abstractions;   // the only RevitCliBridge reference you need
 
 public class MyCompanyApp : IExternalApplication
 {
     public Result OnStartup(UIControlledApplication app)
     {
-        CommandRouter.Register("mycompany_do_thing@v1", new MyCompanyDoThing());
+        BridgeRegistration.Register(new MyCompanyDoThing());
         return Result.Succeeded;
     }
 
@@ -125,12 +125,14 @@ public class MyCompanyApp : IExternalApplication
 }
 ```
 
-`CommandRouter` is the bridge's built-in registry; its `Register`/`GetHandler` members mirror `ICommandRegistry`, so registration code written against the abstraction stays testable without the bridge assembly. Registration is thread-safe and invalidates the bridge's schema cache — commands appear at `GET /api/commands` immediately, even when registered after startup.
+`BridgeRegistration.Register(IBridgeCommand)` registers the command under its versioned key (`mycompany_do_thing@v1`), the bare name (default version), and all aliases — the same keys the bridge's built-in discovery would create. An explicit-key overload (`Register("name@v2", cmd)`) is available for advanced cases.
+
+Under the hood the facade locates the already-loaded bridge assembly in the Revit process and forwards to the bridge's command registry via reflection. You therefore never reference (or ship a copy of) `RevitCliBridge.dll`, which keeps type identity intact.
 
 Setup notes:
 
-- Reference `RevitCliBridge.dll` from the release zip matching your Revit version, with `CopyLocal=false` (`<Private>false</Private>`) — Revit already loads the bridge via its own add-in manifest, and shipping a second copy would split type identity.
-- Name your `.addin` manifest so Revit loads it after the bridge's (Revit loads manifests alphabetically).
+- The bridge add-in must be installed and started before your registration call runs. Revit loads `.addin` manifests alphabetically — name yours so it sorts after the bridge's manifest.
+- Registration is thread-safe and invalidates the bridge's schema cache, so commands appear at `GET /api/commands` immediately, even when registered after startup.
 
 | | Programmatic registration | DLL discovery |
 |---|---|---|
