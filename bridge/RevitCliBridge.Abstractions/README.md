@@ -1,16 +1,21 @@
 # RevitCliBridge.Abstractions
 
-Plugin interfaces for [RevitCliBridge](https://github.com/revit-cli/revit-cli-opensource) — enables third-party command handler development without a Revit API dependency.
+Plugin SDK for [RevitCliBridge](https://github.com/iandelivery/RevitCLI) — implement third-party bridge commands without referencing the bridge assembly or locking to a specific Revit version.
 
 ## What this package gives you
 
-- `IBridgeCommand` / `BridgeCommandBase` — implement a Revit operation as a bridge command
-- `ICommandRegistry` — register/unregister commands at runtime (thread-safe)
-- `IBridgePlugin` — lifecycle hooks for plugin DLLs loaded by the bridge
-- `QueuedCommand`, `CommandResponse`, `CommandParamSchema`, `ParamAttribute` — request/response model and parameter binding helpers
-- `CommandNameResolver` — command-name resolution with `@version` support
-- `ParameterBinder` — typed binding from `QueuedCommand.Parameters` to a POCO
-- `PagedResultBuilder` — paginated response helper for large result sets
+| Type | Purpose |
+|------|---------|
+| `IBridgeCommand` | Implement this interface to expose a command. The bridge's plugin loader discovers implementations via reflection — no registration code needed. |
+| `QueuedCommand` | Request model: task ID, command name, parameters, `DryRun` flag, `RequestId`. |
+| `CommandResponse` | Response model with `Success`/`Error` factories and `ToJson()`. |
+| `CommandParamSchema` | Parameter metadata (type, required, default, enum values, deprecation, sensitive) published via the schema endpoint. |
+| `CommandDef` / `CommandSchema` | Models of the `GET /api/commands` schema response. |
+| `ParamAttribute` + `ParameterBinder` | Typed binding from the raw parameters dictionary to a POCO (`Bind<T>`); throws `MissingParameterException` / `ParameterTypeException`. |
+| `PagedResult<T>` + `PagedResultBuilder` | Paging helper (`limit`/`offset` parsing, clamping, `has_more`). |
+| `CommandNameResolver` | Command-name resolution: `@version` splitting, domain paths, underscore reversal. |
+| `ICommandRegistry` | Abstraction over the bridge's command registry, for tests that verify registration logic. |
+| `IBridgePlugin` | *Reserved* for structured plugin lifecycle hooks. The current bridge loader auto-discovers `IBridgeCommand` only and does not invoke this interface yet. |
 
 Target framework: **netstandard2.0** — no Revit API reference required, compatible with every Revit version the bridge supports (2019–2022).
 
@@ -30,36 +35,78 @@ To always stay on the latest patch in a minor line:
 
 ## Quick start: expose a plugin command
 
+Create a class library targeting **net48** (you will cast to Revit API types). Reference this package plus your Revit version's API package:
+
+```xml
+<PackageReference Include="RevitCliBridge.Abstractions" Version="1.7.*" />
+<PackageReference Include="Revit_API_x64" Version="2022.*" />
+```
+
+Implement `IBridgeCommand`. All members are required; a public parameterless constructor is required for the loader to instantiate the class:
+
 ```csharp
 using Autodesk.Revit.UI;
 using RevitCliBridge.Abstractions;
-using RevitCliBridge.Handlers;
 
-public class MyCompanyCommand : BridgeCommandBase
+public class MyCompanyDoThing : IBridgeCommand
 {
-    public override string CommandName => "mycompany_do_thing";
-    public override string Category => "MyCompany";
-    public override CommandParamSchema[] Parameters => new[]
+    public string CommandName => "mycompany_do_thing";
+    public string Version => "v1";
+    public string Description => "Does a thing.";
+    public string Category => "MyCompany";
+    public bool SupportsDryRun => false;
+    public string[] Aliases => System.Array.Empty<string>();
+    public string[] Examples => new[] { "{\"input\":\"value\"}" };
+
+    public CommandParamSchema[] Parameters => new[]
     {
-        new() { Name = "input", Type = "string", Required = true }
+        new CommandParamSchema { Name = "input", Type = "string", Required = true }
     };
 
-    protected override string Execute(UIApplication app, QueuedCommand cmd)
+    public string Handle(object uiApplication, QueuedCommand cmd)
     {
-        var input = cmd.Parameters["input"] as string;
-        // ... call your service ...
-        return CommandResponse.Success(cmd.TaskId, new { result = input }).ToJson();
+        // uiApplication is passed as object to keep this package Revit-free.
+        var app = (UIApplication)uiApplication;
+
+        // Typed binding from the parameters dictionary to a POCO.
+        var p = ParameterBinder.Bind<DoThingParams>(
+            cmd.Parameters as System.Collections.Generic.IDictionary<string, object>);
+
+        // ... call the Revit API via app / app.ActiveUIDocument.Document ...
+
+        return CommandResponse.Success(cmd.TaskId, new { result = p.Input }).ToJson();
     }
+}
+
+public class DoThingParams
+{
+    [Param("input", Required = true)]
+    public string Input { get; set; }
 }
 ```
 
-Register it from your `IExternalApplication.OnStartup`:
+> `ParameterBinder` supports `int`, `double`, `string`, `bool`, `int[]` and their nullable forms. For manual access, cast `cmd.Parameters` to `Dictionary<string, object>` (the bridge deserializes JSON objects that way).
 
-```csharp
-CommandRouter.Register("mycompany_do_thing@v1", new MyCompanyCommand());
+## Deployment
+
+1. Build the class library.
+2. Sign the DLL with **Authenticode** (default requirement — unsigned DLLs are rejected).
+3. Copy it to the `CliBridgePlugins` folder next to the bridge add-in:
+
+```
+<Revit addins folder>\RevitCliBridge\     (bridge add-in location)
+    RevitCliBridge.dll
+    CliBridgePlugins\
+        MyCompany.Plugin.dll               (your plugin)
 ```
 
-The command immediately appears at `GET /api/commands` and is callable via `POST /api/execute`.
+The bridge scans the folder at startup and registers every non-abstract `IBridgeCommand` implementation under `{CommandName}@{Version}` (plus the bare name when `Version` is `"v1"`). The command immediately appears at `GET /api/commands` and is callable via `POST /api/execute`.
+
+For unsigned development builds, set `"allow_unsigned_plugins": true` in `cli_bridge_setting.json`. A `trusted_publishers` whitelist can restrict signed DLLs to known certificate subjects.
+
+## Versioned commands
+
+Override `Version` (e.g. `"v2"`) to publish a breaking change under the same command name. Callers pin a version with `mycompany_do_thing@v2`; unversioned requests resolve to the default version (`v1`).
 
 ## Strong naming
 
