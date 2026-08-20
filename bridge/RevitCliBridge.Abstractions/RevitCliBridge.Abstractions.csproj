@@ -14,10 +14,10 @@
 		     line (not the Nice3point {RevitYear}.{Major}.{Minor} scheme) is
 		     sufficient. Bump this in lockstep with the release tag. The
 		     package version, assembly identity and file version all track
-		     1.7.0. -->
-		<Version>1.7.0</Version>
-		<AssemblyVersion>1.7.0.0</AssemblyVersion>
-		<FileVersion>1.7.0.0</FileVersion>
+		     1.8.0. -->
+		<Version>1.8.0</Version>
+		<AssemblyVersion>1.8.0.0</AssemblyVersion>
+		<FileVersion>1.8.0.0</FileVersion>
 
 		<!-- NuGet package metadata -->
 		<PackageId>RevitCliBridge.Abstractions</PackageId>
