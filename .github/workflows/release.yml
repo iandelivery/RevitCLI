@@ -62,8 +62,8 @@ jobs:
           $buildConfig = "Release $configTag"
           $outputDir = "dist/Revit${{ matrix.revit-version }}"
           # Bridge version follows the Nice3point convention:
-          # {RevitYear}.{Major}.{Minor} — e.g. tag v1.5.0 on Revit 2022
-          # produces bridge version 2022.1.5 (csproj composes it from
+          # {RevitYear}.{Major}.{Minor} — e.g. tag v1.7.0 on Revit 2022
+          # produces bridge version 2022.1.7 (csproj composes it from
           # the per-configuration RevitVersion property).
           dotnet build RevitCliBridge\RevitCliBridge.csproj -p:Configuration="$buildConfig" -p:Platform=x64 -p:Major=$major -p:Minor=$minor -p:Patch=$patch -o "$outputDir"
 
@@ -205,7 +205,7 @@ jobs:
           # --- Secondary packages: per-version bridge zips for users who
           #      only need the add-in without the CLI client ---
           # Named after the bridge assembly version ({RevitYear}.{Major}.{Minor}),
-          # e.g. tag v1.5.0 on Revit 2022 -> RevitCliBridge-2022.1.5.zip
+          # e.g. tag v1.7.0 on Revit 2022 -> RevitCliBridge-2022.1.7.zip
           foreach ($v in $bridgeVersions) {
             $srcDir = "artifacts/bridge-Revit$v"
             $zipName = "RevitCliBridge-$v.$major.$minor.zip"
@@ -215,10 +215,12 @@ jobs:
 
           # --- Abstractions NuGet package: single, pure-semantic-versioned ---
           # The SDK is netstandard2.0 with no Revit API reference, so one
-          # package (version 1.6.0) serves every Revit version. Pack it here
-          # once (not per Revit) and attach it as a release asset so it can be
-          # pushed to an internal NuGet feed (GitHub Packages is intentionally
-          # not used for distribution).
+          # package serves every Revit version. Pack it here once (not per
+          # Revit) and attach it as a release asset so it can be pushed to an
+          # internal NuGet feed (GitHub Packages is intentionally not used for
+          # distribution). The nupkg version comes from the csproj, which is
+          # bumped in lockstep with the release tag — the verify step below
+          # asserts the exact file name.
           dotnet pack bridge/RevitCliBridge.Abstractions/RevitCliBridge.Abstractions.csproj -c Release -o .
           Get-ChildItem -Filter *.nupkg | ForEach-Object { Write-Host "Created: $($_.Name)" }
 
@@ -237,9 +239,13 @@ jobs:
             }
           }
           Remove-Item -Recurse -Force verify
-          # A single Abstractions nupkg (Revit-version independent)
-          $nupkgCount = (Get-ChildItem -Filter *.nupkg).Count
-          if ($nupkgCount -lt 1) { throw "Expected at least 1 Abstractions nupkg, found $nupkgCount" }
+          # A single Abstractions nupkg (Revit-version independent). Its name
+          # comes from the csproj version, which must be bumped in lockstep
+          # with the tag — assert the exact expected file name to catch drift.
+          $tag = "${{ github.ref_name }}"
+          $version = $tag -replace '^v', ''
+          $expectedNupkg = "RevitCliBridge.Abstractions.$version.nupkg"
+          if (-not (Test-Path $expectedNupkg)) { throw "Expected $expectedNupkg not found — bump the Abstractions csproj version to match the tag" }
 
       - name: Generate release notes
         id: release-notes
@@ -264,7 +270,7 @@ jobs:
           | ``RevitCliBridge-2020.$major.$minor.zip`` | Bridge add-in for Revit 2020 only |
           | ``RevitCliBridge-2021.$major.$minor.zip`` | Bridge add-in for Revit 2021 only |
           | ``RevitCliBridge-2022.$major.$minor.zip`` | Bridge add-in for Revit 2022 only |
-          | ``RevitCliBridge.Abstractions.$major.$minor.nupkg`` | Plugin SDK NuGet package — Revit-version independent (netstandard2.0), push to your internal NuGet feed |
+          | ``RevitCliBridge.Abstractions.$version.nupkg`` | Plugin SDK NuGet package — Revit-version independent (netstandard2.0), push to your internal NuGet feed |
 
           ### Quick Start
 

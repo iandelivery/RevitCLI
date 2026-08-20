@@ -242,8 +242,9 @@ if (-not $SkipPackage) {
 
     # --- Abstractions NuGet package: single, pure-semantic-versioned ---
     # This SDK is netstandard2.0 with no Revit API reference, so the binary
-    # is identical across every Revit version. One package (1.6.0) serves all
-    # of them — no per-Revit packing, no RevitVersion in the version string.
+    # is identical across every Revit version. One package (version pinned
+    # in the csproj, bumped in lockstep with release tags) serves all of
+    # them — no per-Revit packing, no RevitVersion in the version string.
     if (Get-Command dotnet -ErrorAction SilentlyContinue) {
         $nugetDir = Join-Path $DistDir "nuget"
         New-Item -ItemType Directory -Path $nugetDir -Force | Out-Null
