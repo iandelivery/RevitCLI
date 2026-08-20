@@ -62,8 +62,8 @@ jobs:
           $buildConfig = "Release $configTag"
           $outputDir = "dist/Revit${{ matrix.revit-version }}"
           # Bridge version follows the Nice3point convention:
-          # {RevitYear}.{Major}.{Minor} — e.g. tag v1.8.0 on Revit 2022
-          # produces bridge version 2022.1.8 (csproj composes it from
+          # {RevitYear}.{Major}.{Minor} — e.g. tag v1.9.0 on Revit 2022
+          # produces bridge version 2022.1.9 (csproj composes it from
           # the per-configuration RevitVersion property).
           dotnet build RevitCliBridge\RevitCliBridge.csproj -p:Configuration="$buildConfig" -p:Platform=x64 -p:Major=$major -p:Minor=$minor -p:Patch=$patch -o "$outputDir"
 
@@ -205,7 +205,7 @@ jobs:
           # --- Secondary packages: per-version bridge zips for users who
           #      only need the add-in without the CLI client ---
           # Named after the bridge assembly version ({RevitYear}.{Major}.{Minor}),
-          # e.g. tag v1.8.0 on Revit 2022 -> RevitCliBridge-2022.1.8.zip
+          # e.g. tag v1.9.0 on Revit 2022 -> RevitCliBridge-2022.1.9.zip
           foreach ($v in $bridgeVersions) {
             $srcDir = "artifacts/bridge-Revit$v"
             $zipName = "RevitCliBridge-$v.$major.$minor.zip"
