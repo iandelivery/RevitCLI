@@ -233,8 +233,9 @@ cd ..\client
 
 **手动安装 Bridge**（如果你没有走自动安装流程）：
 
-1. 把 `bridge/dist/Revit<year>/` 下的 DLL 和 `RevitCliBridge.addin` 复制到：
-   - `%APPDATA%\Autodesk\Revit\Addins\<version>\RevitCliBridge\`
+1. 把 `bridge/dist/Revit<year>/` 下的 DLL 和 `@RevitCliBridge.addin` 复制到：
+   - DLL → `%APPDATA%\Autodesk\Revit\Addins\<version>\RevitCliBridge\`
+   - `@RevitCliBridge.addin` → `%APPDATA%\Autodesk\Revit\Addins\<version>\`（Addins 根目录——`@` 前缀确保 Revit 先于其他插件加载 Bridge）
 2. 启动 Revit，Bridge 会以 **AI Mode（默认开启）** 自动运行（由 `.config/cli_bridge_setting.json` 中的 `enabled` 控制，默认为 `true`）。**Revit CLI Bridge** 功能区选项卡中的 **AI Mode Toggle** 按钮仅在需要关闭 Bridge 时使用。
 
 ### 运行命令

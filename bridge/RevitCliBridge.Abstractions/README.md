@@ -131,7 +131,7 @@ Under the hood the facade locates the already-loaded bridge assembly in the Revi
 
 Setup notes:
 
-- The bridge add-in must be installed and started before your registration call runs. Revit loads `.addin` manifests alphabetically — name yours so it sorts after the bridge's manifest.
+- The bridge add-in must be installed and started before your registration call runs. Revit loads `.addin` manifests alphabetically; the bridge's manifest is named `@RevitCliBridge.addin`, so its `@` prefix sorts it ahead of ordinary names — any conventionally named manifest loads after it.
 - Registration is thread-safe and invalidates the bridge's schema cache, so commands appear at `GET /api/commands` immediately, even when registered after startup.
 
 | | Programmatic registration | DLL discovery |

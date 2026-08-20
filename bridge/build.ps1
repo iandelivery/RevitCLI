@@ -198,12 +198,15 @@ foreach ($version in $BuildVersions) {
     # Verify essential output files exist
     $bridgeDll = Join-Path $versionOutput "RevitCliBridge.dll"
     $abstractionsDll = Join-Path $versionOutput "RevitCliBridge.Abstractions.dll"
-    $addinManifest = Join-Path $versionOutput "RevitCliBridge.addin"
+    # The '@' prefix ensures the manifest sorts before consumer add-ins
+    # (Revit loads .addin files alphabetically), so the bridge loads first
+    # and BridgeRegistration from third-party add-ins can find it.
+    $addinManifest = Join-Path $versionOutput "@RevitCliBridge.addin"
 
     $missing = @()
     if (-not (Test-Path $bridgeDll))        { $missing += "RevitCliBridge.dll" }
     if (-not (Test-Path $abstractionsDll))  { $missing += "RevitCliBridge.Abstractions.dll" }
-    if (-not (Test-Path $addinManifest))    { $missing += "RevitCliBridge.addin" }
+    if (-not (Test-Path $addinManifest))    { $missing += "@RevitCliBridge.addin" }
 
     if ($missing.Count -gt 0) {
         Write-Host "  [FAIL] Revit ${version}: missing output files: $($missing -join ', ')" -ForegroundColor Red
@@ -320,11 +323,18 @@ if (-not $Deploy) {
                     Copy-Item -Path $newtonsoftSrc -Destination (Join-Path $targetBridgeDir "Newtonsoft.Json.dll") -Force
                 }
 
-                # Copy .addin manifest to the version addins root
-                $addinSrc = Join-Path $sourceDir "RevitCliBridge.addin"
-                $addinDst = Join-Path $targetAddinsDir "RevitCliBridge.addin"
+                # Copy .addin manifest to the version addins root. The '@'
+                # prefix sorts the manifest before consumer add-ins so the
+                # bridge loads first. Remove the legacy un-prefixed manifest
+                # if an older installation left one behind.
+                $addinSrc = Join-Path $sourceDir "@RevitCliBridge.addin"
+                $addinDst = Join-Path $targetAddinsDir "@RevitCliBridge.addin"
                 if (Test-Path $addinSrc) {
                     Copy-Item -Path $addinSrc -Destination $addinDst -Force
+                }
+                $legacyAddin = Join-Path $targetAddinsDir "RevitCliBridge.addin"
+                if (Test-Path $legacyAddin) {
+                    Remove-Item -Path $legacyAddin -Force
                 }
 
                 # Copy version-specific config

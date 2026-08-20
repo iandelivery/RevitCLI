@@ -38,8 +38,9 @@ This scans for installed Revit versions, copies the add-in files, and generates 
    - `RevitCliBridge.dll`
    - `RevitCliBridge.Abstractions.dll`
    - `Newtonsoft.Json.dll`
-   - `RevitCliBridge.addin`
    - `.config\cli_bridge_setting.json`
+
+   Then copy `@RevitCliBridge.addin` into the Addins root (`...\Addins\<version>\`, one level above the `RevitCliBridge` folder). The `@` prefix makes Revit load the bridge before other add-ins, which is required for programmatic command registration from third-party add-ins.
 
 3. Start Revit. The bridge starts in **AI Mode** automatically (controlled by `enabled` in `.config\cli_bridge_setting.json`, which is `true` by default). You should see a "Revit CLI Bridge" tab with an "AI Mode Toggle" button — it is only needed if you ever want to disable the bridge.
 

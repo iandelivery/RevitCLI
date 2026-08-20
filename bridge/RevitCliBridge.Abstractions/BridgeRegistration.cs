@@ -129,7 +129,8 @@ namespace RevitCliBridge.Abstractions
                         "The RevitCliBridge assembly is not loaded in this process. " +
                         "Commands can only be registered while the bridge add-in is running. " +
                         "Ensure the bridge add-in is installed and that your add-in starts after it " +
-                        "(Revit loads .addin manifests alphabetically).");
+                        "(the bridge's manifest is named '@RevitCliBridge.addin' so its '@' prefix " +
+                        "sorts it before ordinary add-in names).");
 
                 var router = bridge.GetType(RouterTypeName, throwOnError: false);
                 var register = router?.GetMethod(

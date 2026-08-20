@@ -86,7 +86,11 @@
     <None Include=".config\cli_bridge_setting.json">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Include="RevitCliBridge.addin">
+    <!-- The '@' prefix makes the manifest sort before consumer add-in
+         manifests (Revit loads them alphabetically), so the bridge is
+         always loaded first — required for programmatic registration
+         via BridgeRegistration. -->
+    <None Include="@RevitCliBridge.addin">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
   </ItemGroup>

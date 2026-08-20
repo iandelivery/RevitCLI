@@ -236,8 +236,9 @@ Both scripts accept the same `-SkipVet` / `-SkipVet` style flags and write to th
 
 **Installing the bridge manually** if you did not pass an installer step:
 
-1. Copy the DLLs and `RevitCliBridge.addin` from `bridge/dist/Revit<year>/` to:
-   - `%APPDATA%\Autodesk\Revit\Addins\<version>\RevitCliBridge\`
+1. Copy the DLLs and `@RevitCliBridge.addin` from `bridge/dist/Revit<year>/` to:
+   - DLLs → `%APPDATA%\Autodesk\Revit\Addins\<version>\RevitCliBridge\`
+   - `@RevitCliBridge.addin` → `%APPDATA%\Autodesk\Revit\Addins\<version>\` (the Addins root — the `@` prefix makes Revit load the bridge before other add-ins)
 2. Start Revit. The bridge starts in **AI Mode** automatically (controlled by `enabled` in `.config/cli_bridge_setting.json`, which is `true` by default). The **AI Mode Toggle** button in the **Revit CLI Bridge** ribbon tab is only needed if you ever want to disable it.
 
 ### Run Commands
