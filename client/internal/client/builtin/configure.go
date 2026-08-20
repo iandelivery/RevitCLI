@@ -147,8 +147,7 @@ func configureSetup(args []string) int {
 
 	fmt.Println("\nVerifying...")
 	for _, inst := range installations {
-		addinPath := filepath.Join(inst.AddinsDir, "RevitCliBridge.addin")
-		if fileExists(addinPath) {
+		if addinManifestExists(inst.AddinsDir) {
 			fmt.Printf("  [✓] Revit %d — add-in registered\n", inst.Version)
 		} else {
 			fmt.Printf("  [✗] Revit %d — add-in NOT found\n", inst.Version)
@@ -170,14 +169,18 @@ func configureTeardown(args []string) int {
 	installations := detectRevitInstallations()
 
 	for _, inst := range installations {
-		addinPath := filepath.Join(inst.AddinsDir, "RevitCliBridge.addin")
 		bridgeDir := filepath.Join(inst.AddinsDir, "RevitCliBridge")
 
 		removed := false
-		if fileExists(addinPath) {
-			os.Remove(addinPath)
-			fmt.Printf("  [✓] Removed %s\n", addinPath)
-			removed = true
+		// Remove both the '@'-prefixed manifest and the legacy un-prefixed
+		// one so upgrades never leave two registrations behind.
+		for _, name := range bridgeAddinManifests {
+			addinPath := filepath.Join(inst.AddinsDir, name)
+			if fileExists(addinPath) {
+				os.Remove(addinPath)
+				fmt.Printf("  [✓] Removed %s\n", addinPath)
+				removed = true
+			}
 		}
 		if dirExists(bridgeDir) {
 			os.RemoveAll(bridgeDir)
@@ -214,10 +217,9 @@ func configureCheck(args []string) int {
 		if len(installations) > 0 {
 			fmt.Printf("Installed add-ins (%d):\n", len(installations))
 			for _, inst := range installations {
-				addinPath := filepath.Join(inst.AddinsDir, "RevitCliBridge.addin")
 				bridgeDir := filepath.Join(inst.AddinsDir, "RevitCliBridge")
 				status := "not installed"
-				if fileExists(addinPath) && dirExists(bridgeDir) {
+				if addinManifestExists(inst.AddinsDir) && dirExists(bridgeDir) {
 					status = "installed"
 				}
 				fmt.Printf("  Revit %d: %s\n", inst.Version, status)
@@ -478,6 +480,28 @@ func findBridgeFilesForVersion(root string, version int) string {
 	return ""
 }
 
+// bridgeAddinManifest is the manifest file name installed into the Revit
+// Addins folder. The '@' prefix sorts it before consumer add-in manifests
+// (Revit loads .addin files alphabetically), so the bridge is always loaded
+// first — required for programmatic registration via BridgeRegistration.
+const bridgeAddinManifest = "@RevitCliBridge.addin"
+
+// bridgeAddinManifests lists the manifest names the installer recognizes:
+// the current '@'-prefixed one plus the legacy un-prefixed name from older
+// distributions (kept so installs, checks, and teardowns handle upgrades).
+var bridgeAddinManifests = []string{bridgeAddinManifest, "RevitCliBridge.addin"}
+
+// addinManifestExists reports whether a bridge manifest (current or legacy)
+// is present in the given Revit Addins directory.
+func addinManifestExists(addinsDir string) bool {
+	for _, name := range bridgeAddinManifests {
+		if fileExists(filepath.Join(addinsDir, name)) {
+			return true
+		}
+	}
+	return false
+}
+
 // installBridgeForVersion copies bridge files to the Revit addins directory.
 // Returns the generated API key on success so the caller can sync it into
 // the client auth cache.
@@ -510,13 +534,29 @@ func installBridgeForVersion(bridgeDir string, inst revitInstallation) (string, 
 		}
 	}
 
-	// Copy .addin manifest.
-	addinSrc := filepath.Join(bridgeDir, "RevitCliBridge.addin")
-	addinDst := filepath.Join(inst.AddinsDir, "RevitCliBridge.addin")
-	if fileExists(addinSrc) {
+	// Copy the .addin manifest. The '@' prefix sorts it before consumer
+	// add-in manifests (Revit loads them alphabetically) so the bridge is
+	// loaded first — required for BridgeRegistration from third-party
+	// add-ins. Prefer the prefixed name from new distributions, fall back
+	// to the legacy un-prefixed one for older distributions, and remove
+	// any legacy manifest at the destination so upgrades never register
+	// the bridge twice.
+	addinDst := filepath.Join(inst.AddinsDir, bridgeAddinManifest)
+	addinSrc := ""
+	for _, name := range bridgeAddinManifests {
+		candidate := filepath.Join(bridgeDir, name)
+		if fileExists(candidate) {
+			addinSrc = candidate
+			break
+		}
+	}
+	if addinSrc != "" {
 		if err := copyFile(addinSrc, addinDst); err != nil {
 			return "", fmt.Errorf("cannot copy .addin: %w", err)
 		}
+	}
+	if legacy := filepath.Join(inst.AddinsDir, "RevitCliBridge.addin"); fileExists(legacy) {
+		os.Remove(legacy)
 	}
 
 	// Write version-specific config with auto_port.

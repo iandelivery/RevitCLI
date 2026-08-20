@@ -297,7 +297,7 @@ jobs:
           - Each bridge version includes:
             - ``RevitCliBridge.dll``
             - ``RevitCliBridge.Abstractions.dll``
-            - ``RevitCliBridge.addin``
+            - ``@RevitCliBridge.addin``
             - ``.config/cli_bridge_setting.json``
 
           ``revit-cli-client-$version.zip`` includes:
