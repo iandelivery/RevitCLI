@@ -204,7 +204,7 @@ Examples:
 
 **Versioning**
 
-Versions derive from the Git tag (`v1.6.0` → Major/Minor/Patch; falls back to csproj defaults without a tag). The bridge binds Revit API types, so it uses Nice3point-style versions (`{RevitYear}.{Major}.{Minor}`, e.g. `2022.1.6`); the Abstractions SDK is netstandard2.0 with no Revit API reference, so it uses plain semantic versions (`1.6.0`) independent of the Revit year.
+Versions derive from the Git tag (`v1.7.0` → Major/Minor/Patch; falls back to csproj defaults without a tag). The bridge binds Revit API types, so it uses Nice3point-style versions (`{RevitYear}.{Major}.{Minor}`, e.g. `2022.1.7`); the Abstractions SDK is netstandard2.0 with no Revit API reference, so it uses plain semantic versions (`1.7.0`) independent of the Revit year.
 
 **Building components independently**
 
