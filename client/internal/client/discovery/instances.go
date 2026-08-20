@@ -98,7 +98,8 @@ func FindInstancesByVersion(version int) []InstanceInfo {
 // 2. pid (from --pid flag) — look up instance by PID
 // 3. version (from --revit flag) — find first instance of that version
 // 4. auto-discover — if exactly one instance, use it; if multiple, return error
-// 5. fallback — http://localhost:5000
+// 5. no instances — error with actionable guidance (no port fallback:
+//    no bridge version ever listens on a fixed default port)
 func ResolveBaseURL(explicitURL string, pid int, version int) (string, error) {
 	// 1. Explicit URL
 	if explicitURL != "" {
@@ -138,8 +139,11 @@ func ResolveBaseURL(explicitURL string, pid int, version int) (string, error) {
 		return "", fmt.Errorf("multiple Revit instances running; use --revit <version> or --pid <pid> to select one.\nRun 'revit-cli list' to see available instances")
 	}
 
-	// 5. Fallback
-	return "http://localhost:5000", nil
+	// 5. No instances found — explicit error with guidance. No legacy port
+	//    fallback: no bridge version ever listens on a fixed default port,
+	//    so dialing one would only produce a misleading "connection
+	//    refused" error.
+	return "", fmt.Errorf("no running Revit bridge instance found; start Revit and enable the bridge (Revit CLI Bridge tab > AI Mode Toggle), then retry. Run 'revit-cli list' to see running instances")
 }
 
 func pidList(instances []InstanceInfo) string {

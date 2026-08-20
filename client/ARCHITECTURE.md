@@ -233,7 +233,7 @@ Fetch(forceRefresh=false)
 --revit <version>    → find first instance of that version
 auto-discover        → single instance → use it
                      → multiple → prompt user
-fallback             → http://localhost:5000
+no instances         → error: start Revit and enable the bridge
 ```
 
 **Process Alive Detection**:
