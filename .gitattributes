@@ -1,0 +1,22 @@
+# Canonical cross-platform line-ending policy: the repository stores LF
+# only; .gitattributes (not per-developer core.autocrlf) is the single
+# source of truth. Modern Windows tooling (Visual Studio, VS Code, dotnet
+# CLI, Go, PowerShell) handles LF working trees fine.
+
+# Auto-detect text files, normalize to LF in the repo and working tree.
+* text=auto eol=lf
+
+# Windows shell scripts genuinely require CRLF (cmd.exe label parsing).
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Binaries — never normalize or diff.
+*.snk binary
+*.dll binary
+*.exe binary
+*.pdb binary
+*.zip binary
+*.nupkg binary
+*.png binary
+*.jpg binary
+*.ico binary
