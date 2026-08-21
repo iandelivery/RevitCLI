@@ -180,6 +180,15 @@ namespace RevitCliBridge
                     $"Unknown command: {queuedCommand.Command}").ToJson();
             }
 
+            // Wire the progress channel so any handler (built-in or plugin)
+            // can report via cmd.ReportProgress — routed to the same task
+            // state machine that drives SSE "progress" events. Wired after
+            // the domain-path rebuild above so the rebuilt instance carries
+            // the reporter. TaskRegistry.SetProgress no-ops for task IDs
+            // without a TaskInfo (e.g. batch sub-commands).
+            queuedCommand.ProgressReporter =
+                (percent, message) => TaskRegistry.SetProgress(queuedCommand.TaskId, percent, message);
+
             var sw = System.Diagnostics.Stopwatch.StartNew();
             bool success = true;
             try
