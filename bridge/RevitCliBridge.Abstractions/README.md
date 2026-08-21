@@ -7,7 +7,7 @@ Plugin SDK for [RevitCliBridge](https://github.com/iandelivery/RevitCLI) — imp
 | Type | Purpose |
 |------|---------|
 | `IBridgeCommand` | Implement this interface to expose a command. The bridge's plugin loader discovers implementations via reflection — no registration code needed. |
-| `QueuedCommand` | Request model: task ID, command name, parameters, `DryRun` flag, `RequestId`. |
+| `QueuedCommand` | Request model: task ID, command name, parameters, `DryRun` flag, `RequestId`, progress reporting (`ReportProgress`). |
 | `CommandResponse` | Response model with `Success`/`Error` factories and `ToJson()`. |
 | `CommandParamSchema` | Parameter metadata (type, required, default, enum values, deprecation, sensitive) published via the schema endpoint. |
 | `CommandDef` / `CommandSchema` | Models of the `GET /api/commands` schema response. |
@@ -87,6 +87,25 @@ public class DoThingParams
 ```
 
 > `ParameterBinder` supports `int`, `double`, `string`, `bool`, `int[]` and their nullable forms. For manual access, cast `cmd.Parameters` to `Dictionary<string, object>` (the bridge deserializes JSON objects that way).
+
+## Reporting progress
+
+Long-running commands can stream progress to the CLI client. Inside `Handle`, call `ReportProgress` on the `QueuedCommand`:
+
+```csharp
+for (int i = 0; i < walls.Count; i++)
+{
+    // ... create wall i ...
+
+    cmd.ReportProgress((i + 1) * 100 / walls.Count, $"Created wall {i + 1}/{walls.Count}");
+}
+```
+
+The bridge wires the reporter to the task's SSE `progress` event before dispatch — the same channel built-in commands use — so `revit-cli` clients observe live updates. Guidelines:
+
+- `percent` is 0–100. The bridge broadcasts `0` when the command starts and a terminal event on completion, so report intermediate values only.
+- Call from the Revit main thread (inside `Handle`); marshal back if you spawn background work.
+- The call is a no-op when no reporter is wired (unit tests, standalone execution), so no null-checks are needed.
 
 ## Deployment via plugin DLL discovery
 

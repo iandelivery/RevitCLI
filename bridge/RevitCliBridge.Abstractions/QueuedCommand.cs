@@ -1,4 +1,5 @@
 using Newtonsoft.Json;
+using System;
 
 namespace RevitCliBridge.Abstractions
 {
@@ -7,6 +8,15 @@ namespace RevitCliBridge.Abstractions
     /// </summary>
     public class QueuedCommand
     {
+        /// <summary>
+        /// Progress callback wired by the bridge just before dispatch.
+        /// Null when the command executes outside the bridge (unit tests,
+        /// standalone tools) — <see cref="ReportProgress"/> then no-ops.
+        /// Never serialized.
+        /// </summary>
+        [JsonIgnore]
+        public Action<int, string?>? ProgressReporter { get; set; }
+
         [JsonProperty("task_id")]
         public string TaskId { get; set; } = string.Empty;
 
@@ -34,5 +44,18 @@ namespace RevitCliBridge.Abstractions
         /// </summary>
         [JsonProperty("request_id", NullValueHandling = NullValueHandling.Ignore)]
         public string? RequestId { get; set; }
+
+        /// <summary>
+        /// Report execution progress (0-100) with an optional human-readable
+        /// message. The bridge wires the reporter to the task's SSE
+        /// "progress" event before dispatch — the same channel built-in
+        /// commands use — so CLI clients observe live updates. Report only
+        /// intermediate values: the bridge broadcasts 0 when the command
+        /// starts and a terminal event on completion.
+        /// Call from inside <see cref="IBridgeCommand.Handle"/> on the Revit
+        /// main thread; no-ops when no reporter is wired.
+        /// </summary>
+        public void ReportProgress(int percent, string? message = null)
+            => ProgressReporter?.Invoke(percent, message);
     }
 }
