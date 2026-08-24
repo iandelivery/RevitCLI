@@ -107,6 +107,52 @@ The bridge wires the reporter to the task's SSE `progress` event before dispatch
 - Call from the Revit main thread (inside `Handle`); marshal back if you spawn background work.
 - The call is a no-op when no reporter is wired (unit tests, standalone execution), so no null-checks are needed.
 
+## Failure handling
+
+Unattended execution (AI mode, no user at the screen) means Revit warning dialogs would block
+your transaction forever. The bridge's built-in commands attach a failure preprocessor to every
+transaction; plugin commands should do the same. The pattern is small — carry it in your plugin:
+
+```csharp
+using Autodesk.Revit.DB;
+
+public class UnattendedFailurePreprocessor : IFailuresPreprocessor
+{
+    public FailureProcessingResult PreprocessFailures(FailuresAccessor fa)
+    {
+        foreach (var failure in fa.GetFailureMessages())
+        {
+            if (failure.GetSeverity() == FailureSeverity.Warning)
+                fa.DeleteWarning(failure);          // auto-dismiss warnings
+            else if (failure.GetSeverity() == FailureSeverity.Error)
+            {
+                fa.ResolveFailure(failure);         // auto-resolve errors
+                return FailureProcessingResult.ProceedWithCommit;
+            }
+        }
+        return FailureProcessingResult.Continue;
+    }
+}
+```
+
+Attach it to each transaction before committing:
+
+```csharp
+using (var t = new Transaction(doc, "MyCompany: do thing"))
+{
+    var options = t.GetFailureHandlingOptions();
+    options.SetFailuresPreprocessor(new UnattendedFailurePreprocessor());
+    t.SetFailureHandlingOptions(options);
+
+    t.Start();
+    // ... modify the model ...
+    t.Commit();
+}
+```
+
+Without this, any "duplicate element" or "elements joined" warning pops a modal dialog on the
+Revit main thread and the command appears to hang until a human intervenes.
+
 ## Deployment via plugin DLL discovery
 
 1. Build the class library.
