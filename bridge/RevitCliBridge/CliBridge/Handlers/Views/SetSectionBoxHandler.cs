@@ -8,26 +8,26 @@ namespace RevitCliBridge.Handlers.Views
     public class SetSectionBoxHandler : DocumentCommandBase
     {
         public override string CommandName => "set_section_box";
-        public override string Description => "Sets or toggles the section box on a 3D view";
+        public override string Description => "Sets the section box bounds on a 3D view, either explicitly or computed from elements";
         public override string Category => "Modify";
         public override bool SupportsDryRun => true;
 
         public override CommandParamSchema[] Parameters => new[]
         {
             new CommandParamSchema { Name = "view_id", Type = "int", Required = false, Description = "3D view element ID (defaults to the active view)" },
-            new CommandParamSchema { Name = "enable", Type = "bool", Required = false, Description = "Enable or disable the section box (defaults to true)", Default = true },
-            new CommandParamSchema { Name = "min_x", Type = "double", Required = false, Description = "Minimum X coordinate of the section box in millimeters (required when enable is true)" },
-            new CommandParamSchema { Name = "min_y", Type = "double", Required = false, Description = "Minimum Y coordinate of the section box in millimeters (required when enable is true)" },
-            new CommandParamSchema { Name = "min_z", Type = "double", Required = false, Description = "Minimum Z coordinate of the section box in millimeters (required when enable is true)" },
-            new CommandParamSchema { Name = "max_x", Type = "double", Required = false, Description = "Maximum X coordinate of the section box in millimeters (required when enable is true)" },
-            new CommandParamSchema { Name = "max_y", Type = "double", Required = false, Description = "Maximum Y coordinate of the section box in millimeters (required when enable is true)" },
-            new CommandParamSchema { Name = "max_z", Type = "double", Required = false, Description = "Maximum Z coordinate of the section box in millimeters (required when enable is true)" }
+            new CommandParamSchema { Name = "element_ids", Type = "int[]", Required = false, ShortFlag = "ids", Description = "Element IDs to compute the section box from (union of their bounding boxes)" },
+            new CommandParamSchema { Name = "min_x", Type = "double", Required = false, Description = "Minimum X coordinate of the section box in millimeters (required when element_ids is omitted)" },
+            new CommandParamSchema { Name = "min_y", Type = "double", Required = false, Description = "Minimum Y coordinate of the section box in millimeters (required when element_ids is omitted)" },
+            new CommandParamSchema { Name = "min_z", Type = "double", Required = false, Description = "Minimum Z coordinate of the section box in millimeters (required when element_ids is omitted)" },
+            new CommandParamSchema { Name = "max_x", Type = "double", Required = false, Description = "Maximum X coordinate of the section box in millimeters (required when element_ids is omitted)" },
+            new CommandParamSchema { Name = "max_y", Type = "double", Required = false, Description = "Maximum Y coordinate of the section box in millimeters (required when element_ids is omitted)" },
+            new CommandParamSchema { Name = "max_z", Type = "double", Required = false, Description = "Maximum Z coordinate of the section box in millimeters (required when element_ids is omitted)" }
         };
 
         public override string[] Examples => new[]
         {
             "{ \"command\": \"set_section_box\", \"parameters\": { \"view_id\": 12345, \"min_x\": 0, \"min_y\": 0, \"min_z\": 0, \"max_x\": 10000, \"max_y\": 8000, \"max_z\": 4000 } }",
-            "{ \"command\": \"set_section_box\", \"parameters\": { \"view_id\": 12345, \"enable\": false } }"
+            "{ \"command\": \"set_section_box\", \"parameters\": { \"element_ids\": [12345, 12346, 12347] } }"
         };
 
         protected override string Execute(UIApplication app, Document doc, Dictionary<string, object> parameters, QueuedCommand cmd)
@@ -35,66 +35,40 @@ namespace RevitCliBridge.Handlers.Views
             var p = TryBind<SetSectionBoxParams>(cmd, out var error);
             if (p is null) return error!;
 
-            // Resolve the target 3D view: explicit view_id, else active view.
-            View3D? view = null;
-            if (p.ViewId.HasValue)
+            var viewOrError = SectionBoxUtilities.ResolveTargetView(app, doc, p.ViewId, cmd);
+            if (viewOrError.View is null) return viewOrError.ErrorJson!;
+            var view = viewOrError.View;
+
+            BoundingBoxXYZ? bounds;
+            string source;
+
+            if (p.ElementIds is { Length: > 0 })
             {
-                view = doc.GetElement(new ElementId(p.ViewId.Value)) as View3D;
-                if (view is null)
-                    return CommandResponse.Error(cmd.TaskId, $"Element with ID {p.ViewId.Value} is not a 3D view.").ToJson();
+                bounds = SectionBoxUtilities.ComputeElementsBounds(doc, p.ElementIds, cmd, out var computeError);
+                if (bounds is null) return computeError!;
+                source = "elements";
             }
             else
             {
-                var uiDoc = app.ActiveUIDocument;
-                var activeView = uiDoc?.ActiveView;
-                if (activeView is null)
-                    return CommandResponse.Error(cmd.TaskId, "No active view and no view_id provided.").ToJson();
-                view = activeView as View3D;
-                if (view is null)
-                    return CommandResponse.Error(cmd.TaskId, "Active view is not a 3D view. Provide view_id of a 3D view instead.").ToJson();
-            }
-
-            if (view.IsTemplate)
-                return CommandResponse.Error(cmd.TaskId, "Cannot set a section box on a view template.").ToJson();
-
-            if (view.IsPerspective)
-                return CommandResponse.Error(cmd.TaskId, "Perspective views do not support section boxes.").ToJson();
-
-            if (!p.Enable)
-            {
-                using (var t = new DryRunTransaction(doc, "CLI Set Section Box", cmd.DryRun))
+                // All six bounds are required when element_ids is omitted.
+                if (!p.MinX.HasValue || !p.MinY.HasValue || !p.MinZ.HasValue ||
+                    !p.MaxX.HasValue || !p.MaxY.HasValue || !p.MaxZ.HasValue)
                 {
-                    t.ConfigureFailureHandling();
-                    view.IsSectionBoxActive = false;
-                    t.Commit();
+                    return CommandResponse.Error(cmd.TaskId,
+                        "Provide either element_ids or all six bounds: min_x, min_y, min_z, max_x, max_y, max_z.").ToJson();
                 }
 
-                var disabledResult = new
+                if (p.MinX.Value >= p.MaxX.Value || p.MinY.Value >= p.MaxY.Value || p.MinZ.Value >= p.MaxZ.Value)
+                    return CommandResponse.Error(cmd.TaskId,
+                        "Invalid bounds: each min coordinate must be less than the corresponding max coordinate.").ToJson();
+
+                bounds = new BoundingBoxXYZ
                 {
-                    view_id = view.Id.IntegerValue,
-                    view_name = view.Name,
-                    active = false
+                    Min = new XYZ(p.MinX.Value.MillimeterToFeet(), p.MinY.Value.MillimeterToFeet(), p.MinZ.Value.MillimeterToFeet()),
+                    Max = new XYZ(p.MaxX.Value.MillimeterToFeet(), p.MaxY.Value.MillimeterToFeet(), p.MaxZ.Value.MillimeterToFeet())
                 };
-                return CommandResponse.Success(cmd.TaskId, disabledResult, "Section box disabled.").ToJson();
+                source = "explicit";
             }
-
-            // All six bounds are required when enabling the section box.
-            if (!p.MinX.HasValue || !p.MinY.HasValue || !p.MinZ.HasValue ||
-                !p.MaxX.HasValue || !p.MaxY.HasValue || !p.MaxZ.HasValue)
-            {
-                return CommandResponse.Error(cmd.TaskId,
-                    "Missing bounds: min_x, min_y, min_z, max_x, max_y, max_z are required when enable is true.").ToJson();
-            }
-
-            if (p.MinX.Value >= p.MaxX.Value || p.MinY.Value >= p.MaxY.Value || p.MinZ.Value >= p.MaxZ.Value)
-                return CommandResponse.Error(cmd.TaskId,
-                    "Invalid bounds: each min coordinate must be less than the corresponding max coordinate.").ToJson();
-
-            var bounds = new BoundingBoxXYZ
-            {
-                Min = new XYZ(p.MinX.Value.MillimeterToFeet(), p.MinY.Value.MillimeterToFeet(), p.MinZ.Value.MillimeterToFeet()),
-                Max = new XYZ(p.MaxX.Value.MillimeterToFeet(), p.MaxY.Value.MillimeterToFeet(), p.MaxZ.Value.MillimeterToFeet())
-            };
 
             using (var t = new DryRunTransaction(doc, "CLI Set Section Box", cmd.DryRun))
             {
@@ -109,28 +83,75 @@ namespace RevitCliBridge.Handlers.Views
                 view_id = view.Id.IntegerValue,
                 view_name = view.Name,
                 active = true,
-                min_x = p.MinX,
-                min_y = p.MinY,
-                min_z = p.MinZ,
-                max_x = p.MaxX,
-                max_y = p.MaxY,
-                max_z = p.MaxZ
+                source,
+                min_x = bounds.Min.X.FeetToMillimeter(),
+                min_y = bounds.Min.Y.FeetToMillimeter(),
+                min_z = bounds.Min.Z.FeetToMillimeter(),
+                max_x = bounds.Max.X.FeetToMillimeter(),
+                max_y = bounds.Max.Y.FeetToMillimeter(),
+                max_z = bounds.Max.Z.FeetToMillimeter()
             };
             return CommandResponse.Success(cmd.TaskId, result, "Section box set successfully.").ToJson();
         }
     }
 
+    public class ToggleSectionBoxHandler : DocumentCommandBase
+    {
+        public override string CommandName => "toggle_section_box";
+        public override string Description => "Enables or disables the section box on a 3D view";
+        public override string Category => "Modify";
+        public override bool SupportsDryRun => true;
+
+        public override CommandParamSchema[] Parameters => new[]
+        {
+            new CommandParamSchema { Name = "view_id", Type = "int", Required = false, Description = "3D view element ID (defaults to the active view)" },
+            new CommandParamSchema { Name = "enable", Type = "bool", Required = false, Description = "Enable or disable the section box (defaults to true)", Default = true }
+        };
+
+        public override string[] Examples => new[]
+        {
+            "{ \"command\": \"toggle_section_box\", \"parameters\": { \"view_id\": 12345 } }",
+            "{ \"command\": \"toggle_section_box\", \"parameters\": { \"view_id\": 12345, \"enable\": false } }"
+        };
+
+        protected override string Execute(UIApplication app, Document doc, Dictionary<string, object> parameters, QueuedCommand cmd)
+        {
+            var p = TryBind<ToggleSectionBoxParams>(cmd, out var error);
+            if (p is null) return error!;
+
+            var viewOrError = SectionBoxUtilities.ResolveTargetView(app, doc, p.ViewId, cmd);
+            if (viewOrError.View is null) return viewOrError.ErrorJson!;
+            var view = viewOrError.View;
+
+            using (var t = new DryRunTransaction(doc, "CLI Toggle Section Box", cmd.DryRun))
+            {
+                t.ConfigureFailureHandling();
+                view.IsSectionBoxActive = p.Enable;
+                t.Commit();
+            }
+
+            var result = new
+            {
+                view_id = view.Id.IntegerValue,
+                view_name = view.Name,
+                active = p.Enable
+            };
+            return CommandResponse.Success(cmd.TaskId, result,
+                p.Enable ? "Section box enabled." : "Section box disabled.").ToJson();
+        }
+    }
+
     /// <summary>
     /// Typed parameter bag for <see cref="SetSectionBoxHandler"/>.
-    /// Bounds are nullable so "enable": false can omit them entirely.
+    /// Bounds are nullable so the element_ids mode can omit them entirely.
     /// </summary>
     public class SetSectionBoxParams
     {
         [Param("view_id")]
         public int? ViewId { get; set; }
 
-        [Param("enable", Default = true)]
-        public bool Enable { get; set; }
+        [Param("element_ids")]
+        public int[]? ElementIds { get; set; }
 
         [Param("min_x")]
         public double? MinX { get; set; }
@@ -149,5 +170,114 @@ namespace RevitCliBridge.Handlers.Views
 
         [Param("max_z")]
         public double? MaxZ { get; set; }
+    }
+
+    /// <summary>
+    /// Typed parameter bag for <see cref="ToggleSectionBoxHandler"/>.
+    /// </summary>
+    public class ToggleSectionBoxParams
+    {
+        [Param("view_id")]
+        public int? ViewId { get; set; }
+
+        [Param("enable", Default = true)]
+        public bool Enable { get; set; }
+    }
+
+    /// <summary>
+    /// Shared helpers for the section box commands.
+    /// </summary>
+    internal static class SectionBoxUtilities
+    {
+        internal sealed class ViewOrError
+        {
+            public View3D? View { get; }
+            public string? ErrorJson { get; }
+
+            public ViewOrError(View3D? view, string? errorJson)
+            {
+                View = view;
+                ErrorJson = errorJson;
+            }
+        }
+
+        /// <summary>
+        /// Resolves the target 3D view: explicit view_id, else active view.
+        /// </summary>
+        public static ViewOrError ResolveTargetView(UIApplication app, Document doc, int? viewId, QueuedCommand cmd)
+        {
+            View3D? view;
+            if (viewId.HasValue)
+            {
+                view = doc.GetElement(new ElementId(viewId.Value)) as View3D;
+                if (view is null)
+                    return new ViewOrError(null, CommandResponse.Error(cmd.TaskId, $"Element with ID {viewId.Value} is not a 3D view.").ToJson());
+            }
+            else
+            {
+                var activeView = app.ActiveUIDocument?.ActiveView;
+                if (activeView is null)
+                    return new ViewOrError(null, CommandResponse.Error(cmd.TaskId, "No active view and no view_id provided.").ToJson());
+                view = activeView as View3D;
+                if (view is null)
+                    return new ViewOrError(null, CommandResponse.Error(cmd.TaskId, "Active view is not a 3D view. Provide view_id of a 3D view instead.").ToJson());
+            }
+
+            if (view.IsTemplate)
+                return new ViewOrError(null, CommandResponse.Error(cmd.TaskId, "Cannot set a section box on a view template.").ToJson());
+
+            if (view.IsPerspective)
+                return new ViewOrError(null, CommandResponse.Error(cmd.TaskId, "Perspective views do not support section boxes.").ToJson());
+
+            return new ViewOrError(view, null);
+        }
+
+        /// <summary>
+        /// Computes the union of the bounding boxes of the given elements
+        /// (model coordinates, feet). Elements without a bounding box are
+        /// skipped; an error is returned when none of them has one.
+        /// </summary>
+        public static BoundingBoxXYZ? ComputeElementsBounds(Document doc, int[] elementIds, QueuedCommand cmd, out string? errorJson)
+        {
+            XYZ? min = null;
+            XYZ? max = null;
+            var skipped = new List<int>();
+
+            foreach (var id in elementIds)
+            {
+                var element = doc.GetElement(new ElementId(id));
+                if (element is null)
+                {
+                    skipped.Add(id);
+                    continue;
+                }
+
+                var box = element.get_BoundingBox(null);
+                if (box is null)
+                {
+                    skipped.Add(id);
+                    continue;
+                }
+
+                min = min is null ? box.Min : new XYZ(
+                    System.Math.Min(min.X, box.Min.X),
+                    System.Math.Min(min.Y, box.Min.Y),
+                    System.Math.Min(min.Z, box.Min.Z));
+                max = max is null ? box.Max : new XYZ(
+                    System.Math.Max(max.X, box.Max.X),
+                    System.Math.Max(max.Y, box.Max.Y),
+                    System.Math.Max(max.Z, box.Max.Z));
+            }
+
+            if (min is null || max is null)
+            {
+                errorJson = CommandResponse.Error(cmd.TaskId,
+                    $"No bounding boxes found for the given element IDs. Skipped: [{string.Join(", ", skipped)}]").ToJson();
+                return null;
+            }
+
+            errorJson = null;
+            return new BoundingBoxXYZ { Min = min, Max = max };
+        }
     }
 }
