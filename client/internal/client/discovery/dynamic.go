@@ -77,6 +77,12 @@ func (d *DynamicCommand) parseArgs(args []string) map[string]interface{} {
 
 	for _, p := range d.def.Parameters {
 		flags := []string{"--" + p.Name}
+		// Also accept the dash variant (--min-x for --min_x) — the
+		// documented CLI convention uses dashes while parameter names
+		// use underscores.
+		if dashed := strings.ReplaceAll(p.Name, "_", "-"); dashed != p.Name {
+			flags = append(flags, "--"+dashed)
+		}
 		if p.ShortFlag != "" {
 			flags = append(flags, "-"+p.ShortFlag)
 		}
