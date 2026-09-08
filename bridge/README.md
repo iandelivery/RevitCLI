@@ -187,6 +187,7 @@ The bridge auto-discovers all `IBridgeCommand` implementations. Built-in command
 - `rotate_element`, `mirror_element` — Rotate/mirror
 - `delete_element` — Delete elements
 - `set_offset` — Set element offset
+- `set_section_box` — Set or toggle the section box on a 3D view
 
 ### Document
 - `doc_open`, `doc_save`, `doc_save_as` — Document operations
