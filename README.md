@@ -271,6 +271,12 @@ revit-cli.exe create_elbow_fitting --element-id-1 12345 --element-id-2 12346
 # Set a section box on a 3D view (defaults to the active view)
 revit-cli.exe set_section_box --min-x 0 --min-y 0 --min-z 0 --max-x 10000 --max-y 8000 --max-z 4000
 
+# Set a section box computed from the bounding boxes of the given elements
+revit-cli.exe set_section_box -ids 12345,12346,12347
+
+# Toggle the section box off on a specific view
+revit-cli.exe toggle_section_box --view-id 12345 --enable false
+
 # View the Revit API reference for uncovered operations
 revit-cli.exe llms
 ```
