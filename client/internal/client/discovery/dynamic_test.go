@@ -47,6 +47,30 @@ func TestParseArgs_shortFlagBinds(t *testing.T) {
 	}
 }
 
+func TestParseArgs_idsShortFlagBindsIntArray(t *testing.T) {
+	def := models.CommandDef{
+		Name: "set_section_box",
+		Parameters: []models.CommandParamSchema{
+			{Name: "element_ids", Type: "int[]", ShortFlag: "ids"},
+		},
+	}
+	params := NewDynamicCommand(def).parseArgs([]string{"-ids", "12345,12346,12347"})
+
+	got, ok := params["element_ids"].([]int)
+	if !ok {
+		t.Fatalf("element_ids: got %v (%T), want []int", params["element_ids"], params["element_ids"])
+	}
+	want := []int{12345, 12346, 12347}
+	if len(got) != len(want) {
+		t.Fatalf("element_ids: got %v, want %v", got, want)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Errorf("element_ids[%d]: got %d, want %d", i, got[i], want[i])
+		}
+	}
+}
+
 func TestParseArgs_absentParamsOmitted(t *testing.T) {
 	d := NewDynamicCommand(sectionBoxDef())
 	params := d.parseArgs([]string{"--min_x", "0"})
