@@ -84,6 +84,28 @@ namespace RevitCliBridge.Handlers.Mep
         }
 
         /// <summary>
+        /// Find the connector on <paramref name="element"/> whose origin is
+        /// closest to <paramref name="referenceCurve"/> (used for takeoff taps
+        /// on a main body). Returns null when the element has no connectors.
+        /// </summary>
+        public static Connector? FindClosestConnectorToCurve(MEPCurve element, Curve referenceCurve)
+        {
+            Connector? best = null;
+            double minDist = double.MaxValue;
+
+            foreach (Connector c in element.ConnectorManager.Connectors)
+            {
+                double d = referenceCurve.Distance(c.Origin);
+                if (d < minDist)
+                {
+                    minDist = d;
+                    best = c;
+                }
+            }
+            return best;
+        }
+
+        /// <summary>
         /// Compute the intersection point of two location curves. Returns
         /// null when the curves do not overlap (skew, parallel, or disjoint).
         /// </summary>

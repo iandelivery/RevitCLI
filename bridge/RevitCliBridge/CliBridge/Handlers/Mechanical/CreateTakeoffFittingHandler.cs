@@ -5,6 +5,7 @@ using Autodesk.Revit.DB.Mechanical;
 using Autodesk.Revit.UI;
 using RevitCliBridge.Abstractions;
 using RevitCliBridge.Handlers;
+using RevitCliBridge.Handlers.Mep;
 
 namespace RevitCliBridge.Handlers.Mechanical
 {
@@ -67,7 +68,7 @@ namespace RevitCliBridge.Handlers.Mechanical
             else
             {
                 // Auto-select the branch connector closest to the main curve.
-                branchConnector = FindClosestToCurve(branch, mainCurve);
+                branchConnector = MepCurveGeometry.FindClosestConnectorToCurve(branch, mainCurve);
             }
 
             if (branchConnector is null)
@@ -94,23 +95,6 @@ namespace RevitCliBridge.Handlers.Mechanical
             {
                 return CommandResponse.Error(cmd.TaskId, $"Revit could not create the takeoff: {ex.Message}").ToJson();
             }
-        }
-
-        private static Connector? FindClosestToCurve(Duct branch, Curve mainCurve)
-        {
-            Connector? best = null;
-            double minDist = double.MaxValue;
-
-            foreach (Connector c in branch.ConnectorManager.Connectors)
-            {
-                double d = mainCurve.Distance(c.Origin);
-                if (d < minDist)
-                {
-                    minDist = d;
-                    best = c;
-                }
-            }
-            return best;
         }
     }
 
