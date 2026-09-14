@@ -119,12 +119,24 @@ Pipe 命令清单（目录 `bridge/.../CliBridge/Handlers/Piping/`）：
 
 调用点迁移（命令名 / 入参一律不变）：
 - 全部 Mechanical / Electrical 管件 handler（elbow / tee / cross / transition / union）改走 `MepCurveGeometry.*` 与 `MepFittingResolver.ResolveConnectorPair<T>`；
+- Duct / CableTray takeoff 的私用"最近到曲线"助手上收为共享核心 `MepCurveGeometry.FindClosestConnectorToCurve`，避免第三份重复；
 - `create_duct` / `create_cable_tray` / `get_ducts` / `get_cable_trays` / `modify_duct` / `modify_cable_tray` 的类型解析与快照改走 `XxxUtils.Default`。
+
+Pipe 命令（`Handlers/Piping/`，新增）：
+- `create_pipe`（`CreatePipeHandler.cs`）— `start/end x/y/z`、`level_id`、`system_type_id`、`pipe_type_id`、`diameter_mm`，`SupportsDryRun`。
+- `get_pipes`（`GetPipesHandler.cs`）— `PaginatedQueryHandler`，过滤 `level_id` / `system_type_id` / `diameter_mm`（近似）。
+- `get_pipe_types`（`GetPipeTypesHandler.cs`）。
+- `get_pipe_system_types`（`GetPipeSystemTypesHandler.cs`）— `system_class` 可选过滤（按 `MEPSystemClassification`）。
+- `modify_pipe`（`ModifyPipeHandler.cs`）— `element_id`、起讫点、`pipe_type_id`、`diameter_mm`。
+- 管件 6 个：`create_pipe_elbow_fitting` / `_tee_` / `_cross_` / `_transition_` / `_union_` / `_takeoff_`，全部走共享核心（`ResolveConnectorPair<Pipe>` / `MepCurveGeometry.*`）。
+
+统一入口（`Handlers/Mep/CreateMepFittingHandler.cs`，新增）：
+- `create_mep_fitting` — `--type elbow|tee|cross|transition|union|takeoff --class duct|pipe|cable_tray` + `element_id_1/2`、`connector_index_1/2`。为 Agent 更易发现的薄包装 broker，内部走同一套共享核心；`cross` 因需 4 元素而在统一入口中拒绝并提示到 `create_<class>_cross_fitting`。
 
 ### 4.2 待办（M1 其余）
 
-- Pipe 命令 handler：`create_pipe`、`get_pipes`、`get_pipe_types`、`get_pipe_system_types`、`modify_pipe` + 6 管件 + `create_mep_fitting`。
 - 配套单测：ParamBinder、connector 解析（`MepFittingResolver` / `MepCurveGeometry`）、Snapshot 单位（mm）。
+- 文档同步：`README.md`（Run Commands 段）、`bridge/README.md` 补充新命令示例。
 
 ### 4.3 兼容性与验证
 
