@@ -268,6 +268,12 @@ revit-cli.exe create_cable_tray --start-x 0 --start-y 0 --start-z 3000 --end-x 5
 # Create an elbow fitting between two cable trays
 revit-cli.exe create_elbow_fitting --element-id-1 12345 --element-id-2 12346
 
+# Create a pipe segment (requires a piping system type)
+revit-cli.exe create_pipe --start-x 0 --start-y 0 --start-z 3000 --end-x 5000 --end-y 0 --end-z 3000 -l 3001 --system-type-id 12345
+
+# Create an elbow fitting between two pipes
+revit-cli.exe create_pipe_elbow_fitting --element-id-1 12345 --element-id-2 12346
+
 # Set a section box on a 3D view (defaults to the active view)
 revit-cli.exe set_section_box --min-x 0 --min-y 0 --min-z 0 --max-x 10000 --max-y 8000 --max-z 4000
 
@@ -300,7 +306,7 @@ This calls `GET /api/raw-mode` to query and `POST /api/raw-mode` to toggle. The 
 
 ## Features
 
-- **70+ built-in commands** — create walls/doors/windows, manage cable trays and ducts, query elements, modify parameters, export views, manage documents
+- **70+ built-in commands** — create walls/doors/windows, manage cable trays, ducts, and pipes, query elements, modify parameters, export views, manage documents
 - **SSE real-time streaming** — live progress updates for long-running operations
 - **Schema discovery** — the client auto-discovers available commands from the bridge
 - **Multi-instance support** — run multiple Revit versions simultaneously with auto port allocation

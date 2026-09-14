@@ -133,10 +133,10 @@ Pipe 命令（`Handlers/Piping/`，新增）：
 统一入口（`Handlers/Mep/CreateMepFittingHandler.cs`，新增）：
 - `create_mep_fitting` — `--type elbow|tee|cross|transition|union|takeoff --class duct|pipe|cable_tray` + `element_id_1/2`、`connector_index_1/2`。为 Agent 更易发现的薄包装 broker，内部走同一套共享核心；`cross` 因需 4 元素而在统一入口中拒绝并提示到 `create_<class>_cross_fitting`。
 
-### 4.2 待办（M1 其余）
+### 4.2 收尾（M1）
 
-- 配套单测：ParamBinder、connector 解析（`MepFittingResolver` / `MepCurveGeometry`）、Snapshot 单位（mm）。
-- 文档同步：`README.md`（Run Commands 段）、`bridge/README.md` 补充新命令示例。
+- 文档已同步：`bridge/docs/commands.md`（目录表 + 新增 `## Pipes & Fittings` 段与 `create_mep_fitting` 统一入口说明）、`README.md` / `README.zh.md`（快速示例补水管 + 功能特性）、本文件 §4。
+- 结论：**不做单测**（用户决定）。M1 的 Pipe 命令与统一管件入口均实现完毕，留待 CI（Windows Runner，R19–R22）编译验证后合入 main。
 
 ### 4.3 兼容性与验证
 

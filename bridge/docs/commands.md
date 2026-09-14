@@ -43,7 +43,7 @@ aliases and to the domain-path / underscore-reversal matching in
 `CommandNameResolver` — e.g. `domain.create_wall@v2` and `wall_create@v2` both
 resolve to `create_wall@v2`.
 
-## Catalog (72 commands, 12 categories)
+## Catalog (84 commands, 14 categories)
 
 | Category | Command | Modifies Model |
 |------|------|:------------:|
@@ -57,6 +57,8 @@ resolve to `create_wall@v2`.
 | **Views** | `set_active_view`, `zoom_to_fit`, `export_view`, `apply_view_template`, `place_on_sheet`, `tag_rooms` | apply_view_template, place_on_sheet, tag_rooms: Yes |
 | **Electrical** | `get_cable_tray_types`, `get_cable_trays`, `create_cable_tray`, `modify_cable_tray`, `create_elbow_fitting`, `create_transition_fitting`, `create_union_fitting`, `create_tee_fitting`, `create_cross_fitting` | create/modify/fitting: Yes |
 | **Mechanical** | `get_duct_types`, `get_duct_system_types`, `get_ducts`, `create_duct`, `modify_duct`, `create_duct_elbow_fitting`, `create_duct_transition_fitting`, `create_duct_union_fitting`, `create_duct_tee_fitting`, `create_duct_cross_fitting`, `create_duct_takeoff_fitting` | create/modify/fitting: Yes |
+| **Piping** | `get_pipe_types`, `get_pipe_system_types`, `get_pipes`, `create_pipe`, `modify_pipe`, `create_pipe_elbow_fitting`, `create_pipe_transition_fitting`, `create_pipe_union_fitting`, `create_pipe_tee_fitting`, `create_pipe_cross_fitting`, `create_pipe_takeoff_fitting` | create/modify/fitting: Yes |
+| **MEP** | `create_mep_fitting` | fitting: Yes |
 | **Batch** | `batch`, `batch_export` | Yes |
 | **Raw** | `execute_raw` (gated by `allow_raw_execution`) | Yes |
 
@@ -291,5 +293,113 @@ revit-cli.exe create_duct_takeoff_fitting --branch-element-id 12346 --main-eleme
 > because the Revit API's `NewTakeoffFitting` accepts duct (and pipe) curves.
 > The branch connector is passed first, then the main duct; Revit places the
 > tap on the main body automatically — no manual splitting required.
+
+## Pipes & Fittings
+
+The Piping category provides 11 commands for water (pipe) management, plus the
+cross-discipline `create_mep_fitting` broker. All coordinates are in
+millimeters. Pipes are round, so only `diameter_mm` applies (there is no
+width/height). A **piping system type** is required at creation time — resolve
+it via `get_pipe_system_types`. Fitting handlers auto-select the closest
+connector pair when explicit indices are not provided; all fitting commands
+accept `--dry-run`.
+
+### Query
+
+```bash
+# List available pipe types
+revit-cli.exe get_pipe_types
+
+# List piping system types (Supply/Drain/Fire), optionally by classification
+revit-cli.exe get_pipe_system_types
+revit-cli.exe get_pipe_system_types --system-class Sanitary
+
+# List pipe instances (optionally filtered by level, system type, or diameter)
+revit-cli.exe get_pipes
+revit-cli.exe get_pipes --level-id 3001
+revit-cli.exe get_pipes --diameter-mm 100 --limit 100
+```
+
+### Create & Modify
+
+`create_pipe` requires a `system_type_id` (resolve it via
+`get_pipe_system_types`) and uses the optional `diameter_mm` to override the
+nominal size.
+
+```bash
+# Create a straight segment on a piping system type
+revit-cli.exe create_pipe \
+  --start-x 0 --start-y 0 --start-z 3000 \
+  --end-x 5000 --end-y 0 --end-z 3000 \
+  --level-id 3001 --system-type-id 12345
+
+# Create with explicit type and diameter
+revit-cli.exe create_pipe \
+  --start-x 0 --start-y 0 --start-z 3000 \
+  --end-x 5000 --end-y 0 --end-z 3000 \
+  --level-id 3001 --system-type-id 12345 --pipe-type-id 6789 --diameter-mm 100
+
+# Partial update — only provided fields change
+revit-cli.exe modify_pipe --element-id 12345 --end-x 6000
+
+# Change pipe type and diameter
+revit-cli.exe modify_pipe --element-id 12345 --pipe-type-id 6789 --diameter-mm 150
+```
+
+### Fittings
+
+```bash
+# Elbow: 2 pipes meeting at an angle (2°–95°)
+revit-cli.exe create_pipe_elbow_fitting --element-id-1 12345 --element-id-2 12346
+
+# Transition: 2 collinear pipes of differing diameter
+revit-cli.exe create_pipe_transition_fitting --element-id-1 12345 --element-id-2 12346
+
+# Union: 2 collinear pipes of identical diameter
+revit-cli.exe create_pipe_union_fitting --element-id-1 12345 --element-id-2 12346
+
+# Tee: branch meets main (main is auto-split at the intersection)
+revit-cli.exe create_pipe_tee_fitting --main-element-id 12345 --branch-element-id 12346
+
+# Cross: 2 branches meet a pre-split main (caller splits main first)
+revit-cli.exe create_pipe_cross_fitting \
+  --main-element-id-1 12345 --main-element-id-2 12346 \
+  --branch-element-id-1 12347 --branch-element-id-2 12348
+
+# Takeoff: branch taps the main body (no pre-split needed)
+revit-cli.exe create_pipe_takeoff_fitting --branch-element-id 12346 --main-element-id 12345
+```
+
+| Fitting | Connectors | Constraint |
+|------|:---:|------|
+| Elbow | 2 | Angle 2°–95° |
+| Transition | 2 | Collinear, different diameter |
+| Union | 2 | Collinear, same diameter |
+| Tee | 3 | Branch ⊥ main within 1°; main auto-split |
+| Cross | 4 | Main pre-split; both branches ⊥ main within 1° |
+| Takeoff | 2 | Branch connector taps main body; pipe-specific |
+
+### Unified MEP Fitting
+
+`create_mep_fitting` is a discipline-agnostic broker for Agent discoverability.
+It dispatches to the same Revit calls behind the per-discipline fitting
+commands above, for any of `duct` / `pipe` / `cable_tray`. Cross requires four
+elements (two main halves + two branches) that the compact two-id interface
+cannot carry, so the broker rejects it and points the caller at
+`create_<class>_cross_fitting`.
+
+```bash
+# Elbow between two pipes
+revit-cli.exe create_mep_fitting --type elbow --class pipe \
+  --element-id-1 12345 --element-id-2 12346
+
+# Transition between two ducts
+revit-cli.exe create_mep_fitting --type transition --class duct \
+  --element-id-1 12345 --element-id-2 12346
+
+# Tee: element-id-1 = main, element-id-2 = branch
+revit-cli.exe create_mep_fitting --type tee --class pipe \
+  --element-id-1 12345 --element-id-2 12346
+```
 
 → Next: [threading.md](threading.md) for concurrency & safety.
