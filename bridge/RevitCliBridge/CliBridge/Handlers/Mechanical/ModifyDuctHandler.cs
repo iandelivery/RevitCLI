@@ -5,6 +5,7 @@ using Autodesk.Revit.DB.Mechanical;
 using Autodesk.Revit.UI;
 using RevitCliBridge.Abstractions;
 using RevitCliBridge.Handlers;
+using RevitCliBridge.Handlers.Mep;
 
 namespace RevitCliBridge.Handlers.Mechanical
 {
@@ -93,7 +94,7 @@ namespace RevitCliBridge.Handlers.Mechanical
                             (p.EndY ?? oldEnd.Y.FeetToMillimeter()).MillimeterToFeet(),
                             (p.EndZ ?? oldEnd.Z.FeetToMillimeter()).MillimeterToFeet());
 
-                        if (newStart.DistanceTo(newEnd) < DuctUtils.MinSegmentLengthFeet)
+                        if (newStart.DistanceTo(newEnd) < MepCurveGeometry.MinSegmentLengthFeet)
                             return CommandResponse.Error(cmd.TaskId, "New endpoints are too close; segment must be at least ~8.5 mm long.").ToJson();
 
                         locCurve.Curve = Line.CreateBound(newStart, newEnd);
@@ -129,7 +130,7 @@ namespace RevitCliBridge.Handlers.Mechanical
 
                 tx.Commit();
 
-                var result = DuctUtils.Snapshot(duct, doc);
+                var result = DuctUtils.Default.Snapshot(duct, doc);
                 return CommandResponse.Success(cmd.TaskId, result, "Duct modified successfully.").ToJson();
             }
             catch (Autodesk.Revit.Exceptions.ArgumentException ex)

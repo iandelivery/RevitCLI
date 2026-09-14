@@ -5,6 +5,7 @@ using Autodesk.Revit.DB.Mechanical;
 using Autodesk.Revit.UI;
 using RevitCliBridge.Abstractions;
 using RevitCliBridge.Handlers;
+using RevitCliBridge.Handlers.Mep;
 
 namespace RevitCliBridge.Handlers.Mechanical
 {
@@ -40,12 +41,12 @@ namespace RevitCliBridge.Handlers.Mechanical
             var p = TryBind<DuctElbowParams>(cmd, out var error);
             if (p is null) return error!;
 
-            var (c1, c2, resolveError) = DuctFittingHelper.ResolveConnectorPair(
-                doc, p.ElementId1, p.ElementId2, p.ConnectorIndex1, p.ConnectorIndex2);
+            var (c1, c2, resolveError) = MepFittingResolver.ResolveConnectorPair<Duct>(
+                doc, p.ElementId1, p.ElementId2, p.ConnectorIndex1, p.ConnectorIndex2, "duct", 2);
             if (resolveError is not null)
                 return CommandResponse.Error(cmd.TaskId, resolveError).ToJson();
 
-            var validationError = DuctUtils.ValidateElbowPair(c1!, c2!);
+            var validationError = MepCurveGeometry.ValidateElbowPair(c1!, c2!);
             if (validationError is not null)
                 return CommandResponse.Error(cmd.TaskId, validationError).ToJson();
 

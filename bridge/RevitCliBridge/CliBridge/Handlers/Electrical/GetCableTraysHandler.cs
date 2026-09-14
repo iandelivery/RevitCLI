@@ -66,7 +66,7 @@ namespace RevitCliBridge.Handlers.Electrical
             // OrderBy(id) ensures stable pagination.
             return collector
                 .OrderBy(ct => ct.Id.IntegerValue)
-                .Select(ct => CableTrayUtils.Snapshot(ct, doc))
+                .Select(ct => CableTrayUtils.Default.Snapshot(ct, doc))
                 .ToList();
         }
     }

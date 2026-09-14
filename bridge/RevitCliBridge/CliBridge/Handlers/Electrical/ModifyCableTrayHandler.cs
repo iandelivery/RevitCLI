@@ -6,6 +6,7 @@ using Autodesk.Revit.DB.Electrical;
 using Autodesk.Revit.UI;
 using RevitCliBridge.Abstractions;
 using RevitCliBridge.Handlers;
+using RevitCliBridge.Handlers.Mep;
 
 namespace RevitCliBridge.Handlers.Electrical
 {
@@ -91,7 +92,7 @@ namespace RevitCliBridge.Handlers.Electrical
                             (p.EndY ?? oldEnd.Y.FeetToMillimeter()).MillimeterToFeet(),
                             (p.EndZ ?? oldEnd.Z.FeetToMillimeter()).MillimeterToFeet());
 
-                        if (newStart.DistanceTo(newEnd) < CableTrayUtils.MinSegmentLengthFeet)
+                        if (newStart.DistanceTo(newEnd) < MepCurveGeometry.MinSegmentLengthFeet)
                             return CommandResponse.Error(cmd.TaskId, "New endpoints are too close; segment must be at least ~8.5 mm long.").ToJson();
 
                         locCurve.Curve = Line.CreateBound(newStart, newEnd);
@@ -111,7 +112,7 @@ namespace RevitCliBridge.Handlers.Electrical
 
                 tx.Commit();
 
-                var result = CableTrayUtils.Snapshot(tray, doc);
+                var result = CableTrayUtils.Default.Snapshot(tray, doc);
                 return CommandResponse.Success(cmd.TaskId, result, "Cable tray modified successfully.").ToJson();
             }
             catch (Autodesk.Revit.Exceptions.ArgumentException ex)

@@ -5,6 +5,7 @@ using Autodesk.Revit.DB.Mechanical;
 using Autodesk.Revit.UI;
 using RevitCliBridge.Abstractions;
 using RevitCliBridge.Handlers;
+using RevitCliBridge.Handlers.Mep;
 
 namespace RevitCliBridge.Handlers.Mechanical
 {
@@ -52,18 +53,18 @@ namespace RevitCliBridge.Handlers.Mechanical
             var p = TryBind<CreateDuctParams>(cmd, out var error);
             if (p is null) return error!;
 
-            var ductType = DuctUtils.ResolveType(doc, p.DuctTypeId);
+            var ductType = DuctUtils.Default.ResolveType(doc, p.DuctTypeId);
             if (ductType is null)
                 return CommandResponse.Error(cmd.TaskId, "No duct type found in the document.").ToJson();
 
-            var systemType = DuctUtils.ResolveSystemType(doc, p.SystemTypeId);
+            var systemType = DuctUtils.Default.ResolveSystemType(doc, p.SystemTypeId);
             if (systemType is null)
                 return CommandResponse.Error(cmd.TaskId, $"Element {p.SystemTypeId} is not a valid mechanical system type. Use get_duct_system_types to discover available IDs.").ToJson();
 
             var start = new XYZ(p.StartX.MillimeterToFeet(), p.StartY.MillimeterToFeet(), p.StartZ.MillimeterToFeet());
             var end = new XYZ(p.EndX.MillimeterToFeet(), p.EndY.MillimeterToFeet(), p.EndZ.MillimeterToFeet());
 
-            if (start.DistanceTo(end) < DuctUtils.MinSegmentLengthFeet)
+            if (start.DistanceTo(end) < MepCurveGeometry.MinSegmentLengthFeet)
                 return CommandResponse.Error(cmd.TaskId, "Start and end points are too close; segment must be at least ~8.5 mm long.").ToJson();
 
             using var tx = new DryRunTransaction(doc, "CLI Create Duct", cmd.DryRun);
@@ -88,7 +89,7 @@ namespace RevitCliBridge.Handlers.Mechanical
 
                 tx.Commit();
 
-                var result = DuctUtils.Snapshot(duct, doc);
+                var result = DuctUtils.Default.Snapshot(duct, doc);
                 return CommandResponse.Success(cmd.TaskId, result, "Duct created successfully.").ToJson();
             }
             catch (Autodesk.Revit.Exceptions.ArgumentException ex)

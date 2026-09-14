@@ -5,6 +5,7 @@ using Autodesk.Revit.DB.Electrical;
 using Autodesk.Revit.UI;
 using RevitCliBridge.Abstractions;
 using RevitCliBridge.Handlers;
+using RevitCliBridge.Handlers.Mep;
 
 namespace RevitCliBridge.Handlers.Electrical
 {
@@ -53,12 +54,12 @@ namespace RevitCliBridge.Handlers.Electrical
             if (mainCurve is null || branchCurve is null)
                 return CommandResponse.Error(cmd.TaskId, "Cable tray has no location curve.").ToJson();
 
-            var intersection = CableTrayUtils.ComputeIntersection(mainCurve, branchCurve);
+            var intersection = MepCurveGeometry.ComputeIntersection(mainCurve, branchCurve);
             if (intersection is null)
                 return CommandResponse.Error(cmd.TaskId, "Branch cable tray does not intersect the main cable tray.").ToJson();
 
             // Resolve connectors nearest the intersection.
-            var mainConnector = CableTrayUtils.FindClosestConnector(main, intersection);
+            var mainConnector = MepCurveGeometry.FindClosestConnector(main, intersection);
             Connector? branchConnector;
             if (p.BranchConnectorIndex.HasValue)
             {
@@ -72,7 +73,7 @@ namespace RevitCliBridge.Handlers.Electrical
             }
             else
             {
-                branchConnector = CableTrayUtils.FindClosestConnector(branch, intersection);
+                branchConnector = MepCurveGeometry.FindClosestConnector(branch, intersection);
             }
 
             if (mainConnector is null || branchConnector is null)
@@ -83,7 +84,7 @@ namespace RevitCliBridge.Handlers.Electrical
                 return CommandResponse.Error(cmd.TaskId, "Main and branch connectors are in different domains.").ToJson();
 
             // Perpendicularity check (~1° tolerance — Revit throws otherwise).
-            double angle = CableTrayUtils.AngleBetweenDegrees(mainConnector, branchConnector);
+            double angle = MepCurveGeometry.AngleBetweenDegrees(mainConnector, branchConnector);
             // For a tee, the branch is roughly perpendicular to the main. The
             // connector angle returned by AngleBetweenDegrees is the angle
             // between outward directions. For a 90° intersection, the two
@@ -94,7 +95,7 @@ namespace RevitCliBridge.Handlers.Electrical
             var branchDir = branchCurve.GetEndPoint(1).Subtract(branchCurve.GetEndPoint(0)).Normalize();
             double curveDot = Math.Abs(mainDir.DotProduct(branchDir));
             double intersectionAngleDeg = Math.Acos(Math.Min(1.0, curveDot)) * 180.0 / Math.PI;
-            if (Math.Abs(intersectionAngleDeg - 90.0) > CableTrayUtils.PerpendicularityToleranceDeg)
+            if (Math.Abs(intersectionAngleDeg - 90.0) > MepCurveGeometry.PerpendicularityToleranceDeg)
                 return CommandResponse.Error(cmd.TaskId,
                     $"Branch is not perpendicular to the main (angle={intersectionAngleDeg:F1}°, required 89°–91°).").ToJson();
 
