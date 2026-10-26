@@ -196,6 +196,9 @@ namespace RevitCliBridge.Handlers.Views
                         }
                     }
 
+                    if (hiddenIds.Count == 0 && others.Count > 0)
+                        return CommandResponse.Error(cmd.TaskId, "None of the other view elements could be hidden for isolation.").ToJson();
+
                     if (useSectionBox)
                     {
                         using (var t = new Transaction(doc, "CLI Element Snapshot - Section Box"))
@@ -214,8 +217,6 @@ namespace RevitCliBridge.Handlers.Views
                     }
                 }
 
-                doc.Regenerate();
-
                 // ExportImage renders the current active view, so switch if needed.
                 if (previousActiveView is null || !previousActiveView.Id.Equals(targetView.Id))
                 {
@@ -223,21 +224,33 @@ namespace RevitCliBridge.Handlers.Views
                     switchedView = true;
                 }
 
-                var options = new ImageExportOptions
+                // ExportImage can create a temporary view inside the document,
+                // so it must run within an open transaction (same as export_view).
+                using (var tExport = new Transaction(doc, "CLI Element Snapshot - Export"))
                 {
-                    ExportRange = ExportRange.CurrentView,
-                    FilePath = outputPath,
-                    FitDirection = FitDirectionType.Horizontal,
-                    ImageResolution = dpi,
-                    HLRandWFViewsFileType = imageFileType,
-                    ShadowViewsFileType = imageFileType,
-                    ViewName = targetView.Name,
-                    ZoomType = ZoomFitType.FitToPage,
-                    Zoom = 100
-                };
-                options.PixelSize = resolution.Value;
+                    tExport.Start();
+                    tExport.ConfigureFailureHandling();
 
-                doc.ExportImage(options);
+                    doc.Regenerate();
+
+                    var options = new ImageExportOptions
+                    {
+                        ExportRange = ExportRange.CurrentView,
+                        FilePath = outputPath,
+                        FitDirection = FitDirectionType.Horizontal,
+                        ImageResolution = dpi,
+                        HLRandWFViewsFileType = imageFileType,
+                        ShadowViewsFileType = imageFileType,
+                        ViewName = targetView.Name,
+                        ZoomType = ZoomFitType.FitToPage,
+                        Zoom = 100
+                    };
+                    options.PixelSize = resolution.Value;
+
+                    doc.ExportImage(options);
+
+                    tExport.Commit();
+                }
             }
             catch (Exception ex)
             {
