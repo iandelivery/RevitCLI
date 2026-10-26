@@ -7,7 +7,7 @@ using System.IO;
 
 namespace RevitCliBridge.Handlers.Documents
 {
-    public class DocOpenHandler : DocumentCommandBase
+    public class DocOpenHandler : BridgeCommandBase
     {
         public override string CommandName => "doc_open";
         public override string Description => "Opens a Revit document (.rvt, .rte, .rfa)";
@@ -26,8 +26,9 @@ namespace RevitCliBridge.Handlers.Documents
             "{ \"command\": \"doc_open\", \"parameters\": { \"path\": \"C:\\\\Projects\\\\Building.rvt\", \"detach\": true } }"
         };
 
-        protected override string Execute(UIApplication app, Document doc, Dictionary<string, object> parameters, QueuedCommand cmd)
+        protected override string Execute(UIApplication app, QueuedCommand cmd)
         {
+            var parameters = cmd.Parameters as Dictionary<string, object> ?? new Dictionary<string, object>();
 
             string? path = HandlerUtilities.GetStringOrNull(parameters, "path");
             if (string.IsNullOrEmpty(path))
@@ -72,17 +73,18 @@ namespace RevitCliBridge.Handlers.Documents
                 if (uiDoc is null || uiDoc.Document is null)
                     return CommandResponse.Error(cmd.TaskId, "Failed to open document.").ToJson();
 
+                var openedDoc = uiDoc.Document;
                 var data = new
                 {
-                    title = doc.Title,
-                    path = doc.PathName,
-                    is_family = doc.IsFamilyDocument,
-                    is_workshared = doc.IsWorkshared,
-                    is_readonly = doc.IsReadOnly,
-                    is_modified = doc.IsModified
+                    title = openedDoc.Title,
+                    path = openedDoc.PathName,
+                    is_family = openedDoc.IsFamilyDocument,
+                    is_workshared = openedDoc.IsWorkshared,
+                    is_readonly = openedDoc.IsReadOnly,
+                    is_modified = openedDoc.IsModified
                 };
 
-                return CommandResponse.Success(cmd.TaskId, data, $"Document opened: {doc.Title}").ToJson();
+                return CommandResponse.Success(cmd.TaskId, data, $"Document opened: {openedDoc.Title}").ToJson();
             }
             catch (Autodesk.Revit.Exceptions.InvalidOperationException ex)
             {

@@ -143,6 +143,10 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          # Full history is required to diff commits between release tags
+          # when generating the "What's Changed" release notes section.
+          fetch-depth: 0
 
       - name: Setup .NET SDK
         uses: actions/setup-dotnet@v4
@@ -257,8 +261,61 @@ jobs:
           $major = if ($parts.Length -gt 0) { $parts[0] } else { "1" }
           $minor = if ($parts.Length -gt 1) { $parts[1] } else { "0" }
 
+          # --- Full changelog range: commits since the previous tag ---
+          $repoUrl = "${{ github.server_url }}/${{ github.repository }}"
+          $tags = @(git tag --sort=-creatordate) | Where-Object { $_ -and $_ -ne $tag }
+          $prevTag = $tags | Select-Object -First 1
+          $range = if ($prevTag) { "$($prevTag)..HEAD" } else { "HEAD" }
+          $fullChangelog = if ($prevTag) { "**Full Changelog**: $repoUrl/compare/$($prevTag)...$($tag)" } else { "" }
+
+          # --- Release description ---
+          # Option 1 (curated): if release-notes/vX.Y.Z.md exists in the repo,
+          # it is used verbatim as the user-facing description. Write user
+          # highlights there when the commit list alone is not good enough.
+          # Option 2 (auto): only feat/fix commits are listed — internal work
+          # (refactor/chore/ci/docs/test) never appears in release notes.
+          $curatedPath = "release-notes/v$version.md"
+          $changesSection = ""
+          if (Test-Path $curatedPath) {
+            Write-Host "Using curated release notes from $curatedPath"
+            $curated = (Get-Content -Path $curatedPath -Raw).TrimEnd()
+            $changesSection = if ($fullChangelog) { "$curated`n`n$fullChangelog" } else { $curated }
+          }
+          else {
+            # Filter merge commits by subject (the line is "hash|subject", so
+            # the prefix check must run on the part after the first "|").
+            $commits = @(git log $range --pretty=format:"%h|%s" -n 200 | Where-Object { ($_ -split '\|', 2)[1] -notmatch '^Merge ' })
+
+            $categories = [ordered]@{
+              "Features"  = '^feat'
+              "Bug Fixes" = '^fix'
+            }
+
+            $sections = @()
+            foreach ($key in $categories.Keys) {
+              $items = @($commits | Where-Object { ($_ -split '\|', 2)[1] -match $categories[$key] })
+              if ($items.Count -gt 0) {
+                $sections += "#### $key"
+                foreach ($item in $items) {
+                  $hash, $subject = $item -split '\|', 2
+                  $sections += "- [$($subject)]($repoUrl/commit/$hash)"
+                }
+                $sections += ""
+              }
+            }
+
+            if ($sections.Count -gt 0) {
+              $changesSection = "### What's Changed`n" + ($sections -join "`n")
+            }
+            if ($fullChangelog) {
+              $changesSection = "$changesSection`n$fullChangelog".Trim()
+            }
+          }
+
           $notes = @"
           ## Revit CLI $version
+
+          $changesSection
 
           ### Downloads
 

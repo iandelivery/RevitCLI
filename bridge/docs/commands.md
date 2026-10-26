@@ -43,18 +43,18 @@ aliases and to the domain-path / underscore-reversal matching in
 `CommandNameResolver` — e.g. `domain.create_wall@v2` and `wall_create@v2` both
 resolve to `create_wall@v2`.
 
-## Catalog (84 commands, 14 categories)
+## Catalog (82 commands, 12 categories)
 
 | Category | Command | Modifies Model |
 |------|------|:------------:|
 | **General** | `ping`, `undo` | No |
 | **Documents** | `document_info`, `doc_list`, `doc_open`, `doc_close`, `doc_save`, `doc_save_as`, `doc_sync` | save/save_as/sync: Yes |
-| **Query** | `get_elements`, `get_element_by_id`, `get_element_types`, `get_family_symbols`, `get_family_symbol`, `get_symbol_instances`, `get_levels`, `get_parameters`, `get_views`, `get_sheets`, `get_rooms`, `search_elements` | No |
-| **Creation** | `create_wall`, `create_walls`, `create_door`, `create_window`, `create_grid`, `create_family_instance`, `create_view`, `create_sheet`, `create_room` | Yes |
-| **Modification** | `move_element`, `copy_element`, `rotate_element`, `mirror_element`, `delete_element`, `hide_elements`, `select_elements`, `set_offset` | most: Yes |
+| **Query** | `get_elements`, `get_element_by_id`, `get_element_locations`, `get_element_boxes`, `get_element_types`, `get_family_symbols`, `get_family_symbol`, `get_symbol_instances`, `get_levels`, `get_parameters`, `get_views`, `get_sheets`, `get_rooms`, `get_selected_elements`, `search_elements` | No |
+| **Creation** | `create_wall`, `create_walls`, `create_door`, `create_window`, `create_grid`, `create_family_instance`, `create_view`, `create_dimensions`, `create_sheet`, `create_room` | Yes |
+| **Modification** | `move_element`, `copy_element`, `rotate_element`, `mirror_element`, `delete_element`, `hide_elements`, `isolate_elements`, `clear_temporary_isolate`, `select_elements`, `set_offset` | most: Yes |
 | **Parameters** | `set_parameter`, `set_parameter_by_id`, `batch_set_param` | Yes |
 | **Architecture** | `set_wall_constraint`, `set_walls_constraint` | Yes |
-| **Views** | `set_active_view`, `zoom_to_fit`, `export_view`, `apply_view_template`, `place_on_sheet`, `tag_rooms` | apply_view_template, place_on_sheet, tag_rooms: Yes |
+| **Views** | `set_active_view`, `zoom_to_fit`, `export_view`, `export_element_snapshot`, `apply_view_template`, `place_on_sheet`, `tag_rooms`, `duplicate_view`, `set_section_box`, `toggle_section_box` | apply_view_template, place_on_sheet, tag_rooms, duplicate_view, set/toggle_section_box: Yes |
 | **Electrical** | `get_cable_tray_types`, `get_cable_trays`, `create_cable_tray`, `modify_cable_tray`, `create_elbow_fitting`, `create_transition_fitting`, `create_union_fitting`, `create_tee_fitting`, `create_cross_fitting` | create/modify/fitting: Yes |
 | **Mechanical** | `get_duct_types`, `get_duct_system_types`, `get_ducts`, `create_duct`, `modify_duct`, `create_duct_elbow_fitting`, `create_duct_transition_fitting`, `create_duct_union_fitting`, `create_duct_tee_fitting`, `create_duct_cross_fitting`, `create_duct_takeoff_fitting` | create/modify/fitting: Yes |
 | **Piping** | `get_pipe_types`, `get_pipe_system_types`, `get_pipes`, `create_pipe`, `modify_pipe`, `create_pipe_elbow_fitting`, `create_pipe_transition_fitting`, `create_pipe_union_fitting`, `create_pipe_tee_fitting`, `create_pipe_cross_fitting`, `create_pipe_takeoff_fitting` | create/modify/fitting: Yes |
