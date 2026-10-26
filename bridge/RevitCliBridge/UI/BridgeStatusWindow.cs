@@ -32,7 +32,8 @@ namespace RevitCliBridge
         private readonly DispatcherTimer _timer;
 
         /// <summary>
-        /// Show the status window (or focus it if already open).
+        /// First call shows the status window; subsequent calls toggle it
+        /// between hidden and visible (the window instance is kept alive).
         /// </summary>
         /// <param name="ownerHandle">Revit main window handle, so the modeless
         /// window stays above Revit and does not appear in Alt-Tab as orphan.</param>
@@ -40,7 +41,18 @@ namespace RevitCliBridge
         {
             if (_current != null)
             {
-                _current.Activate();
+                if (_current.Visibility == Visibility.Visible)
+                {
+                    _current._timer.Stop();
+                    _current.Hide();
+                }
+                else
+                {
+                    _current._timer.Start();
+                    _current.Refresh();
+                    _current.Show();
+                    _current.Activate();
+                }
                 return;
             }
 

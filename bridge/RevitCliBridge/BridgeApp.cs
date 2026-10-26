@@ -65,7 +65,7 @@ namespace RevitCliBridge
                 // Add the "AI Mode Toggle" button
                 var pushButtonData = new PushButtonData(
                     "ToggleCliBridge",
-                    "AI Mode\nToggle",
+                    "AI模式",
                     assemblyPath,
                     "RevitCliBridge.ToggleBridgeCommand")
                 {
