@@ -139,6 +139,7 @@ namespace RevitCliBridge.Handlers.Views
             var previousActiveView = doc.ActiveView;
             bool switchedView = false;
             string? exportError = null;
+            var hiddenIds = new List<ElementId>();
 
             try
             {
@@ -148,7 +149,30 @@ namespace RevitCliBridge.Handlers.Views
                     t.ConfigureFailureHandling();
 
                     if (others.Count > 0)
-                        targetView.HideElements(others);
+                    {
+                        try
+                        {
+                            targetView.HideElements(others);
+                            hiddenIds.AddRange(others);
+                        }
+                        catch (ArgumentException)
+                        {
+                            // Some elements in the view cannot be hidden; hide
+                            // them one by one and skip the stubborn ones.
+                            foreach (var id in others)
+                            {
+                                try
+                                {
+                                    targetView.HideElements(new[] { id });
+                                    hiddenIds.Add(id);
+                                }
+                                catch (ArgumentException) { }
+                            }
+
+                            if (hiddenIds.Count == 0)
+                                throw;
+                        }
+                    }
 
                     if (useSectionBox)
                     {
@@ -201,8 +225,8 @@ namespace RevitCliBridge.Handlers.Views
                         t.Start();
                         t.ConfigureFailureHandling();
 
-                        if (others.Count > 0)
-                            targetView.UnhideElements(others);
+                        if (hiddenIds.Count > 0)
+                            targetView.UnhideElements(hiddenIds);
 
                         if (useSectionBox && oldBox is not null)
                         {
