@@ -166,9 +166,10 @@ namespace RevitCliBridge.Handlers.Mep
             if (intersection is null) { error = "Branch does not intersect the main element."; return null; }
 
             var mainConnector = MepCurveGeometry.FindClosestConnector(main, intersection);
-            Connector branchConn = branchConnectorIndex.HasValue
-                ? IndexConnector(branch, branchConnectorIndex.Value, out var idxErr)
-                : MepCurveGeometry.FindClosestConnector(branch, intersection)!;
+            string? idxErr = null;
+            Connector? branchConn = branchConnectorIndex.HasValue
+                ? IndexConnector(branch, branchConnectorIndex.Value, out idxErr)
+                : MepCurveGeometry.FindClosestConnector(branch, intersection);
             if (branchConnectorIndex.HasValue && idxErr is not null) { error = idxErr; return null; }
 
             if (mainConnector is null || branchConn is null) { error = "Could not resolve connectors at the intersection point."; return null; }

@@ -66,7 +66,7 @@ namespace RevitCliBridge.Handlers.Views
             int? viewId = HandlerUtilities.GetIntOrNull(parameters, "view_id");
             if (viewId.HasValue)
             {
-                targetView = doc.GetElement(new ElementId(viewId.Value)) as Autodesk.Revit.DB.View;
+                targetView = (doc.GetElement(new ElementId(viewId.Value)) as Autodesk.Revit.DB.View)!;
                 if (targetView is null)
                     return CommandResponse.Error(cmd.TaskId, $"Element with ID {viewId.Value} is not a view.").ToJson();
                 if (targetView.IsTemplate)

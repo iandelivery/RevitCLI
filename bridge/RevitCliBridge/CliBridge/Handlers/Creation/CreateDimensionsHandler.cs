@@ -83,8 +83,8 @@ namespace RevitCliBridge.Handlers.Creation
             {
                 var z = bestA.Z;
                 dimLine = Line.CreateBound(
-                    new XYZ(startX.Value.MillimeterToFeet(), startY.Value.MillimeterToFeet(), z),
-                    new XYZ(endX.Value.MillimeterToFeet(), endY.Value.MillimeterToFeet(), z));
+                    new XYZ(startX!.Value.MillimeterToFeet(), startY!.Value.MillimeterToFeet(), z),
+                    new XYZ(endX!.Value.MillimeterToFeet(), endY!.Value.MillimeterToFeet(), z));
             }
             else
             {
