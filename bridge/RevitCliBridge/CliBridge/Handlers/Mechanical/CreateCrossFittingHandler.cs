@@ -5,6 +5,7 @@ using Autodesk.Revit.DB.Mechanical;
 using Autodesk.Revit.UI;
 using RevitCliBridge.Abstractions;
 using RevitCliBridge.Handlers;
+using RevitCliBridge.Handlers.Mep;
 
 namespace RevitCliBridge.Handlers.Mechanical
 {
@@ -67,23 +68,23 @@ namespace RevitCliBridge.Handlers.Mechanical
             var m1Start = main1Curve.GetEndPoint(0);
             var m2End = main2Curve.GetEndPoint(1);
             XYZ? junction = null;
-            if (m1End.DistanceTo(m2Start) < DuctUtils.MinSegmentLengthFeet * 2)
+            if (m1End.DistanceTo(m2Start) < MepCurveGeometry.MinSegmentLengthFeet * 2)
                 junction = m1End;
-            else if (m1Start.DistanceTo(m2End) < DuctUtils.MinSegmentLengthFeet * 2)
+            else if (m1Start.DistanceTo(m2End) < MepCurveGeometry.MinSegmentLengthFeet * 2)
                 junction = m1Start;
-            else if (m1End.DistanceTo(m2End) < DuctUtils.MinSegmentLengthFeet * 2)
+            else if (m1End.DistanceTo(m2End) < MepCurveGeometry.MinSegmentLengthFeet * 2)
                 junction = m1End;
-            else if (m1Start.DistanceTo(m2Start) < DuctUtils.MinSegmentLengthFeet * 2)
+            else if (m1Start.DistanceTo(m2Start) < MepCurveGeometry.MinSegmentLengthFeet * 2)
                 junction = m1Start;
 
             if (junction is null)
                 return CommandResponse.Error(cmd.TaskId, "The two main halves do not share a common endpoint. Pre-split the main at the intersection before calling this command.").ToJson();
 
             // Resolve the 4 connectors closest to the junction.
-            var c1 = DuctUtils.FindClosestConnector(main1, junction);
-            var c2 = DuctUtils.FindClosestConnector(main2, junction);
-            var c3 = DuctUtils.FindClosestConnector(branch1, junction);
-            var c4 = DuctUtils.FindClosestConnector(branch2, junction);
+            var c1 = MepCurveGeometry.FindClosestConnector(main1, junction);
+            var c2 = MepCurveGeometry.FindClosestConnector(main2, junction);
+            var c3 = MepCurveGeometry.FindClosestConnector(branch1, junction);
+            var c4 = MepCurveGeometry.FindClosestConnector(branch2, junction);
             if (c1 is null || c2 is null || c3 is null || c4 is null)
                 return CommandResponse.Error(cmd.TaskId, "Could not resolve all four connectors at the junction point.").ToJson();
 
@@ -135,7 +136,7 @@ namespace RevitCliBridge.Handlers.Mechanical
             var branchDir = branchCurve.GetEndPoint(1).Subtract(branchCurve.GetEndPoint(0)).Normalize();
             double dot = Math.Abs(mainDir.DotProduct(branchDir));
             double angleDeg = Math.Acos(Math.Min(1.0, dot)) * 180.0 / Math.PI;
-            if (Math.Abs(angleDeg - 90.0) > DuctUtils.PerpendicularityToleranceDeg)
+            if (Math.Abs(angleDeg - 90.0) > MepCurveGeometry.PerpendicularityToleranceDeg)
                 return $"{label} is not perpendicular to the main (angle={angleDeg:F1}°, required 89°–91°).";
             return null;
         }

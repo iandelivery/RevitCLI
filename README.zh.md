@@ -265,6 +265,12 @@ revit-cli.exe create_cable_tray --start-x 0 --start-y 0 --start-z 3000 --end-x 5
 # 在两个电缆桥架之间创建弯头配件
 revit-cli.exe create_elbow_fitting --element-id-1 12345 --element-id-2 12346
 
+# 创建水管段（需提供水管系统类型）
+revit-cli.exe create_pipe --start-x 0 --start-y 0 --start-z 3000 --end-x 5000 --end-y 0 --end-z 3000 -l 3001 --system-type-id 12345
+
+# 在两段水管之间创建弯头配件
+revit-cli.exe create_pipe_elbow_fitting --element-id-1 12345 --element-id-2 12346
+
 # 查看 Revit API 参考（用于未覆盖的操作）
 revit-cli.exe llms
 ```
@@ -288,7 +294,7 @@ revit-cli.exe raw-mode --disable
 
 ## 功能特性
 
-- **70+ 内置命令** — 创建墙体/门/窗、管理电缆桥架和风管、查询元素、修改参数、导出视图、管理文档
+- **70+ 内置命令** — 创建墙体/门/窗、管理电缆桥架、风管和水管、查询元素、修改参数、导出视图、管理文档
 - **SSE 实时流** — 长时间运行操作的实时进度更新
 - **Schema 发现** — 客户端自动从桥接器发现可用命令
 - **多实例支持** — 同时运行多个 Revit 版本，自动端口分配

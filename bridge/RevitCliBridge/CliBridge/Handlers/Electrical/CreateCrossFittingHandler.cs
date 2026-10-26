@@ -5,6 +5,7 @@ using Autodesk.Revit.DB.Electrical;
 using Autodesk.Revit.UI;
 using RevitCliBridge.Abstractions;
 using RevitCliBridge.Handlers;
+using RevitCliBridge.Handlers.Mep;
 
 namespace RevitCliBridge.Handlers.Electrical
 {
@@ -69,23 +70,23 @@ namespace RevitCliBridge.Handlers.Electrical
             var m2End = main2Curve.GetEndPoint(1);
             // Try both orientations — main1's end == main2's start, or main1's start == main2's end.
             XYZ? junction = null;
-            if (m1End.DistanceTo(m2Start) < CableTrayUtils.MinSegmentLengthFeet * 2)
+            if (m1End.DistanceTo(m2Start) < MepCurveGeometry.MinSegmentLengthFeet * 2)
                 junction = m1End;
-            else if (m1Start.DistanceTo(m2End) < CableTrayUtils.MinSegmentLengthFeet * 2)
+            else if (m1Start.DistanceTo(m2End) < MepCurveGeometry.MinSegmentLengthFeet * 2)
                 junction = m1Start;
-            else if (m1End.DistanceTo(m2End) < CableTrayUtils.MinSegmentLengthFeet * 2)
+            else if (m1End.DistanceTo(m2End) < MepCurveGeometry.MinSegmentLengthFeet * 2)
                 junction = m1End;
-            else if (m1Start.DistanceTo(m2Start) < CableTrayUtils.MinSegmentLengthFeet * 2)
+            else if (m1Start.DistanceTo(m2Start) < MepCurveGeometry.MinSegmentLengthFeet * 2)
                 junction = m1Start;
 
             if (junction is null)
                 return CommandResponse.Error(cmd.TaskId, "The two main halves do not share a common endpoint. Pre-split the main at the intersection before calling this command.").ToJson();
 
             // Resolve the 4 connectors closest to the junction.
-            var c1 = CableTrayUtils.FindClosestConnector(main1, junction);
-            var c2 = CableTrayUtils.FindClosestConnector(main2, junction);
-            var c3 = CableTrayUtils.FindClosestConnector(branch1, junction);
-            var c4 = CableTrayUtils.FindClosestConnector(branch2, junction);
+            var c1 = MepCurveGeometry.FindClosestConnector(main1, junction);
+            var c2 = MepCurveGeometry.FindClosestConnector(main2, junction);
+            var c3 = MepCurveGeometry.FindClosestConnector(branch1, junction);
+            var c4 = MepCurveGeometry.FindClosestConnector(branch2, junction);
             if (c1 is null || c2 is null || c3 is null || c4 is null)
                 return CommandResponse.Error(cmd.TaskId, "Could not resolve all four connectors at the junction point.").ToJson();
 
@@ -137,7 +138,7 @@ namespace RevitCliBridge.Handlers.Electrical
             var branchDir = branchCurve.GetEndPoint(1).Subtract(branchCurve.GetEndPoint(0)).Normalize();
             double dot = Math.Abs(mainDir.DotProduct(branchDir));
             double angleDeg = Math.Acos(Math.Min(1.0, dot)) * 180.0 / Math.PI;
-            if (Math.Abs(angleDeg - 90.0) > CableTrayUtils.PerpendicularityToleranceDeg)
+            if (Math.Abs(angleDeg - 90.0) > MepCurveGeometry.PerpendicularityToleranceDeg)
                 return $"{label} is not perpendicular to the main (angle={angleDeg:F1}°, required 89°–91°).";
             return null;
         }

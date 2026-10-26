@@ -5,6 +5,7 @@ using Autodesk.Revit.DB.Electrical;
 using Autodesk.Revit.UI;
 using RevitCliBridge.Abstractions;
 using RevitCliBridge.Handlers;
+using RevitCliBridge.Handlers.Mep;
 
 namespace RevitCliBridge.Handlers.Electrical
 {
@@ -47,14 +48,14 @@ namespace RevitCliBridge.Handlers.Electrical
             var p = TryBind<CreateCableTrayParams>(cmd, out var error);
             if (p is null) return error!;
 
-            var trayType = CableTrayUtils.ResolveType(doc, p.TypeId);
+            var trayType = CableTrayUtils.Default.ResolveType(doc, p.TypeId);
             if (trayType is null)
                 return CommandResponse.Error(cmd.TaskId, "No cable tray type found in the document.").ToJson();
 
             var start = new XYZ(p.StartX.MillimeterToFeet(), p.StartY.MillimeterToFeet(), p.StartZ.MillimeterToFeet());
             var end = new XYZ(p.EndX.MillimeterToFeet(), p.EndY.MillimeterToFeet(), p.EndZ.MillimeterToFeet());
 
-            if (start.DistanceTo(end) < CableTrayUtils.MinSegmentLengthFeet)
+            if (start.DistanceTo(end) < MepCurveGeometry.MinSegmentLengthFeet)
                 return CommandResponse.Error(cmd.TaskId, "Start and end points are too close; segment must be at least ~8.5 mm long.").ToJson();
 
             using var tx = new DryRunTransaction(doc, "CLI Create Cable Tray", cmd.DryRun);
@@ -76,7 +77,7 @@ namespace RevitCliBridge.Handlers.Electrical
 
                 tx.Commit();
 
-                var result = CableTrayUtils.Snapshot(tray, doc);
+                var result = CableTrayUtils.Default.Snapshot(tray, doc);
                 return CommandResponse.Success(cmd.TaskId, result, "Cable tray created successfully.").ToJson();
             }
             catch (Autodesk.Revit.Exceptions.ArgumentException ex)

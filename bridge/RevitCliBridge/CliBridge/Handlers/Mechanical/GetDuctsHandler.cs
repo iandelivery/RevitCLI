@@ -89,7 +89,7 @@ namespace RevitCliBridge.Handlers.Mechanical
 
             return collector
                 .OrderBy(d => d.Id.IntegerValue)
-                .Select(d => DuctUtils.Snapshot(d, doc))
+                .Select(d => DuctUtils.Default.Snapshot(d, doc))
                 .ToList();
         }
     }

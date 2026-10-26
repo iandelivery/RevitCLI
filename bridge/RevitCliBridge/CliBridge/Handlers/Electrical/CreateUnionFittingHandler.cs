@@ -5,6 +5,7 @@ using Autodesk.Revit.DB.Electrical;
 using Autodesk.Revit.UI;
 using RevitCliBridge.Abstractions;
 using RevitCliBridge.Handlers;
+using RevitCliBridge.Handlers.Mep;
 
 namespace RevitCliBridge.Handlers.Electrical
 {
@@ -39,20 +40,20 @@ namespace RevitCliBridge.Handlers.Electrical
             var p = TryBind<UnionParams>(cmd, out var error);
             if (p is null) return error!;
 
-            var (c1, c2, resolveError) = FittingHelper.ResolveConnectorPair(
-                doc, p.ElementId1, p.ElementId2, p.ConnectorIndex1, p.ConnectorIndex2);
+            var (c1, c2, resolveError) = MepFittingResolver.ResolveConnectorPair<CableTray>(
+                doc, p.ElementId1, p.ElementId2, p.ConnectorIndex1, p.ConnectorIndex2, "cable tray", 2);
             if (resolveError is not null)
                 return CommandResponse.Error(cmd.TaskId, resolveError).ToJson();
 
-            var collinearError = FittingHelper.ValidateCollinearPair(c1!, c2!);
+            var collinearError = MepCurveGeometry.ValidateCollinearPair(c1!, c2!);
             if (collinearError is not null)
                 return CommandResponse.Error(cmd.TaskId, collinearError).ToJson();
 
             // Size check: cross-sections must match for a union.
             var tray1 = (CableTray)c1!.Owner;
             var tray2 = (CableTray)c2!.Owner;
-            var (w1, h1) = CableTrayUtils.GetSize(tray1);
-            var (w2, h2) = CableTrayUtils.GetSize(tray2);
+            var (w1, h1) = CableTrayUtils.Default.GetSize(tray1);
+            var (w2, h2) = CableTrayUtils.Default.GetSize(tray2);
             if (Math.Abs(w1 - w2) >= 0.01 || Math.Abs(h1 - h2) >= 0.01)
                 return CommandResponse.Error(cmd.TaskId,
                     $"Tray sizes differ ({w1:F0}×{h1:F0} vs {w2:F0}×{h2:F0} mm). Use create_transition_fitting for size changes.").ToJson();

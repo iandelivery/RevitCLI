@@ -5,6 +5,7 @@ using Autodesk.Revit.DB.Mechanical;
 using Autodesk.Revit.UI;
 using RevitCliBridge.Abstractions;
 using RevitCliBridge.Handlers;
+using RevitCliBridge.Handlers.Mep;
 
 namespace RevitCliBridge.Handlers.Mechanical
 {
@@ -52,12 +53,12 @@ namespace RevitCliBridge.Handlers.Mechanical
             if (mainCurve is null || branchCurve is null)
                 return CommandResponse.Error(cmd.TaskId, "Duct has no location curve.").ToJson();
 
-            var intersection = DuctUtils.ComputeIntersection(mainCurve, branchCurve);
+            var intersection = MepCurveGeometry.ComputeIntersection(mainCurve, branchCurve);
             if (intersection is null)
                 return CommandResponse.Error(cmd.TaskId, "Branch duct does not intersect the main duct.").ToJson();
 
             // Resolve connectors nearest the intersection.
-            var mainConnector = DuctUtils.FindClosestConnector(main, intersection);
+            var mainConnector = MepCurveGeometry.FindClosestConnector(main, intersection);
             Connector? branchConnector;
             if (p.BranchConnectorIndex.HasValue)
             {
@@ -71,7 +72,7 @@ namespace RevitCliBridge.Handlers.Mechanical
             }
             else
             {
-                branchConnector = DuctUtils.FindClosestConnector(branch, intersection);
+                branchConnector = MepCurveGeometry.FindClosestConnector(branch, intersection);
             }
 
             if (mainConnector is null || branchConnector is null)
@@ -86,7 +87,7 @@ namespace RevitCliBridge.Handlers.Mechanical
             var branchDir = branchCurve.GetEndPoint(1).Subtract(branchCurve.GetEndPoint(0)).Normalize();
             double curveDot = Math.Abs(mainDir.DotProduct(branchDir));
             double intersectionAngleDeg = Math.Acos(Math.Min(1.0, curveDot)) * 180.0 / Math.PI;
-            if (Math.Abs(intersectionAngleDeg - 90.0) > DuctUtils.PerpendicularityToleranceDeg)
+            if (Math.Abs(intersectionAngleDeg - 90.0) > MepCurveGeometry.PerpendicularityToleranceDeg)
                 return CommandResponse.Error(cmd.TaskId,
                     $"Branch is not perpendicular to the main (angle={intersectionAngleDeg:F1}°, required 89°–91°).").ToJson();
 

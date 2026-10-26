@@ -5,6 +5,7 @@ using Autodesk.Revit.DB.Electrical;
 using Autodesk.Revit.UI;
 using RevitCliBridge.Abstractions;
 using RevitCliBridge.Handlers;
+using RevitCliBridge.Handlers.Mep;
 
 namespace RevitCliBridge.Handlers.Electrical
 {
@@ -40,12 +41,12 @@ namespace RevitCliBridge.Handlers.Electrical
             var p = TryBind<ElbowParams>(cmd, out var error);
             if (p is null) return error!;
 
-            var (c1, c2, resolveError) = FittingHelper.ResolveConnectorPair(
-                doc, p.ElementId1, p.ElementId2, p.ConnectorIndex1, p.ConnectorIndex2);
+            var (c1, c2, resolveError) = MepFittingResolver.ResolveConnectorPair<CableTray>(
+                doc, p.ElementId1, p.ElementId2, p.ConnectorIndex1, p.ConnectorIndex2, "cable tray", 2);
             if (resolveError is not null)
                 return CommandResponse.Error(cmd.TaskId, resolveError).ToJson();
 
-            var validationError = CableTrayUtils.ValidateElbowPair(c1!, c2!);
+            var validationError = MepCurveGeometry.ValidateElbowPair(c1!, c2!);
             if (validationError is not null)
                 return CommandResponse.Error(cmd.TaskId, validationError).ToJson();
 
