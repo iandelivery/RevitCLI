@@ -167,6 +167,11 @@ namespace RevitCliBridge.Handlers.Views
                     };
                     options.PixelSize = resolution.Value;
 
+                    // Flush the temporary isolate and section box state into the
+                    // render pipeline; without this the exported image shows the
+                    // unfiltered view.
+                    doc.Regenerate();
+
                     doc.ExportImage(options);
 
                     // Restore the view state before committing.
