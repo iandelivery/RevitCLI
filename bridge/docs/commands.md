@@ -43,7 +43,7 @@ aliases and to the domain-path / underscore-reversal matching in
 `CommandNameResolver` — e.g. `domain.create_wall@v2` and `wall_create@v2` both
 resolve to `create_wall@v2`.
 
-## Catalog (82 commands, 12 categories)
+## Catalog (94 commands, 14 categories)
 
 | Category | Command | Modifies Model |
 |------|------|:------------:|
