@@ -112,88 +112,115 @@ namespace RevitCliBridge.Handlers.Views
             bool wasActive = false;
             BoundingBoxXYZ? appliedBounds = null;
 
-            // Single transaction: isolate (+ section box), export, restore.
-            // ExportImage must run inside an open transaction to render the
-            // view's temporary hide/isolate state correctly; exporting outside
-            // a transaction produces a blank image.
+            if (targetView is ViewSheet)
+                return CommandResponse.Error(cmd.TaskId, "Snapshot export is not supported on sheet views.").ToJson();
+
+            // Compute the section box bounds up front (read-only) so a failure
+            // here does not leave any view state behind.
+            if (useSectionBox)
+            {
+                var bounds = SectionBoxUtilities.ComputeElementsBounds(
+                    doc, targetIds.Select(i => i.IntegerValue).ToArray(), cmd, out var computeError);
+                if (bounds is null)
+                    return computeError!;
+                appliedBounds = bounds;
+            }
+
+            // ExportImage renders from the view's committed visibility state
+            // only; temporary hide/isolate is ignored by the print pipeline.
+            // So we commit a permanent hide of every other element in the
+            // view, export, then restore everything in a second transaction.
+            var targetIdSet = new HashSet<ElementId>(targetIds);
+            var others = new FilteredElementCollector(doc, targetView.Id)
+                .ToElementIds()
+                .Where(id => !targetIdSet.Contains(id))
+                .ToList();
+
             var previousActiveView = doc.ActiveView;
             bool switchedView = false;
+            string? exportError = null;
 
-            using (var t = new Transaction(doc, "CLI Element Snapshot"))
+            try
             {
-                t.Start();
-                t.ConfigureFailureHandling();
-
-                try
+                using (var t = new Transaction(doc, "CLI Element Snapshot - Isolate"))
                 {
-                    targetView.IsolateElementsTemporary(targetIds);
+                    t.Start();
+                    t.ConfigureFailureHandling();
+
+                    if (others.Count > 0)
+                        targetView.HideElements(others);
 
                     if (useSectionBox)
                     {
-                        var bounds = SectionBoxUtilities.ComputeElementsBounds(
-                            doc, targetIds.Select(i => i.IntegerValue).ToArray(), cmd, out var computeError);
-                        if (bounds is null)
-                        {
-                            t.RollBack();
-                            return computeError!;
-                        }
-
                         oldBox = view3D!.GetSectionBox();
                         wasActive = view3D.IsSectionBoxActive;
 
-                        view3D.SetSectionBox(bounds);
+                        view3D.SetSectionBox(appliedBounds);
                         view3D.IsSectionBoxActive = true;
-                        appliedBounds = bounds;
-                    }
-
-                    // ExportImage renders the current active view, so switch if needed.
-                    if (previousActiveView is null || !previousActiveView.Id.Equals(targetView.Id))
-                    {
-                        uiDoc.ActiveView = targetView;
-                        switchedView = true;
-                    }
-
-                    var options = new ImageExportOptions
-                    {
-                        ExportRange = ExportRange.CurrentView,
-                        FilePath = outputPath,
-                        FitDirection = FitDirectionType.Horizontal,
-                        ImageResolution = dpi,
-                        HLRandWFViewsFileType = imageFileType,
-                        ShadowViewsFileType = imageFileType,
-                        ViewName = targetView.Name,
-                        ZoomType = ZoomFitType.FitToPage,
-                        Zoom = 100
-                    };
-                    options.PixelSize = resolution.Value;
-
-                    // Flush the temporary isolate and section box state into the
-                    // render pipeline; without this the exported image shows the
-                    // unfiltered view.
-                    doc.Regenerate();
-
-                    doc.ExportImage(options);
-
-                    // Restore the view state before committing.
-                    targetView.DisableTemporaryViewMode(TemporaryViewMode.TemporaryHideIsolate);
-                    if (useSectionBox)
-                    {
-                        view3D!.SetSectionBox(oldBox);
-                        view3D.IsSectionBoxActive = wasActive;
                     }
 
                     t.Commit();
                 }
-                catch (Exception ex)
+
+                doc.Regenerate();
+
+                // ExportImage renders the current active view, so switch if needed.
+                if (previousActiveView is null || !previousActiveView.Id.Equals(targetView.Id))
                 {
-                    // Rollback reverts the uncommitted isolate/section-box changes.
-                    t.RollBack();
-                    return CommandResponse.Error(cmd.TaskId, $"Failed to export element snapshot: {ex.Message}").ToJson();
+                    uiDoc.ActiveView = targetView;
+                    switchedView = true;
                 }
+
+                var options = new ImageExportOptions
+                {
+                    ExportRange = ExportRange.CurrentView,
+                    FilePath = outputPath,
+                    FitDirection = FitDirectionType.Horizontal,
+                    ImageResolution = dpi,
+                    HLRandWFViewsFileType = imageFileType,
+                    ShadowViewsFileType = imageFileType,
+                    ViewName = targetView.Name,
+                    ZoomType = ZoomFitType.FitToPage,
+                    Zoom = 100
+                };
+                options.PixelSize = resolution.Value;
+
+                doc.ExportImage(options);
+            }
+            catch (Exception ex)
+            {
+                exportError = $"Failed to export element snapshot: {ex.Message}";
+            }
+            finally
+            {
+                // Always restore the committed view state, even on failure.
+                try
+                {
+                    using (var t = new Transaction(doc, "CLI Element Snapshot - Restore"))
+                    {
+                        t.Start();
+                        t.ConfigureFailureHandling();
+
+                        if (others.Count > 0)
+                            targetView.UnhideElements(others);
+
+                        if (useSectionBox && oldBox is not null)
+                        {
+                            view3D!.SetSectionBox(oldBox);
+                            view3D.IsSectionBoxActive = wasActive;
+                        }
+
+                        t.Commit();
+                    }
+                }
+                catch { /* best-effort restore */ }
+
+                if (switchedView && previousActiveView is not null)
+                    uiDoc.ActiveView = previousActiveView;
             }
 
-            if (switchedView && previousActiveView is not null)
-                uiDoc.ActiveView = previousActiveView;
+            if (exportError is not null)
+                return CommandResponse.Error(cmd.TaskId, exportError).ToJson();
 
             var fileInfo = new FileInfo(outputPath);
             var result = new
