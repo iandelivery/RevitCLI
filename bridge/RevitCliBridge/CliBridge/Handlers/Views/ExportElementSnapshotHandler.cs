@@ -143,47 +143,75 @@ namespace RevitCliBridge.Handlers.Views
 
             try
             {
+                // Bulk hide in one committed transaction. Revit can defer the
+                // "cannot be hidden" validation to Commit, so the commit itself
+                // must be inside the try; on failure the transaction rolls back.
+                bool bulkOk = false;
                 using (var t = new Transaction(doc, "CLI Element Snapshot - Isolate"))
                 {
                     t.Start();
                     t.ConfigureFailureHandling();
 
-                    if (others.Count > 0)
+                    try
                     {
-                        try
-                        {
+                        if (others.Count > 0)
                             targetView.HideElements(others);
-                            hiddenIds.AddRange(others);
-                        }
-                        catch (ArgumentException)
-                        {
-                            // Some elements in the view cannot be hidden; hide
-                            // them one by one and skip the stubborn ones.
-                            foreach (var id in others)
-                            {
-                                try
-                                {
-                                    targetView.HideElements(new[] { id });
-                                    hiddenIds.Add(id);
-                                }
-                                catch (ArgumentException) { }
-                            }
 
-                            if (hiddenIds.Count == 0)
-                                throw;
+                        if (useSectionBox)
+                        {
+                            oldBox = view3D!.GetSectionBox();
+                            wasActive = view3D.IsSectionBoxActive;
+
+                            view3D.SetSectionBox(appliedBounds);
+                            view3D.IsSectionBoxActive = true;
+                        }
+
+                        t.Commit();
+                        bulkOk = true;
+                        hiddenIds.AddRange(others);
+                    }
+                    catch
+                    {
+                        // Transaction rolls back; fall back below.
+                    }
+                }
+
+                if (!bulkOk)
+                {
+                    // Per-element fallback: hide each element in its own
+                    // committed transaction and skip the ones Revit refuses.
+                    foreach (var id in others)
+                    {
+                        using (var t = new Transaction(doc, "CLI Element Snapshot - Isolate One"))
+                        {
+                            t.Start();
+                            t.ConfigureFailureHandling();
+                            try
+                            {
+                                targetView.HideElements(new[] { id });
+                                t.Commit();
+                                hiddenIds.Add(id);
+                            }
+                            catch { /* rolls back on dispose */ }
                         }
                     }
 
                     if (useSectionBox)
                     {
-                        oldBox = view3D!.GetSectionBox();
-                        wasActive = view3D.IsSectionBoxActive;
+                        using (var t = new Transaction(doc, "CLI Element Snapshot - Section Box"))
+                        {
+                            t.Start();
+                            t.ConfigureFailureHandling();
 
-                        view3D.SetSectionBox(appliedBounds);
-                        view3D.IsSectionBoxActive = true;
+                            oldBox = view3D!.GetSectionBox();
+                            wasActive = view3D.IsSectionBoxActive;
+
+                            view3D.SetSectionBox(appliedBounds);
+                            view3D.IsSectionBoxActive = true;
+
+                            t.Commit();
+                        }
                     }
-
-                    t.Commit();
                 }
 
                 doc.Regenerate();
@@ -220,21 +248,53 @@ namespace RevitCliBridge.Handlers.Views
                 // Always restore the committed view state, even on failure.
                 try
                 {
-                    using (var t = new Transaction(doc, "CLI Element Snapshot - Restore"))
+                    if (hiddenIds.Count > 0)
                     {
-                        t.Start();
-                        t.ConfigureFailureHandling();
-
-                        if (hiddenIds.Count > 0)
-                            targetView.UnhideElements(hiddenIds);
-
-                        if (useSectionBox && oldBox is not null)
+                        bool restored = false;
+                        using (var t = new Transaction(doc, "CLI Element Snapshot - Restore"))
                         {
-                            view3D!.SetSectionBox(oldBox);
-                            view3D.IsSectionBoxActive = wasActive;
+                            t.Start();
+                            t.ConfigureFailureHandling();
+                            try
+                            {
+                                targetView.UnhideElements(hiddenIds);
+                                t.Commit();
+                                restored = true;
+                            }
+                            catch { /* rolls back; fall back below */ }
                         }
 
-                        t.Commit();
+                        if (!restored)
+                        {
+                            foreach (var id in hiddenIds)
+                            {
+                                using (var t = new Transaction(doc, "CLI Element Snapshot - Restore One"))
+                                {
+                                    t.Start();
+                                    t.ConfigureFailureHandling();
+                                    try
+                                    {
+                                        targetView.UnhideElements(new[] { id });
+                                        t.Commit();
+                                    }
+                                    catch { /* rolls back on dispose */ }
+                                }
+                            }
+                        }
+                    }
+
+                    if (useSectionBox && oldBox is not null)
+                    {
+                        using (var t = new Transaction(doc, "CLI Element Snapshot - Restore Box"))
+                        {
+                            t.Start();
+                            t.ConfigureFailureHandling();
+
+                            view3D!.SetSectionBox(oldBox);
+                            view3D.IsSectionBoxActive = wasActive;
+
+                            t.Commit();
+                        }
                     }
                 }
                 catch { /* best-effort restore */ }
