@@ -34,6 +34,19 @@ namespace RevitCliBridge
                 // Initialize the CLI Bridge HTTP server with version info
                 CliBridgeStateManager.Initialize(revitVersion);
 
+                // Create the toggle external event in a valid API context so
+                // the modeless status window can request a bridge toggle later.
+                try
+                {
+                    ToggleBridgeEventHandler.ToggleEvent =
+                        ExternalEvent.Create(ToggleBridgeEventHandler.Instance);
+                }
+                catch (Exception ex)
+                {
+                    CliLogger.Warn($"Failed to create toggle external event: {ex.Message}");
+                    ToggleBridgeEventHandler.ToggleEvent = null;
+                }
+
                 // Create Ribbon UI
                 try
                 {
