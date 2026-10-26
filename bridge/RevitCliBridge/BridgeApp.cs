@@ -34,6 +34,19 @@ namespace RevitCliBridge
                 // Initialize the CLI Bridge HTTP server with version info
                 CliBridgeStateManager.Initialize(revitVersion);
 
+                // Create the toggle external event in a valid API context so
+                // the modeless status window can request a bridge toggle later.
+                try
+                {
+                    ToggleBridgeEventHandler.ToggleEvent =
+                        ExternalEvent.Create(ToggleBridgeEventHandler.Instance);
+                }
+                catch (Exception ex)
+                {
+                    CliLogger.Warn($"Failed to create toggle external event: {ex.Message}");
+                    ToggleBridgeEventHandler.ToggleEvent = null;
+                }
+
                 // Create Ribbon UI
                 try
                 {
@@ -52,11 +65,13 @@ namespace RevitCliBridge
                 // Add the "AI Mode Toggle" button
                 var pushButtonData = new PushButtonData(
                     "ToggleCliBridge",
-                    "AI Mode\nToggle",
+                    "AI模式",
                     assemblyPath,
                     "RevitCliBridge.ToggleBridgeCommand")
                 {
-                    ToolTip = "Enable or disable AI mode (CLI Bridge HTTP server)"
+                    ToolTip = "Enable or disable AI mode (CLI Bridge HTTP server)",
+                    LargeImage = LoadIcon("icons/icon_cli-bridge.png"),
+                    Image = LoadIcon("icons/icon_cli-bridge-s.png")
                 };
 
                 panel.AddItem(pushButtonData);
@@ -87,6 +102,26 @@ namespace RevitCliBridge
                 return Assembly.LoadFrom(file);
             }
             return null;
+        }
+
+        /// <summary>
+        /// Load a PNG embedded as a WPF Resource into the add-in assembly.
+        /// Returns null on failure so the button simply renders without an icon.
+        /// </summary>
+        private static System.Windows.Media.Imaging.BitmapImage? LoadIcon(string relativePath)
+        {
+            try
+            {
+                var uri = new Uri(
+                    $"pack://application:,,,/RevitCliBridge;component/{relativePath}",
+                    UriKind.Absolute);
+                return new System.Windows.Media.Imaging.BitmapImage(uri);
+            }
+            catch (Exception ex)
+            {
+                CliLogger.Warn($"Failed to load icon '{relativePath}': {ex.Message}");
+                return null;
+            }
         }
     }
 }

@@ -83,6 +83,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Resource Include="icons\icon_cli-bridge.png" />
+    <Resource Include="icons\icon_cli-bridge-s.png" />
+  </ItemGroup>
+
+  <ItemGroup>
     <None Include=".config\cli_bridge_setting.json">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
