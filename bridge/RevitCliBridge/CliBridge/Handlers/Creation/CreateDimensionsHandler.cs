@@ -10,13 +10,13 @@ namespace RevitCliBridge.Handlers.Creation
     public class CreateDimensionsHandler : DocumentCommandBase
     {
         public override string CommandName => "create_dimensions";
-        public override string Description => "Creates a linear dimension between two grid lines in a view (v1: grids only)";
+        public override string Description => "Creates a linear dimension across two or more grid lines in a view (grids only; multi-segment when more than two grids are given)";
         public override string Category => "Create";
         public override bool SupportsDryRun => true;
 
         public override CommandParamSchema[] Parameters => new[]
         {
-            new CommandParamSchema { Name = "element_ids", Type = "int[]", Required = true, Description = "Exactly two Grid element IDs to dimension between" },
+            new CommandParamSchema { Name = "element_ids", Type = "int[]", Required = true, Description = "Two or more Grid element IDs, in the order they appear on the dimension (grids should be parallel)" },
             new CommandParamSchema { Name = "view_id", Type = "int", Required = false, Description = "View element ID (defaults to active view)" },
             new CommandParamSchema { Name = "offset_mm", Type = "double", Required = false, Description = "Shifts the auto dimension line along the grid direction (used when explicit line points are omitted)", Default = 0 },
             new CommandParamSchema { Name = "line_start_x", Type = "double", Required = false, Description = "Dimension line start X in millimeters (explicit mode; overrides offset_mm)" },
@@ -28,20 +28,24 @@ namespace RevitCliBridge.Handlers.Creation
         public override string[] Examples => new[]
         {
             "{ \"command\": \"create_dimensions\", \"parameters\": { \"element_ids\": [123, 456] } }",
-            "{ \"command\": \"create_dimensions\", \"parameters\": { \"element_ids\": [123, 456], \"offset_mm\": 2000 } }",
+            "{ \"command\": \"create_dimensions\", \"parameters\": { \"element_ids\": [123, 456, 789], \"offset_mm\": 2000 } }",
             "{ \"command\": \"create_dimensions\", \"parameters\": { \"element_ids\": [123, 456], \"line_start_x\": 0, \"line_start_y\": -1500, \"line_end_x\": 10000, \"line_end_y\": -1500 } }"
         };
 
         protected override string Execute(UIApplication app, Document doc, Dictionary<string, object> parameters, QueuedCommand cmd)
         {
             var elementIds = HandlerUtilities.GetIntArrayOrNull(parameters, "element_ids");
-            if (elementIds is null || elementIds.Length != 2)
-                return CommandResponse.Error(cmd.TaskId, "Provide exactly two element_ids referencing grid lines.").ToJson();
+            if (elementIds is null || elementIds.Length < 2)
+                return CommandResponse.Error(cmd.TaskId, "Provide at least two element_ids referencing grid lines.").ToJson();
 
-            var grid1 = doc.GetElement(new ElementId(elementIds[0])) as Grid;
-            var grid2 = doc.GetElement(new ElementId(elementIds[1])) as Grid;
-            if (grid1 is null || grid2 is null)
-                return CommandResponse.Error(cmd.TaskId, "Both element_ids must reference Grid elements.").ToJson();
+            var grids = new List<Grid>();
+            foreach (var id in elementIds)
+            {
+                var grid = doc.GetElement(new ElementId(id)) as Grid;
+                if (grid is null)
+                    return CommandResponse.Error(cmd.TaskId, $"Element with ID {id} is not a Grid element.").ToJson();
+                grids.Add(grid);
+            }
 
             var view = ResolveView(doc, parameters);
             if (view is null)
@@ -54,9 +58,10 @@ namespace RevitCliBridge.Handlers.Creation
             double? endY = HandlerUtilities.GetDoubleOrNull(parameters, "line_end_y");
             bool explicitLine = startX.HasValue && startY.HasValue && endX.HasValue && endY.HasValue;
 
-            // Closest point pair between the two grid curves (model coordinates, feet).
-            var curve1 = grid1.Curve;
-            var curve2 = grid2.Curve;
+            // Closest point pair between the first and last grid curves so the
+            // dimension line spans across all intermediate grids (model coords, feet).
+            var curve1 = grids.First().Curve;
+            var curve2 = grids.Last().Curve;
             XYZ bestA = curve1.Evaluate(0.5, true);
             XYZ bestB = curve2.Evaluate(0.5, true);
             double bestDist = double.MaxValue;
@@ -103,8 +108,8 @@ namespace RevitCliBridge.Handlers.Creation
                 try
                 {
                     var references = new ReferenceArray();
-                    references.Append(new Reference(grid1));
-                    references.Append(new Reference(grid2));
+                    foreach (var grid in grids)
+                        references.Append(new Reference(grid));
 
                     dimension = doc.Create.NewDimension(view, dimLine, references);
                 }
@@ -112,7 +117,7 @@ namespace RevitCliBridge.Handlers.Creation
                 {
                     // Dispose rolls back the uncommitted transaction.
                     return CommandResponse.Error(cmd.TaskId,
-                        "The grid references could not be used for a dimension in this view. Use a plan view where both grids are visible.").ToJson();
+                        "The grid references could not be used for a dimension in this view. Use a plan view where all grids are visible and parallel.").ToJson();
                 }
                 catch (Exception ex)
                 {
