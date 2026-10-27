@@ -365,6 +365,49 @@ jobs:
           Set-Content -Path "release-notes.md" -Value $notes -Encoding UTF8
           Write-Host "Release notes generated."
 
+          # --- Write CHANGELOG.md back into the repo (Release Please style) ---
+          # The same feat/fix (or curated) section shown in the GitHub Release
+          # is written into the in-repo changelog, newest entry first, always
+          # inserted before the first existing "## " heading. Best-effort and
+          # idempotent: skipped when the tag already has an entry (workflow
+          # re-run), and the push only lands when main sits exactly at the
+          # tagged commit (the normal flow tags the main HEAD). Any git
+          # failure logs a warning without failing the release itself.
+          $changesForLog = if ($changesSection) { $changesSection.TrimEnd() } else { "(No user-visible feature or fix commits in this release.)" }
+          $logDate = (Get-Date).ToString("yyyy-MM-dd")
+          $newEntry = "## v$version ($logDate)`n`n$changesForLog"
+
+          $changelogPath = "CHANGELOG.md"
+          if ((Test-Path $changelogPath) -and ((Get-Content -Path $changelogPath -Raw) -match [regex]::Escape("## v$version"))) {
+            Write-Host "CHANGELOG.md already has a v$version entry — skipping update."
+          }
+          else {
+            $changelog = if (Test-Path $changelogPath) { Get-Content -Path $changelogPath -Raw } else { "# Changelog`n" }
+            $firstEntry = [regex]::Match($changelog, '(?m)^## ')
+            if ($firstEntry.Success) {
+              $changelog = $changelog.Insert($firstEntry.Index, "$newEntry`n`n")
+            } else {
+              $changelog = "$changelog`n$newEntry`n"
+            }
+            Set-Content -Path $changelogPath -Value $changelog.TrimEnd() -Encoding UTF8
+
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add CHANGELOG.md
+            git commit -m "docs(changelog): release v$version"
+            if ($LASTEXITCODE -ne 0) {
+              Write-Warning "git commit for CHANGELOG.md failed — release continues without the changelog update."
+            }
+            else {
+              git push origin HEAD:main 2>&1 | ForEach-Object { Write-Host "$_" }
+              if ($LASTEXITCODE -ne 0) {
+                Write-Warning "Could not push CHANGELOG.md to main (main may have moved past the tag). The entry stays local; release continues."
+              } else {
+                Write-Host "CHANGELOG.md updated on main."
+              }
+            }
+          }
+
       - name: Generate SHA256 checksums
         shell: pwsh
         run: |
