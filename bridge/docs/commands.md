@@ -43,7 +43,7 @@ aliases and to the domain-path / underscore-reversal matching in
 `CommandNameResolver` — e.g. `domain.create_wall@v2` and `wall_create@v2` both
 resolve to `create_wall@v2`.
 
-## Catalog (94 commands, 14 categories)
+## Catalog (98 commands, 15 categories)
 
 | Category | Command | Modifies Model |
 |------|------|:------------:|
@@ -59,6 +59,7 @@ resolve to `create_wall@v2`.
 | **Mechanical** | `get_duct_types`, `get_duct_system_types`, `get_ducts`, `create_duct`, `modify_duct`, `create_duct_elbow_fitting`, `create_duct_transition_fitting`, `create_duct_union_fitting`, `create_duct_tee_fitting`, `create_duct_cross_fitting`, `create_duct_takeoff_fitting` | create/modify/fitting: Yes |
 | **Piping** | `get_pipe_types`, `get_pipe_system_types`, `get_pipes`, `create_pipe`, `modify_pipe`, `create_pipe_elbow_fitting`, `create_pipe_transition_fitting`, `create_pipe_union_fitting`, `create_pipe_tee_fitting`, `create_pipe_cross_fitting`, `create_pipe_takeoff_fitting` | create/modify/fitting: Yes |
 | **MEP** | `create_mep_fitting` | fitting: Yes |
+| **Structural** | `create_structural_column`, `modify_structural_column`, `create_beam`, `modify_beam` | Yes |
 | **Batch** | `batch`, `batch_export` | Yes |
 | **Raw** | `execute_raw` (gated by `allow_raw_execution`) | Yes |
 
@@ -401,5 +402,64 @@ revit-cli.exe create_mep_fitting --type transition --class duct \
 revit-cli.exe create_mep_fitting --type tee --class pipe \
   --element-id-1 12345 --element-id-2 12346
 ```
+
+## Structural Columns & Beams
+
+The Structural category provides 4 commands for structural framing. All
+coordinates are in millimeters; all four commands accept `--dry-run`. Reading
+and deleting go through the existing generic commands — no domain-specific
+get/delete handlers (see below).
+
+### Create & Modify
+
+```bash
+# Create a structural column on a level (type falls back to the first
+# loaded structural column type when --symbol-id is omitted)
+revit-cli.exe create_structural_column --level-id 3001 --x 1000 --y 2000
+
+# Create with an explicit column type
+revit-cli.exe create_structural_column --level-id 3001 --x 1000 --y 2000 --symbol-id 3413
+
+# Create a beam between two points (type falls back to the first
+# loaded structural framing type when --symbol-id is omitted)
+revit-cli.exe create_beam \
+  --level-id 3001 \
+  --start-x 0 --start-y 0 --start-z 3000 \
+  --end-x 6000 --end-y 0 --end-z 3000
+
+# Partial updates — omitted fields keep their current value
+revit-cli.exe modify_structural_column --element-id 12345 --x 6000
+revit-cli.exe modify_beam --element-id 12345 --end-x 6000
+
+# Change family types
+revit-cli.exe modify_structural_column --element-id 12345 --symbol-id 3413
+revit-cli.exe modify_beam --element-id 12345 --symbol-id 3417
+```
+
+`modify_beam` only accepts elements with `StructuralType.Beam` — braces are
+rejected with a typed error.
+
+### Read & Delete via Generic Commands
+
+There are no `get_structural_columns` / `get_beams` handlers; use the generic
+query commands instead:
+
+```bash
+# List column/beam family types (resolve symbol_id for create/modify)
+revit-cli.exe get_family_symbols --category OST_StructuralColumns
+revit-cli.exe get_family_symbols --category OST_StructuralFraming
+
+# List instances (thin projection: id, name, category, class_type)
+revit-cli.exe get_elements --category OST_StructuralColumns
+revit-cli.exe get_elements --category OST_StructuralFraming
+
+# Delete (any element kind)
+revit-cli.exe delete_element --element-id 12345
+```
+
+Note: `OST_StructuralFraming` also contains braces; `get_elements` cannot
+separate them. The create/modify responses include a rich snapshot (location
+or endpoints, type, level, length), which is the reliable way to read back
+full column/beam geometry.
 
 → Next: [threading.md](threading.md) for concurrency & safety.
