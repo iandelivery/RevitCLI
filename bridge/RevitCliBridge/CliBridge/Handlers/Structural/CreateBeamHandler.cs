@@ -22,20 +22,22 @@ namespace RevitCliBridge.Handlers.Structural
 
         public override CommandParamSchema[] Parameters => new[]
         {
-            new CommandParamSchema { Name = "level_id", Type = "int", Required = true, Description = "Level element ID to place the beam on" },
+            new CommandParamSchema { Name = "level_id", Type = "int", Required = true, Description = "Reference level element ID for the beam" },
             new CommandParamSchema { Name = "start_x", Type = "double", Required = true, Description = "Start point X in millimeters" },
             new CommandParamSchema { Name = "start_y", Type = "double", Required = true, Description = "Start point Y in millimeters" },
             new CommandParamSchema { Name = "start_z", Type = "double", Required = true, Description = "Start point Z in millimeters" },
             new CommandParamSchema { Name = "end_x", Type = "double", Required = true, Description = "End point X in millimeters" },
             new CommandParamSchema { Name = "end_y", Type = "double", Required = true, Description = "End point Y in millimeters" },
             new CommandParamSchema { Name = "end_z", Type = "double", Required = true, Description = "End point Z in millimeters" },
+            new CommandParamSchema { Name = "start_level_offset", Type = "double", Required = false, Description = "Start level offset in millimeters", Default = 0 },
+            new CommandParamSchema { Name = "end_level_offset", Type = "double", Required = false, Description = "End level offset in millimeters", Default = 0 },
             new CommandParamSchema { Name = "symbol_id", Type = "int", Required = false, Description = "FamilySymbol ID of the beam type; defaults to the first loaded structural framing type (list via get_family_symbols --category OST_StructuralFraming)" }
         };
 
         public override string[] Examples => new[]
         {
             "{ \"command\": \"create_beam\", \"parameters\": { \"level_id\": 3001, \"start_x\": 0, \"start_y\": 0, \"start_z\": 3000, \"end_x\": 6000, \"end_y\": 0, \"end_z\": 3000 } }",
-            "{ \"command\": \"create_beam\", \"parameters\": { \"level_id\": 3001, \"start_x\": 0, \"start_y\": 0, \"start_z\": 3000, \"end_x\": 6000, \"end_y\": 0, \"end_z\": 3000, \"symbol_id\": 3417 } }"
+            "{ \"command\": \"create_beam\", \"parameters\": { \"level_id\": 3001, \"start_x\": 0, \"start_y\": 0, \"start_z\": 3000, \"end_x\": 6000, \"end_y\": 0, \"end_z\": 3000, \"start_level_offset\": 50, \"end_level_offset\": -100, \"symbol_id\": 3417 } }"
         };
 
         protected override string Execute(UIApplication app, Document doc, Dictionary<string, object> parameters, QueuedCommand cmd)
@@ -73,6 +75,22 @@ namespace RevitCliBridge.Handlers.Structural
                     symbol.Activate();
 
                 var beam = doc.Create.NewFamilyInstance(Line.CreateBound(start, end), symbol, level, StructuralType.Beam);
+
+                if (p.StartLevelOffset.HasValue)
+                {
+                    var off = beam.get_Parameter(BuiltInParameter.START_Z_OFFSET_VALUE);
+                    if (off is null || !off.Set(p.StartLevelOffset.Value.MillimeterToFeet()))
+                        return CommandResponse.Error(cmd.TaskId,
+                            "The created beam does not support the Start Level Offset parameter.").ToJson();
+                }
+
+                if (p.EndLevelOffset.HasValue)
+                {
+                    var off = beam.get_Parameter(BuiltInParameter.END_Z_OFFSET_VALUE);
+                    if (off is null || !off.Set(p.EndLevelOffset.Value.MillimeterToFeet()))
+                        return CommandResponse.Error(cmd.TaskId,
+                            "The created beam does not support the End Level Offset parameter.").ToJson();
+                }
 
                 // Snapshot before commit: in dry-run mode the rollback deletes
                 // the new element, so its data must be captured up front.
@@ -114,6 +132,12 @@ namespace RevitCliBridge.Handlers.Structural
 
         [Param("end_z", Required = true)]
         public double EndZ { get; set; }
+
+        [Param("start_level_offset")]
+        public double? StartLevelOffset { get; set; }
+
+        [Param("end_level_offset")]
+        public double? EndLevelOffset { get; set; }
 
         [Param("symbol_id")]
         public int? SymbolId { get; set; }

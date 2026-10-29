@@ -434,7 +434,32 @@ revit-cli.exe modify_beam --element-id 12345 --end-x 6000
 # Change family types
 revit-cli.exe modify_structural_column --element-id 12345 --symbol-id 3413
 revit-cli.exe modify_beam --element-id 12345 --symbol-id 3417
+
+# Column constraints — top level, base/top offsets
+revit-cli.exe create_structural_column --level-id 3001 --x 1000 --y 2000 \
+  --top-level-id 3002 --base-offset 0 --top-offset -100
+revit-cli.exe modify_structural_column --element-id 12345 \
+  --base-level-id 3001 --top-level-id 3002 --base-offset 0 --top-offset -100
+
+# Beam constraints — reference level, per-end level offsets
+revit-cli.exe create_beam \
+  --level-id 3001 \
+  --start-x 0 --start-y 0 --start-z 3000 \
+  --end-x 6000 --end-y 0 --end-z 3000 \
+  --start-level-offset 50 --end-level-offset -100
+revit-cli.exe modify_beam --element-id 12345 \
+  --reference-level-id 3002 --start-level-offset 50 --end-level-offset -100
 ```
+
+For columns, `--level-id` is the **base level**; the top constraint and both
+offsets are optional. For beams, `--level-id` is the **reference level** and
+both per-end offsets are optional. All offsets are millimeters and map to the
+Revit parameters `FAMILY_BASE_LEVEL_PARAM` / `FAMILY_BASE_LEVEL_OFFSET_PARAM` /
+`FAMILY_TOP_LEVEL_PARAM` / `FAMILY_TOP_LEVEL_OFFSET_PARAM` (columns) and
+`INSTANCE_REFERENCE_LEVEL_PARAM` / `START_Z_OFFSET_VALUE` / `END_Z_OFFSET_VALUE`
+(beams). The create/modify responses echo these back as `base_level_id`,
+`top_level_id`, `base_offset_mm`, `top_offset_mm` (columns) and
+`start_level_offset_mm`, `end_level_offset_mm` (beams).
 
 `modify_beam` only accepts elements with `StructuralType.Beam` — braces are
 rejected with a typed error.

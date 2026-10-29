@@ -26,12 +26,17 @@ namespace RevitCliBridge.Handlers.Structural
             new CommandParamSchema { Name = "x", Type = "double", Required = false, Description = "New base point X in millimeters" },
             new CommandParamSchema { Name = "y", Type = "double", Required = false, Description = "New base point Y in millimeters" },
             new CommandParamSchema { Name = "z", Type = "double", Required = false, Description = "New base point Z in millimeters" },
+            new CommandParamSchema { Name = "base_level_id", Type = "int", Required = false, Description = "New base level element ID" },
+            new CommandParamSchema { Name = "top_level_id", Type = "int", Required = false, Description = "New top constraint level element ID" },
+            new CommandParamSchema { Name = "base_offset", Type = "double", Required = false, Description = "New base offset from the base level in millimeters" },
+            new CommandParamSchema { Name = "top_offset", Type = "double", Required = false, Description = "New top offset from the top level in millimeters" },
             new CommandParamSchema { Name = "symbol_id", Type = "int", Required = false, Description = "New column FamilySymbol ID (list via get_family_symbols --category OST_StructuralColumns)" }
         };
 
         public override string[] Examples => new[]
         {
             "{ \"command\": \"modify_structural_column\", \"parameters\": { \"element_id\": 12345, \"x\": 6000 } }",
+            "{ \"command\": \"modify_structural_column\", \"parameters\": { \"element_id\": 12345, \"base_level_id\": 3001, \"top_level_id\": 3002, \"base_offset\": 0, \"top_offset\": -100 } }",
             "{ \"command\": \"modify_structural_column\", \"parameters\": { \"element_id\": 12345, \"symbol_id\": 3413 } }"
         };
 
@@ -41,11 +46,20 @@ namespace RevitCliBridge.Handlers.Structural
             if (p is null) return error!;
 
             if (!HasAnyChange(p))
-                return CommandResponse.Error(cmd.TaskId, "At least one of x, y, z, or symbol_id must be provided.").ToJson();
+                return CommandResponse.Error(cmd.TaskId,
+                    "At least one of x, y, z, base_level_id, top_level_id, base_offset, top_offset, or symbol_id must be provided.").ToJson();
 
             var column = doc.GetElement(new ElementId(p.ElementId)) as FamilyInstance;
             if (column is null || !StructuralUtils.Default.IsColumn(column))
                 return CommandResponse.Error(cmd.TaskId, $"Element {p.ElementId} is not a structural column.").ToJson();
+
+            if (p.BaseLevelId.HasValue && p.BaseLevelId.Value > 0 &&
+                doc.GetElement(new ElementId(p.BaseLevelId.Value)) as Level is null)
+                return CommandResponse.Error(cmd.TaskId, $"Base level with ID {p.BaseLevelId.Value} not found.").ToJson();
+
+            if (p.TopLevelId.HasValue && p.TopLevelId.Value > 0 &&
+                doc.GetElement(new ElementId(p.TopLevelId.Value)) as Level is null)
+                return CommandResponse.Error(cmd.TaskId, $"Top level with ID {p.TopLevelId.Value} not found.").ToJson();
 
             using var tx = new DryRunTransaction(doc, "CLI Modify Structural Column", cmd.DryRun);
             try
@@ -76,6 +90,35 @@ namespace RevitCliBridge.Handlers.Structural
                         (p.Z ?? old.Z.FeetToMillimeter()).MillimeterToFeet());
                 }
 
+                // Constraint changes — base/top levels and their offsets.
+                if (p.BaseLevelId.HasValue && p.BaseLevelId.Value > 0)
+                {
+                    var prm = column.get_Parameter(BuiltInParameter.FAMILY_BASE_LEVEL_PARAM);
+                    if (prm is null || !prm.Set(new ElementId(p.BaseLevelId.Value)))
+                        return CommandResponse.Error(cmd.TaskId, "Column does not support the Base Level parameter.").ToJson();
+                }
+
+                if (p.TopLevelId.HasValue && p.TopLevelId.Value > 0)
+                {
+                    var prm = column.get_Parameter(BuiltInParameter.FAMILY_TOP_LEVEL_PARAM);
+                    if (prm is null || !prm.Set(new ElementId(p.TopLevelId.Value)))
+                        return CommandResponse.Error(cmd.TaskId, "Column does not support the Top Level parameter.").ToJson();
+                }
+
+                if (p.BaseOffset.HasValue)
+                {
+                    var prm = column.get_Parameter(BuiltInParameter.FAMILY_BASE_LEVEL_OFFSET_PARAM);
+                    if (prm is null || !prm.Set(p.BaseOffset.Value.MillimeterToFeet()))
+                        return CommandResponse.Error(cmd.TaskId, "Column does not support the Base Offset parameter.").ToJson();
+                }
+
+                if (p.TopOffset.HasValue)
+                {
+                    var prm = column.get_Parameter(BuiltInParameter.FAMILY_TOP_LEVEL_OFFSET_PARAM);
+                    if (prm is null || !prm.Set(p.TopOffset.Value.MillimeterToFeet()))
+                        return CommandResponse.Error(cmd.TaskId, "Column does not support the Top Offset parameter.").ToJson();
+                }
+
                 tx.Commit();
 
                 var result = StructuralUtils.Default.SnapshotColumn(column, doc);
@@ -89,6 +132,9 @@ namespace RevitCliBridge.Handlers.Structural
 
         private static bool HasAnyChange(ModifyStructuralColumnParams p) =>
             p.X.HasValue || p.Y.HasValue || p.Z.HasValue ||
+            (p.BaseLevelId.HasValue && p.BaseLevelId.Value > 0) ||
+            (p.TopLevelId.HasValue && p.TopLevelId.Value > 0) ||
+            p.BaseOffset.HasValue || p.TopOffset.HasValue ||
             (p.SymbolId.HasValue && p.SymbolId.Value > 0);
     }
 
@@ -108,6 +154,18 @@ namespace RevitCliBridge.Handlers.Structural
 
         [Param("z")]
         public double? Z { get; set; }
+
+        [Param("base_level_id")]
+        public int? BaseLevelId { get; set; }
+
+        [Param("top_level_id")]
+        public int? TopLevelId { get; set; }
+
+        [Param("base_offset")]
+        public double? BaseOffset { get; set; }
+
+        [Param("top_offset")]
+        public double? TopOffset { get; set; }
 
         [Param("symbol_id")]
         public int? SymbolId { get; set; }

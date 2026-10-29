@@ -79,6 +79,10 @@ namespace RevitCliBridge.Handlers.Structural
                 type_name = symbol?.Name ?? "",
                 family_name = symbol?.FamilyName ?? "",
                 level_id = column.LevelId.IntegerValue,
+                base_level_id = GetLevelId(column, BuiltInParameter.FAMILY_BASE_LEVEL_PARAM),
+                top_level_id = GetLevelId(column, BuiltInParameter.FAMILY_TOP_LEVEL_PARAM),
+                base_offset_mm = GetMm(column, BuiltInParameter.FAMILY_BASE_LEVEL_OFFSET_PARAM),
+                top_offset_mm = GetMm(column, BuiltInParameter.FAMILY_TOP_LEVEL_OFFSET_PARAM),
                 location = point is null ? null : new
                 {
                     x = point.X.FeetToMillimeter(),
@@ -106,6 +110,12 @@ namespace RevitCliBridge.Handlers.Structural
                 end = new { x = p2.X.FeetToMillimeter(), y = p2.Y.FeetToMillimeter(), z = p2.Z.FeetToMillimeter() };
             }
 
+            // Structural framing does not report its level through LevelId —
+            // the reference level lives in INSTANCE_REFERENCE_LEVEL_PARAM.
+            var refLevel = beam.get_Parameter(BuiltInParameter.INSTANCE_REFERENCE_LEVEL_PARAM)?.AsElementId();
+            if (refLevel is null || refLevel == ElementId.InvalidElementId)
+                refLevel = beam.LevelId;
+
             return new
             {
                 element_id = beam.Id.IntegerValue,
@@ -113,7 +123,9 @@ namespace RevitCliBridge.Handlers.Structural
                 type_id = beam.GetTypeId().IntegerValue,
                 type_name = symbol?.Name ?? "",
                 family_name = symbol?.FamilyName ?? "",
-                level_id = beam.LevelId.IntegerValue,
+                level_id = refLevel.IntegerValue,
+                start_level_offset_mm = GetMm(beam, BuiltInParameter.START_Z_OFFSET_VALUE),
+                end_level_offset_mm = GetMm(beam, BuiltInParameter.END_Z_OFFSET_VALUE),
                 start,
                 end,
                 length_mm = curve?.Length.FeetToMillimeter() ?? 0.0
@@ -123,5 +135,20 @@ namespace RevitCliBridge.Handlers.Structural
         private static bool MatchesCategory(Element element, BuiltInCategory category) =>
             element.Category is not null &&
             (BuiltInCategory)element.Category.Id.IntegerValue == category;
+
+        /// <summary>
+        /// Read an ElementId-valued parameter; -1 when absent or invalid.
+        /// </summary>
+        private static int GetLevelId(Element element, BuiltInParameter bp)
+        {
+            var id = element.get_Parameter(bp)?.AsElementId();
+            return id is null || id == ElementId.InvalidElementId ? -1 : id.IntegerValue;
+        }
+
+        /// <summary>
+        /// Read a length-valued parameter projected to millimeters; 0 when absent.
+        /// </summary>
+        private static double GetMm(Element element, BuiltInParameter bp) =>
+            element.get_Parameter(bp)?.AsDouble().FeetToMillimeter() ?? 0.0;
     }
 }
