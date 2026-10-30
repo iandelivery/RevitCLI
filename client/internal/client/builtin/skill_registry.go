@@ -309,9 +309,23 @@ func deregisterSkillDir(dir string) error {
 }
 
 // findInstalledSkills returns every location currently managed by
-// revit-cli: known harness dirs in both scopes plus index records,
-// deduplicated and sorted by path. Used by update/uninstall/show.
+// revit-cli: known harness dirs in both scopes, index records, and a
+// leftover ghost manifest in the running executable's own directory
+// (planted by pre-guard installs; surfaced so show/update/uninstall can
+// deregister it). Deduplicated and sorted by path. Used by
+// update/uninstall/show.
 func findInstalledSkills() []skillCandidate {
+	exePath, err := os.Executable()
+	if err != nil {
+		exePath = ""
+	}
+	return findInstalledSkillsIn(exePath)
+}
+
+// findInstalledSkillsIn is findInstalledSkills with the executable path
+// injected for testability; an empty exePath skips the exe-dir ghost
+// check.
+func findInstalledSkillsIn(exePath string) []skillCandidate {
 	seen := map[string]bool{}
 	var out []skillCandidate
 	add := func(c skillCandidate) {
@@ -334,6 +348,13 @@ func findInstalledSkills() []skillCandidate {
 	for _, r := range loadSkillIndex() {
 		if m := readSkillManifest(r.Dir); m != nil {
 			add(skillCandidate{Agent: r.Agent, Scope: r.Scope, Dir: r.Dir, Detected: true, Manifest: m})
+		}
+	}
+	if exePath != "" {
+		// Ghost check: a manifest next to the running exe marks a
+		// directory that must never be deleted — only deregistered.
+		if m := readSkillManifest(filepath.Dir(exePath)); m != nil {
+			add(skillCandidate{Agent: "source", Scope: skillScopeCustom, Dir: filepath.Dir(exePath), Detected: true, Manifest: m})
 		}
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].Dir < out[j].Dir })
