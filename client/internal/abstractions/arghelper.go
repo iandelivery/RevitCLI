@@ -13,16 +13,24 @@ import (
 type ArgHelper struct{}
 
 // FindArg returns the value following any of the given flags, or "" and false
-// if none is found. Rejects values that look like flags (starting with "-")
-// to prevent accidental flag consumption.
+// if none is found. Accepts both "--flag value" and inline "--flag=value"
+// forms. Rejects values that look like flags (starting with "-" followed by
+// a letter, e.g. "--foo" or "-n") to prevent accidental flag consumption,
+// but accepts negative numbers ("-100", "-0.5").
 // Mirrors C# ArgHelper.FindArg.
 func FindArg(args []string, flags ...string) (string, bool) {
 	for _, flag := range flags {
 		for i := 0; i < len(args); i++ {
-			if args[i] == flag && i+1 < len(args) {
+			a := args[i]
+			// Inline "--flag=value" form.
+			if strings.HasPrefix(a, flag+"=") {
+				return strings.TrimPrefix(a, flag+"="), true
+			}
+			if a == flag && i+1 < len(args) {
 				val := args[i+1]
-				// Reject if the next argument looks like a flag.
-				if strings.HasPrefix(val, "-") {
+				// Reject if the next argument looks like a flag, but keep
+				// negative numeric values.
+				if strings.HasPrefix(val, "-") && !isNumeric(val) {
 					return "", false
 				}
 				return val, true
@@ -30,6 +38,16 @@ func FindArg(args []string, flags ...string) (string, bool) {
 		}
 	}
 	return "", false
+}
+
+// isNumeric reports whether the string parses as an integer or float,
+// which is how negative values like "-100" are distinguished from flags.
+func isNumeric(s string) bool {
+	if _, err := strconv.ParseFloat(s, 64); err == nil {
+		return true
+	}
+	_, err := strconv.ParseInt(s, 0, 64)
+	return err == nil
 }
 
 // HasFlag reports whether any of the given flags is present in args.

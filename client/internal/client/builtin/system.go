@@ -215,5 +215,14 @@ func (RawHandler) Handle(ctx context.Context, args []string, send abstractions.S
 	}
 
 	parameters := payload["parameters"]
-	return send(ctx, command, parameters)
+
+	// Forward every other top-level field (dry_run, task_id, ...) so the
+	// bridge sees the full payload instead of only command + parameters.
+	extra := make(map[string]interface{})
+	for k, v := range payload {
+		if k != "command" && k != "parameters" {
+			extra[k] = v
+		}
+	}
+	return send(ctx, command, parameters, extra)
 }
