@@ -78,7 +78,7 @@ namespace RevitCliBridge.Handlers.Structural
 
                 if (p.StartLevelOffset.HasValue)
                 {
-                    var off = beam.get_Parameter(BuiltInParameter.START_Z_OFFSET_VALUE);
+                    var off = beam.get_Parameter(BuiltInParameter.STRUCTURAL_BEAM_END0_ELEVATION);
                     if (off is null || !off.Set(p.StartLevelOffset.Value.MillimeterToFeet()))
                         return CommandResponse.Error(cmd.TaskId,
                             "The created beam does not support the Start Level Offset parameter.").ToJson();
@@ -86,7 +86,7 @@ namespace RevitCliBridge.Handlers.Structural
 
                 if (p.EndLevelOffset.HasValue)
                 {
-                    var off = beam.get_Parameter(BuiltInParameter.END_Z_OFFSET_VALUE);
+                    var off = beam.get_Parameter(BuiltInParameter.STRUCTURAL_BEAM_END1_ELEVATION);
                     if (off is null || !off.Set(p.EndLevelOffset.Value.MillimeterToFeet()))
                         return CommandResponse.Error(cmd.TaskId,
                             "The created beam does not support the End Level Offset parameter.").ToJson();

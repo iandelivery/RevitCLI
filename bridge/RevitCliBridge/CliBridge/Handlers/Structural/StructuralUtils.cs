@@ -124,8 +124,8 @@ namespace RevitCliBridge.Handlers.Structural
                 type_name = symbol?.Name ?? "",
                 family_name = symbol?.FamilyName ?? "",
                 level_id = refLevel.IntegerValue,
-                start_level_offset_mm = GetMm(beam, BuiltInParameter.START_Z_OFFSET_VALUE),
-                end_level_offset_mm = GetMm(beam, BuiltInParameter.END_Z_OFFSET_VALUE),
+                start_level_offset_mm = GetMm(beam, BuiltInParameter.STRUCTURAL_BEAM_END0_ELEVATION),
+                end_level_offset_mm = GetMm(beam, BuiltInParameter.STRUCTURAL_BEAM_END1_ELEVATION),
                 start,
                 end,
                 length_mm = curve?.Length.FeetToMillimeter() ?? 0.0
