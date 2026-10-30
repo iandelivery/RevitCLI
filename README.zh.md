@@ -92,7 +92,7 @@ CLI 客户端会把命令 schema（通过 `GET /api/commands` 获取）在本地
 ### 方式 1 — 下载 release
 
 1. 从 [Releases](../../releases) 页面下载最新的 `revit-cli-<version>.zip`。
-2. 解压到任意目录（例如 `C:\revit-cli\`）。压缩包内含 `revit-cli.exe` 客户端、供 AI 代理使用的 `SKILL.md`，以及包含全部 4 个 Revit 版本桥接器的 `bridge/` 文件夹。
+2. 解压到任意目录（例如 `C:\revit-cli\`）。压缩包内含 `revit-cli.exe` 客户端、供 AI 代理使用的 `SKILL.md`，以及包含全部 4 个 Revit 版本桥接器的 `bridge/` 文件夹。如需把 skill 注册到你的 AI 编程 Agent，参见[配合 AI 编程 Agent 使用](#配合-ai-编程-agent-使用)。
 3. 为本机所有 Revit 安装桥接器：
    ```powershell
    cd C:\revit-cli
@@ -292,6 +292,29 @@ revit-cli.exe raw-mode --disable
 
 该命令通过 `GET /api/raw-mode` 查询当前状态，通过 `POST /api/raw-mode` 进行切换。设置仅保存在内存中——重启 Revit 后会恢复为 `cli_bridge_setting.json` 中 `allow_raw_execution` 的值。若需持久化更改，请直接编辑该文件。
 
+## 配合 AI 编程 Agent 使用
+
+每个 release 压缩包都内置 `SKILL.md` —— 一个 [Open Skill 协议](https://github.com/open-skill/protocol)文件，教会 AI 编程 Agent（Claude Code、Cursor、Codex、Trae、Trae CN、CodeBuddy、WorkBuddy、Kimi）如何通过本 CLI 驱动 Revit。一条命令即可注册到项目中已安装的 Agent：
+
+```powershell
+cd C:\revit-cli
+.\revit-cli.exe skill install --list              # 1. 列出检测到的 Agent 目录
+.\revit-cli.exe skill install --agent claude,codebuddy   # 2. 非交互式安装
+```
+
+安装会把 `SKILL.md` 复制到 `<agent>/skills/revit-cli/`，并把其中 `revit-cli.exe` 的引用改写为本机绝对路径，装完即用。
+
+| 参数 | 说明 |
+|------|------|
+| `--agent <ids>` | 逗号分隔的 Agent id：`claude`、`cursor`、`codex`、`trae`、`trae-cn`、`codebuddy`、`workbuddy`、`kimi-work`、`kimi-code` |
+| `--all` | 安装到所有检测到的 Agent 目录 |
+| `--target <dir>` | 自定义 skills 根目录；安装到 `<dir>/revit-cli/` |
+| `--global` | 操作用户级（`~`）Agent 目录而非项目级（当前目录） |
+| `--force` | 覆盖已安装版本 |
+| `--list` / `--json` | 仅列出候选目标 / 机器可读输出 |
+
+在终端中不带参数运行会进入交互式多选。相关子命令：`skill show`（查看状态）、`skill update`（升级 CLI 后重新同步）、`skill uninstall`（卸载）。
+
 ## 功能特性
 
 - **70+ 内置命令** — 创建墙体/门/窗、管理电缆桥架、风管和水管、查询元素、修改参数、导出视图、管理文档
@@ -304,6 +327,7 @@ revit-cli.exe raw-mode --disable
 - **多版本支持** — Revit 2019、2020、2021、2022
 - **试运行模式** — 预览操作而不修改文档
 - **自动安装** — `configure setup` 可在所有检测到的 Revit 版本中安装桥接器
+- **AI Agent skill 管理** — `skill install` 把内置 `SKILL.md` 注册到 Claude Code、Cursor、Trae、CodeBuddy、Kimi 等编程 Agent
 
 ## 端口分配
 

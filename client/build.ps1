@@ -118,22 +118,15 @@ Write-Host "      Built: $exeName ($([math]::Round($fileSize / 1MB, 2)) MB)" -Fo
 Write-Host ""
 Write-Host "[4/5] Creating skill directory..." -ForegroundColor Yellow
 
-# Move existing SKILL.md out of the skill directory so it survives the wipe.
-$existingSkillMdPath = Join-Path $SkillDir "SKILL.md"
-$preservedSkillMdPath = $null
-if (Test-Path $existingSkillMdPath) {
-    $preservedSkillMdPath = Join-Path $ProjectRoot "_preserved_SKILL.md"
-    Move-Item -Path $existingSkillMdPath -Destination $preservedSkillMdPath -Force
-    Write-Host "      Preserved existing SKILL.md" -ForegroundColor DarkGray
+# Reuse the skill directory when it exists: repo-maintained content
+# (SKILL.md, references/) must survive rebuilds. Only the exe is
+# replaced below.
+if (-not (Test-Path $SkillDir)) {
+    New-Item -ItemType Directory -Path $SkillDir -Force | Out-Null
+    Write-Host "      Created: $SkillDir" -ForegroundColor Green
+} else {
+    Write-Host "      Reusing skill directory: $SkillDir" -ForegroundColor DarkGray
 }
-
-if (Test-Path $SkillDir) {
-    Write-Host "      Removing existing skill directory..." -ForegroundColor DarkGray
-    Remove-Item -Recurse -Force $SkillDir
-}
-
-New-Item -ItemType Directory -Path $SkillDir -Force | Out-Null
-Write-Host "      Created: $SkillDir" -ForegroundColor Green
 
 # ---------------------------------------------------------------------------
 # 4. Move executable into skill directory
@@ -150,10 +143,8 @@ Write-Host "[5/5] Restoring SKILL.md (Open Skill protocol)..." -ForegroundColor 
 
 $skillMdPath = Join-Path $SkillDir "SKILL.md"
 
-if ($preservedSkillMdPath -and (Test-Path $preservedSkillMdPath)) {
-    # Move the preserved SKILL.md back into the skill directory.
-    Move-Item -Path $preservedSkillMdPath -Destination $skillMdPath -Force
-    Write-Host "      Restored: SKILL.md" -ForegroundColor Green
+if (Test-Path $skillMdPath) {
+    Write-Host "      Kept: SKILL.md (repo-maintained)" -ForegroundColor Green
 } else {
     $templatePath = Join-Path $ProjectRoot "skill-template.md"
 
@@ -187,6 +178,10 @@ Get-ChildItem $SkillDir | ForEach-Object {
 Write-Host ""
 Write-Host "Skill is ready for use. Test with:" -ForegroundColor Yellow
 Write-Host "  & '$SkillDir\$exeName' --help"
+Write-Host ""
+Write-Host "Register with an AI agent (Claude Code / Cursor / Trae / CodeBuddy):" -ForegroundColor Yellow
+Write-Host "  & '$SkillDir\$exeName' skill install --list"
+Write-Host "  & '$SkillDir\$exeName' skill install --agent claude,codebuddy"
 Write-Host ""
 
 Pop-Location
