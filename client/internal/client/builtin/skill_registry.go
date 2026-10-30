@@ -37,7 +37,7 @@ const (
 // executable relative to the markdown file. It holds true inside release
 // zips (exe next to SKILL.md) but not once the skill is installed into a
 // harness directory, so install rewrites it to an absolute path.
-const skillExeAnchor = "The `revit-cli.exe` is located in the same directory as this markdown file."
+const skillExeAnchor = "The `revit-cli.exe` binary is located in the same directory as this markdown file."
 
 // ClientVersion is injected from main (set at build time via ldflags).
 // Used in manifests so `skill show` can report versions.
@@ -136,7 +136,7 @@ func findSkillSourceDir() string {
 // anchor is missing (e.g. older SKILL.md), in which case a Local Binary
 // Path section is appended so installation never fails.
 func rewriteSkillContent(content, exePath string) (string, bool) {
-	replacement := fmt.Sprintf("The `revit-cli.exe` is located at `%s`.", exePath)
+	replacement := fmt.Sprintf("The `revit-cli.exe` binary is located at `%s`.", exePath)
 	if strings.Contains(content, skillExeAnchor) {
 		return strings.Replace(content, skillExeAnchor, replacement, 1), true
 	}
@@ -342,17 +342,19 @@ func pathWithin(dir, p string) bool {
 // and any stale manifest from a previous install. Subdirectories (e.g.
 // future references/) are copied recursively.
 //
-// Overlapping trees are skipped entirely: installing into a directory
-// inside the source (or vice versa) would otherwise recurse into the
-// growing destination or copy files onto themselves. SKILL.md and the
-// manifest are still written by the caller.
+// Overlap guard: skip the bulk copy when the source tree is equal to or
+// inside the destination (self-copy would truncate files while reading).
+// A destination nested INSIDE the source is the normal release-zip case
+// (exe + SKILL.md + references in one root, --target .\agents) and must
+// keep copying — the per-entry check below skips only the entries that
+// contain the destination, preventing recursive self-copy.
 func copySkillFiles(srcDir, dstDir string) error {
 	srcAbs, srcErr := filepath.Abs(srcDir)
 	dstAbs, dstErr := filepath.Abs(dstDir)
 	if srcErr != nil || dstErr != nil {
 		return nil
 	}
-	if strings.EqualFold(srcAbs, dstAbs) || pathWithin(srcAbs, dstAbs) || pathWithin(dstAbs, srcAbs) {
+	if strings.EqualFold(srcAbs, dstAbs) || pathWithin(dstAbs, srcAbs) {
 		return nil
 	}
 

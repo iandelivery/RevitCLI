@@ -260,6 +260,11 @@ func TestCopySkillFilesOverlapGuard(t *testing.T) {
 	if !fileExists(filepath.Join(insideDst, skillFileName)) {
 		t.Error("SKILL.md not installed into nested target")
 	}
+	// Release-zip scenario: destination nested inside the source must
+	// still copy references/ (only entries containing dst are skipped).
+	if b, err := os.ReadFile(filepath.Join(insideDst, "references", "api.md")); err != nil || string(b) != "ref" {
+		t.Errorf("references not copied into nested target: %v", err)
+	}
 	if m := readSkillManifest(insideDst); m == nil {
 		t.Error("manifest missing for nested target")
 	}
