@@ -177,8 +177,10 @@ jobs:
           # CLI client at the root
           Copy-Item -Path "artifacts/client-windows/revit-cli.exe" -Destination $stagingDir
 
-          # SKILL.md — AI agent integration instructions
-          Copy-Item -Path "client/skills/revit-cli/SKILL.md" -Destination $stagingDir
+          # Skill files — SKILL.md plus any references/, excluding the exe
+          Get-ChildItem "client/skills/revit-cli" -Exclude revit-cli.exe | ForEach-Object {
+            Copy-Item -Path $_.FullName -Destination $stagingDir -Recurse -Force
+          }
 
           # Bridge files under bridge/ — the client's configure setup
           # discovers them via the bridge/ subdirectory convention
@@ -202,7 +204,9 @@ jobs:
           $clientOnlyDir = "staging/revit-cli-client"
           New-Item -ItemType Directory -Path $clientOnlyDir -Force | Out-Null
           Copy-Item -Path "artifacts/client-windows/revit-cli.exe" -Destination $clientOnlyDir
-          Copy-Item -Path "client/skills/revit-cli/SKILL.md" -Destination $clientOnlyDir
+          Get-ChildItem "client/skills/revit-cli" -Exclude revit-cli.exe | ForEach-Object {
+            Copy-Item -Path $_.FullName -Destination $clientOnlyDir -Recurse -Force
+          }
           Compress-Archive -Path "$clientOnlyDir\*" -DestinationPath "revit-cli-client-$version.zip" -Force
           Write-Host "Created: revit-cli-client-$version.zip"
 
@@ -336,6 +340,17 @@ jobs:
           3. Run ``revit-cli.exe configure setup`` — this detects installed Revit versions and installs the bridge add-in automatically.
           4. Restart Revit — the bridge will load and listen for commands.
 
+          ### Use with an AI coding agent
+
+          The package ships ``SKILL.md`` — instructions that let Claude Code, Cursor, Trae, CodeBuddy, Kimi and other agents drive Revit through this CLI. Register it in two steps:
+
+          ```
+          revit-cli.exe skill install --list
+          revit-cli.exe skill install --agent claude,codebuddy
+          ```
+
+          The first command lists the agent directories detected in your project; the second installs the skill non-interactively (``--global`` for user-level, ``--target <dir>`` for a custom location). After upgrading the CLI, refresh every install with ``revit-cli.exe skill update``.
+
           ### Supported Revit Versions
 
           | Version | .NET Framework | Base Port |
@@ -349,7 +364,7 @@ jobs:
 
           ``revit-cli-$version.zip`` includes:
           - ``revit-cli.exe`` — CLI client for sending commands to the bridge
-          - ``SKILL.md`` — AI agent integration instructions
+          - ``SKILL.md`` — AI agent integration instructions (install with ``revit-cli.exe skill install``)
           - ``bridge/Revit20XX/`` — Version-specific bridge DLLs and configuration
           - Each bridge version includes:
             - ``RevitCliBridge.dll``

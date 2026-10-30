@@ -273,10 +273,13 @@ if (-not $SkipPackage) {
         Copy-Item -Path $clientExe -Destination (Join-Path $stagingDir "revit-cli.exe") -Force
     }
 
-    # SKILL.md
-    $skillMd = Join-Path $ClientDir "skills\revit-cli\SKILL.md"
-    if (Test-Path $skillMd) {
-        Copy-Item -Path $skillMd -Destination $stagingDir -Force
+    # Skill files (SKILL.md plus any references/), excluding revit-cli.exe
+    # which client\build.ps1 moves into the skill directory
+    $skillDir = Join-Path $ClientDir "skills\revit-cli"
+    if (Test-Path $skillDir) {
+        Get-ChildItem $skillDir -Exclude revit-cli.exe | ForEach-Object {
+            Copy-Item -Path $_.FullName -Destination $stagingDir -Force -Recurse
+        }
     }
 
     # Bridge files
@@ -303,8 +306,10 @@ if (-not $SkipPackage) {
         $clientStaging = Join-Path $DistDir "staging\revit-cli-client"
         New-Item -ItemType Directory -Path $clientStaging -Force | Out-Null
         Copy-Item -Path $clientExe -Destination (Join-Path $clientStaging "revit-cli.exe") -Force
-        if (Test-Path $skillMd) {
-            Copy-Item -Path $skillMd -Destination $clientStaging -Force
+        if (Test-Path $skillDir) {
+            Get-ChildItem $skillDir -Exclude revit-cli.exe | ForEach-Object {
+                Copy-Item -Path $_.FullName -Destination $clientStaging -Force -Recurse
+            }
         }
         $clientZip = Join-Path $DistDir "revit-cli-client-$version.zip"
         Compress-Archive -Path "$clientStaging\*" -DestinationPath $clientZip -Force
