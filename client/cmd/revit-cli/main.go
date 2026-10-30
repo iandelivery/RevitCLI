@@ -49,6 +49,7 @@ var (
 )
 
 func main() {
+	builtin.ClientVersion = Version
 	root := newRootCmd()
 	if err := root.Execute(); err != nil && exitCode == 0 {
 		// Execute() returned an error but no RunE set the exit code.
@@ -60,10 +61,14 @@ func main() {
 	os.Exit(exitCode)
 }
 
+// skillHint is the discoverability one-liner shown in help and version
+// output so users learn the AI-agent skill exists.
+const skillHint = "AI agent integration: run 'revit-cli skill install' to register this tool with Claude Code / Cursor / Trae / CodeBuddy."
+
 // newRootCmd creates the root cobra command with all built-in sub-commands.
 func newRootCmd() *cobra.Command {
-	longDesc := fmt.Sprintf("%s\n\nRevit CLI Client (Go) v%s\nCommand-line tool for AI agents to drive Autodesk Revit.\nDeveloped by %s.",
-		banner, Version, Author)
+	longDesc := fmt.Sprintf("%s\n\nRevit CLI Client (Go) v%s\nCommand-line tool for AI agents to drive Autodesk Revit.\nDeveloped by %s.\n\n%s",
+		banner, Version, Author, skillHint)
 	root := &cobra.Command{
 		Use:                "revit-cli [flags] <command> [args]",
 		Short:              "Command-line tool for AI agents to drive Autodesk Revit",
@@ -88,6 +93,7 @@ func newRootCmd() *cobra.Command {
 					fmt.Println(banner)
 					fmt.Printf("revit-cli %s\n", Version)
 					fmt.Printf("Author: %s\n", Author)
+					fmt.Println(skillHint)
 					return nil
 				}
 			}
@@ -364,6 +370,16 @@ func registerBuiltinCmds(root *cobra.Command) {
 		false,
 		func(_ string, _ *http.Client) abstractions.CliCommand {
 			return builtin.ConfigureHandler{}
+		},
+	))
+
+	root.AddCommand(newBuiltinCmd(
+		"skill <install|show|update|uninstall> [options]",
+		"Install and manage the AI agent skill (SKILL.md)",
+		[]string{"revit-cli skill install --list", "revit-cli skill install --agent claude,codebuddy", "revit-cli skill update"},
+		false,
+		func(_ string, _ *http.Client) abstractions.CliCommand {
+			return builtin.SkillHandler{}
 		},
 	))
 }
