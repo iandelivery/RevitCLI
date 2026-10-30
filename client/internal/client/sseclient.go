@@ -34,9 +34,11 @@ func NewSseClient(baseURL string) *SseClient {
 
 // Execute sends a command to the bridge and streams the result via SSE.
 // Returns the process exit code (0 success, 1 failure).
+// extraTopLevel maps are merged into the JSON payload's top level, letting
+// callers forward bridge-level fields such as dry_run from raw JSON input.
 // Mirrors C# SseClient.ExecuteAsync.
-func (c *SseClient) Execute(ctx context.Context, command string, parameters interface{}) int {
-	exitCode, err := c.consumeSSEStream(ctx, command, parameters)
+func (c *SseClient) Execute(ctx context.Context, command string, parameters interface{}, extraTopLevel ...map[string]interface{}) int {
+	exitCode, err := c.consumeSSEStream(ctx, command, parameters, extraTopLevel...)
 	if err != nil {
 		errResp := map[string]interface{}{
 			"status":  "error",
@@ -52,13 +54,26 @@ func (c *SseClient) Execute(ctx context.Context, command string, parameters inte
 
 // consumeSSEStream returns (exitCode, error). A non-nil error indicates a
 // connection-level failure; otherwise exitCode is the command result.
-func (c *SseClient) consumeSSEStream(ctx context.Context, command string, parameters interface{}) (int, error) {
+func (c *SseClient) consumeSSEStream(ctx context.Context, command string, parameters interface{}, extraTopLevel ...map[string]interface{}) (int, error) {
 	payload := map[string]interface{}{
 		"command":         command,
 		"timeout_seconds": 120,
 	}
 	if parameters != nil {
+		// The bridge reads dry_run from the top-level payload, while the
+		// CLI injects it into the parameters map — hoist it before sending.
+		if pm, ok := parameters.(map[string]interface{}); ok {
+			if dr, exists := pm["dry_run"]; exists {
+				payload["dry_run"] = dr
+				delete(pm, "dry_run")
+			}
+		}
 		payload["parameters"] = parameters
+	}
+	for _, extra := range extraTopLevel {
+		for k, v := range extra {
+			payload[k] = v
+		}
 	}
 
 	body, err := json.Marshal(payload)

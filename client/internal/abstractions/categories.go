@@ -97,4 +97,4 @@ var CategoryOrder = []CommandCategory{
 // SendCommandFunc sends a command to the bridge server and returns an exit code.
 // Mirrors C# RevitCliClient.Abstractions.SendCommandFunc delegate.
 // The parameters argument may be nil, a map, or any JSON-serializable value.
-type SendCommandFunc func(ctx context.Context, command string, parameters interface{}) int
+type SendCommandFunc func(ctx context.Context, command string, parameters interface{}, extraTopLevel ...map[string]interface{}) int
