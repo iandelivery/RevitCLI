@@ -1,13 +1,18 @@
 ---
-name: "Revit-CLI"
-description: "CLI client that drives Autodesk Revit via the CLI Bridge HTTP API. Invoke when user needs to execute Revit commands from the command line or when AI agents need to control Revit programmatically."
+name: revit-cli
+description: "Command-line client (revit-cli.exe) that drives Autodesk Revit through the RevitCLI Bridge HTTP API. Use when the user wants to control Revit from the command line, when an agent needs to create, query, modify, or transform Revit elements, automate Revit tasks, execute raw C# or Python scripts inside Revit via execute_raw, or stream real-time progress (SSE) for long-running Revit operations. Owns bridge connection and instance discovery, command schema discovery, millimeter-based command units, raw-mode toggling, C# script hard constraints, execution discipline, and CLI troubleshooting."
+metadata:
+  author: "CHEN YIN"
+  upstream: "https://github.com/iandelivery/RevitCLI"
 ---
 
 # Revit CLI Client
 
-A standalone command-line client written in Go that enables AI agents and users to drive Autodesk Revit through the Revit CLI Bridge HTTP API. Communicates with the bridge server running inside Revit via HTTP, converting CLI commands into Revit API operations with real-time SSE progress streaming.
+A standalone command-line client written in Go that enables AI agents and users to drive Autodesk Revit through the Revit CLI Bridge HTTP API. It communicates with the bridge server running inside Revit via HTTP, converts CLI commands into Revit API operations, and streams real-time SSE progress.
 
-The `revit-cli.exe` is located in the same directory as this markdown file.
+The `revit-cli.exe` binary is located in the same directory as this markdown file.
+
+This skill is the single source of truth for *how to talk to Revit through RevitCLI*: connection, command discovery, raw script execution, script constraints, and fault handling.
 
 ## Skill Installation
 
@@ -21,7 +26,7 @@ revit-cli.exe skill install --list
 revit-cli.exe skill install --agent claude,codebuddy
 ```
 
-Installation copies this file into `<agent>/skills/revit-cli/`, rewriting the `revit-cli.exe` reference above to its absolute path on this machine.
+Installation copies this file (plus `references/`) into `<agent>/skills/revit-cli/`, rewriting the `revit-cli.exe` reference above to its absolute path on this machine.
 
 | Flag | Description |
 |------|-------------|
@@ -37,196 +42,64 @@ Related sub-commands: `skill show` (installation status), `skill update` (re-syn
 
 ## When to Invoke
 
-Invoke this skill when:
 - The user wants to control Revit from the command line
-- An AI agent needs to execute Revit API operations (create, query, modify, transform elements)
+- An agent needs to execute Revit API operations (create, query, modify, transform elements)
 - The user asks to automate Revit tasks via CLI
+- Raw C# or Python code must run inside Revit (`execute_raw`)
 - Real-time progress feedback for long-running Revit operations is needed
-
-## Execution Strategy
-
-To optimize performance and maintain system stability, agents must follow a two-tier execution strategy:
-
-1. **Step 1: Dynamic Discovery**
-   Always run `revit-cli.exe commands` first to check the available high-level commands, or check specific command schemas via `revit-cli.exe schema <name>`. If a high-level command exists for the task, **always use it**.
-   
-2. **Step 2: Raw Code Fallback**
-   Only if the discovered high-level commands **cannot** solve the requested task, proceed to search the API reference (`revit-cli.exe llms`) and execute C# or Python scripts directly using `revit-cli.exe execute_raw`. Use`revit-cli.exe raw_mode --enable` and `revit-cli.exe raw_mode --disable` to toggle raw mode.
-
-### Raw Code Compilation
-
-Bridge server uses following template to compile C# scripts:
-
-```csharp
-private static string BuildCSharpScriptClass(string userCode)
-{
-   return $@"
-using System;
-using Autodesk.Revit.DB;
-using Autodesk.Revit.UI;
-using Autodesk.Revit.DB.Structure;
-using System.Collections.Generic;
-using System.Linq;
-
-public static class ScriptHost
-{{
-    public static object Execute(UIApplication app, Document doc)
-    {{
-        {userCode}
-        // return fallback
-        return null;
-    }}
-}}
-";
-}
-```
-
-if `userCode` contains transaction code, MUST use following code:
-
-```csharp
-var options = <transaction_object>.GetFailureHandlingOptions();
-options.SetFailuresPreprocessor(new CliFailurePreprocessor());
-<transaction_object>.SetFailureHandlingOptions(options);
-```
 
 ## Prerequisites
 
-- **Revit** must be running with the CLI Bridge add-in enabled (Ribbon toggle button)
+- **Revit** must be running with the CLI Bridge add-in enabled (Ribbon toggle button; AI Mode auto-starts by default)
 - The bridge server auto-selects a port based on Revit version (e.g. Revit 2022 → port 5041+)
-- Verify connection with: `revit-cli.exe ping`
-- List running instances with: `revit-cli.exe list`
+- Verify connection with `revit-cli.exe ping`; list running instances with `revit-cli.exe list`
+- Target against a specific instance with `--revit <version>`, `--pid <pid>`, or `--url <url>`
 
-## Usage
+## Execution Strategy
+
+Always follow this two-tier strategy to optimize performance and maintain stability:
+
+1. **Dynamic Discovery** — run `revit-cli.exe commands` first to check available high-level commands, or inspect a command's parameters via `revit-cli.exe schema <name>`. If a high-level command exists for the task, **always use it**.
+2. **Raw Code Fallback** — only if the discovered high-level commands **cannot** solve the task, search the API reference (`revit-cli.exe llms`) and execute C# or Python scripts directly with `revit-cli.exe execute_raw`. Toggle raw mode with `revit-cli.exe raw_mode --enable` / `revit-cli.exe raw_mode --disable` (raw execution is disabled by default for security and resets on Revit restart).
+
+Raw scripts compiled by the bridge are subject to **hard constraints** (ASCII-only payload, LF endings, no `using` directives, flat parallel arrays, single transaction, mm↔feet units). Violating any of them fails the run. Read [references/csharp-scripting.md](references/csharp-scripting.md) before writing any raw script.
+
+## Quick Usage
 
 ```bash
-# Global options
-revit-cli.exe [--url <url> | --pid <pid> | --revit <version>] <command> [arguments]
-
-# List running Revit instances
-revit-cli.exe list
-
-# Connect to a specific Revit version
-revit-cli.exe --revit 2022 ping
-
-# Connect to a specific instance by PID
-revit-cli.exe --pid 5678 ping
-
-# Test connection
-revit-cli.exe ping
-
-# List all available commands (auto-discovered from bridge)
-revit-cli.exe commands
-
-# Query elements
-revit-cli.exe elements -c OST_Walls
-revit-cli.exe levels
-
-# Create elements
-revit-cli.exe create_wall --start-x 0 --start-y 0 --end-x 5000 --end-y 0 -l 3001
-
-# Send raw JSON command
-revit-cli.exe raw -j '{"command":"ping"}'
+revit-cli.exe ping                                  # test connection
+revit-cli.exe list                                  # running Revit instances
+revit-cli.exe --revit 2022 ping                     # target a specific version
+revit-cli.exe commands                              # discover high-level commands
+revit-cli.exe schema create_wall                    # inspect one command
+revit-cli.exe elements -c OST_Walls                 # query elements by category
+revit-cli.exe create_wall --start-x 0 --start-y 0 --end-x 5000 --end-y 0 -l 3001   # mm
+revit-cli.exe execute_raw --lang csharp --code "return doc.Title;"
+revit-cli.exe raw -j '{"command":"ping"}'           # raw JSON command
 ```
 
+**Units**: the client uses **millimeters** — every distance, coordinate, and size argument of high-level commands (and every such value returned) is in mm; the bridge converts to/from Revit internal feet (`1 ft = 304.8 mm`). Raw C#/Python scripts bypass this conversion and talk to the Revit API directly in internal feet — see the units constraint in [references/csharp-scripting.md](references/csharp-scripting.md).
+
+Full command table, argument shortcuts, dynamic discovery, SSE events, and configuration: [references/cli-reference.md](references/cli-reference.md).
+
+## Safety Rules
+
 > [!CAUTION]
-> Readonly Revit document is editable.
+> A document opened as read-only still accepts modifications through the bridge. Always verify the target document before writing.
 
-### Important Actions Require Confirmation
-
-Always ask for confirmation before performing actions below:
+Always ask for user confirmation before:
 
 - Open, close, save, save as file
 - Batch operations
-- Interacting with central Revit file
-   - Syncynchronize with central file
-   - Load latest worksets
-- Modifying links
-   - Unload link
-   - Reload link with different file
+- Interacting with a central Revit file (sync with central, load latest worksets)
+- Modifying links (unload link, reload link with a different file)
 
-## Built-in Commands
+Execution discipline (probe first, single-element experiment before batches, immediate re-validation, save confirmation) is defined in [references/csharp-scripting.md](references/csharp-scripting.md); apply it to every write session.
 
-| Command | Description |
-|---------|-------------|
-| `ping` | Test connection to Revit |
-| `list` | List running Revit instances |
-| `llms [--save <path>]` | Show Revit API reference (llms.txt) |
-| `status` | Show bridge server status |
-| `health` | Health check |
-| `task [-ti <id>]` | Query task status (list all if no ID) |
-| `commands [--refresh]` | List all commands (with local cache) |
-| `schema <name>` | Show command parameter details |
-| `raw -j <json>` | Send raw JSON command |
-| `execute_raw --code <code>` | Execute C# or Python code on the bridge |
-| `configure <setup|teardown|check|port>` | Manage bridge installation and configuration |
-| `skill <install|show|update|uninstall>` | Install and manage this AI agent skill (SKILL.md) |
+## References
 
-## Dynamic Command Discovery
-
-Non-built-in commands are auto-discovered from the bridge server's schema endpoint (`GET /api/commands`). The schema is cached locally (30-min TTL) under `%AppData%/revit-cli/` with ETag-based conditional requests and stale-cache fallback for offline resilience.
-
-## API Reference (llms.txt) & Raw Execution
-
-The bridge exposes a `GET /api/llms.txt` endpoint that returns a text index of raw Revit API elements, parameters, and classes. If and only if your high-level discovered commands do not cover a specific need:
-
-1. Run `revit-cli.exe llms` to see the full reference
-2. Find the relevant element class, parameter, or filter
-3. Use `execute_raw` to invoke it directly:
-   ```
-   revit-cli.exe execute_raw --lang csharp --code "return doc.Title;"
-   ```
-
-## SSE Real-Time Events
-
-All command executions use Server-Sent Events for live progress updates:
-- `event: accepted` — task queued
-- `event: progress` — real-time progress percentage
-- `event: completed` — final result
-- `event: failed` — error result
-
-Falls back to HTTP polling (`GET /api/task/{id}`) if SSE is unavailable.
-
-## Argument Shortcuts
-
-| Short | Long Form | Description |
-|-------|-----------|-------------|
-| `-i` | `--id` | Element ID |
-| `-e` | `--element-id` | Element ID |
-| `-l` | `--level-id` | Level ID |
-| `-n` | `--name` | Name |
-| `-v` | `--value` | Value |
-| `-c` | `--category` | Category |
-| `-j` | `--json` | JSON data |
-| `-fl` | `--file` | File path |
-| `-vi` | `--view-id` | View ID |
-| `-ti` | `--task-id` | Task ID |
-
-## Configuration
-
-Server-side config is read from `.config/cli_bridge_setting.json`:
-- `port` (default: 5000, used as fallback)
-- `auto_port` (default: true) — dynamically allocate port based on Revit version
-- `timeout_seconds` (default: 180)
-- `max_command_queue_size` (default: 100)
-
-Port allocation scheme (when `auto_port` is true):
-- Revit 2019 → 5011-5019
-- Revit 2020 → 5021-5029
-- Revit 2021 → 5031-5039
-- Revit 2022 → 5041-5049
-
-Instance registry files are stored in `%AppData%\revit-cli\instances\`.
-
-Override the bridge URL with `--url <url>`, `--pid <pid>`, or `--revit <version>`.
-
-## Architecture
-
-This skill is a Go port of the C# `RevitCliClient`, following the same patterns:
-- Command registry with case-insensitive lookup
-- Lazy schema discovery (schema fetched only when needed)
-- SSE transport with polling fallback
-- Type-safe argument parsing (ArgHelper)
-- 30-min TTL local schema cache with ETag support
-
-See `bridge/docs/README.md` in the repository for the full protocol specification.
-
+| File | Contents |
+|------|----------|
+| [references/cli-reference.md](references/cli-reference.md) | Built-in commands, argument shortcuts, dynamic command discovery and schema cache, llms.txt API reference workflow, SSE events, bridge configuration and port allocation, architecture notes |
+| [references/csharp-scripting.md](references/csharp-scripting.md) | Bridge compile template, transaction failure preprocessor, the 12 hard constraints for raw C# scripts, code-generator helpers, execution discipline |
+| [references/troubleshooting.md](references/troubleshooting.md) | Symptom → cause → fix quick reference (connection failures, 401, Invalid JSON, compile cascades, garbled text, deletion deadlocks, timeouts) |
