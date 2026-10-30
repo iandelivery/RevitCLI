@@ -9,6 +9,32 @@ A standalone command-line client written in Go that enables AI agents and users 
 
 The `revit-cli.exe` is located in the same directory as this markdown file.
 
+## Skill Installation
+
+This skill file travels with `revit-cli.exe`. To register it with an AI coding agent (Claude Code, Cursor, Codex, Trae, Trae CN, CodeBuddy, WorkBuddy, Kimi), run:
+
+```bash
+# 1. Discover candidate agent directories (non-destructive)
+revit-cli.exe skill install --list
+
+# 2. Install non-interactively into the chosen agents
+revit-cli.exe skill install --agent claude,codebuddy
+```
+
+Installation copies this file into `<agent>/skills/revit-cli/`, rewriting the `revit-cli.exe` reference above to its absolute path on this machine.
+
+| Flag | Description |
+|------|-------------|
+| `--agent <ids>` | Comma-separated agent ids: `claude`, `cursor`, `codex`, `trae`, `trae-cn`, `codebuddy`, `workbuddy`, `kimi-work`, `kimi-code` |
+| `--all` | Install into every detected agent directory |
+| `--target <dir>` | Custom skills root; installs into `<dir>/revit-cli/` |
+| `--global` | User-level (`~`) agent directories instead of project (cwd) |
+| `--force` | Overwrite an existing installation |
+| `--list` | Only list candidate targets; do not install |
+| `--json` | Machine-readable output |
+
+Related sub-commands: `skill show` (installation status), `skill update` (re-sync all installs after upgrading `revit-cli.exe`), `skill uninstall` (remove installs; only touches directories containing a revit-cli install manifest).
+
 ## When to Invoke
 
 Invoke this skill when:
@@ -133,6 +159,7 @@ Always ask for confirmation before performing actions below:
 | `raw -j <json>` | Send raw JSON command |
 | `execute_raw --code <code>` | Execute C# or Python code on the bridge |
 | `configure <setup|teardown|check|port>` | Manage bridge installation and configuration |
+| `skill <install|show|update|uninstall>` | Install and manage this AI agent skill (SKILL.md) |
 
 ## Dynamic Command Discovery
 
