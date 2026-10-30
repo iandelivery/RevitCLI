@@ -144,6 +144,7 @@ Server-side config is read from `.config/cli_bridge_setting.json`. The client al
 | `raw -j <json>` | Send raw JSON command |
 | `execute_raw --code <code>` | Execute C# or Python code on the bridge |
 | `configure <setup\|teardown\|check\|port>` | Manage bridge installation and configuration |
+| `skill <install\|show\|update\|uninstall>` | Install and manage the AI agent skill (SKILL.md) |
 
 ### configure Sub-commands
 
@@ -153,6 +154,28 @@ Server-side config is read from `.config/cli_bridge_setting.json`. The client al
 | `configure teardown` | Remove bridge add-in from all Revit versions |
 | `configure check` | Verify installation health and connectivity |
 | `configure port` | Show port assignments for all Revit versions |
+
+### skill Sub-commands
+
+| Sub-command | Description |
+|-------------|-------------|
+| `skill install --list` | List candidate agent directories (Claude Code, Cursor, Codex, Trae, Trae CN, CodeBuddy, WorkBuddy, Kimi) |
+| `skill install --agent <ids>` | Install non-interactively into the named agents (comma-separated) |
+| `skill install --target <dir>` / `--global` / `--all` / `--force` | Custom skills root / user-level dirs / every detected dir / overwrite |
+| `skill show` | Report the local SKILL.md source and install status |
+| `skill update` | Re-sync every installed location from the current executable |
+| `skill uninstall` | Remove installs (only directories containing a revit-cli manifest) |
+
+## Use with AI Agents
+
+The packaged `SKILL.md` teaches AI coding agents to drive Revit through this CLI. After running `.\build.ps1`, register the freshly built skill with the agents detected in the current directory:
+
+```powershell
+.\skills\revit-cli\revit-cli.exe skill install --list
+.\skills\revit-cli\revit-cli.exe skill install --agent claude,codebuddy
+```
+
+Installation rewrites the `revit-cli.exe` reference inside `SKILL.md` to an absolute path, so agents invoke the right binary. Use `skill show` to inspect status and `skill update` after rebuilding.
 
 ## API Reference (llms.txt)
 

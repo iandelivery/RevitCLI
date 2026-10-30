@@ -95,7 +95,7 @@ The CLI caches the command schema (fetched from `GET /api/commands`) locally wit
 ### Option 1 — Download a pre-built release
 
 1. Download the latest `revit-cli-<version>.zip` from the [Releases](../../releases) page.
-2. Extract it anywhere (e.g. `C:\revit-cli\`). The zip contains the `revit-cli.exe` client, the `SKILL.md` for AI agents, and a `bridge/` folder with all four supported Revit versions.
+2. Extract it anywhere (e.g. `C:\revit-cli\`). The zip contains the `revit-cli.exe` client, the `SKILL.md` for AI agents, and a `bridge/` folder with all four supported Revit versions. To register the skill with your AI coding agent, see [Use with AI Agents](#use-with-ai-agents).
 3. Install the bridge for every Revit on this machine:
    ```powershell
    cd C:\revit-cli
@@ -304,6 +304,29 @@ revit-cli.exe raw-mode --disable
 
 This calls `GET /api/raw-mode` to query and `POST /api/raw-mode` to toggle. The setting is in-memory only — restarting Revit resets it to the value in `cli_bridge_setting.json` (`allow_raw_execution`). For persistent changes, edit that file.
 
+## Use with AI Agents
+
+Every release zip ships `SKILL.md` — an [Open Skill protocol](https://github.com/open-skill/protocol) file that teaches AI coding agents (Claude Code, Cursor, Codex, Trae, Trae CN, CodeBuddy, WorkBuddy, Kimi) how to drive Revit through this CLI. Register it with the agents installed in your project:
+
+```powershell
+cd C:\revit-cli
+.\revit-cli.exe skill install --list              # 1. list detected agent directories
+.\revit-cli.exe skill install --agent claude,codebuddy   # 2. install non-interactively
+```
+
+Installation copies `SKILL.md` into `<agent>/skills/revit-cli/` and rewrites the `revit-cli.exe` reference inside it to the absolute path on this machine, so the skill works out of the box.
+
+| Flag | Description |
+|------|-------------|
+| `--agent <ids>` | Comma-separated agent ids: `claude`, `cursor`, `codex`, `trae`, `trae-cn`, `codebuddy`, `workbuddy`, `kimi-work`, `kimi-code` |
+| `--all` | Install into every detected agent directory |
+| `--target <dir>` | Custom skills root; installs into `<dir>/revit-cli/` |
+| `--global` | User-level (`~`) agent directories instead of project (cwd) |
+| `--force` | Overwrite an existing installation |
+| `--list` / `--json` | List candidates / machine-readable output |
+
+Run without flags in a terminal for an interactive multi-select. Related sub-commands: `skill show` (status), `skill update` (re-sync after upgrading the CLI), `skill uninstall`.
+
 ## Features
 
 - **70+ built-in commands** — create walls/doors/windows, manage cable trays, ducts, and pipes, query elements, modify parameters, export views, manage documents
@@ -316,6 +339,7 @@ This calls `GET /api/raw-mode` to query and `POST /api/raw-mode` to toggle. The 
 - **Multi-version support** — Revit 2019, 2020, 2021, 2022
 - **Dry-run mode** — preview operations without modifying the document
 - **Automated setup** — `configure setup` installs the bridge across all detected Revit versions
+- **AI agent skill management** — `skill install` registers the bundled `SKILL.md` with Claude Code, Cursor, Trae, CodeBuddy, Kimi and other coding agents
 
 ## Port Allocation
 
