@@ -38,7 +38,7 @@ Installation copies this file (plus `references/`) into `<agent>/skills/revit-cl
 | `--list` | Only list candidate targets; do not install |
 | `--json` | Machine-readable output |
 
-Related sub-commands: `skill show` (installation status), `skill update` (re-sync all installs after upgrading `revit-cli.exe`), `skill uninstall` (remove installs; only touches directories containing a revit-cli install manifest).
+Related sub-commands: `skill show` (installation status), `skill update` (re-sync all installs after upgrading `revit-cli.exe`), `skill uninstall` (remove installs; only touches directories containing a revit-cli install manifest — the running exe's own directory is never deleted, only deregistered: tracking removed, files kept).
 
 ## When to Invoke
 

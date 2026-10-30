@@ -19,6 +19,7 @@ Symptom-first table for bridge and CLI failures, consolidated from production ru
 | Residual offsets after creation (+2200/+3000) | Created with family default height: top constraint and base/top offsets not fully set | Set top constraint AND zero both base/top offsets immediately after create; audit with a full offset sweep (|offset| > 0.5 mm → reset) |
 | "Fixed" script still reports the same error | Stale payload file: assertion fired after the file write, so the old file was sent | Re-order generator: assert ASCII/LF BEFORE `json.dump`/write (constraint 10); delete the stale output and regenerate |
 | Edits succeed on a "read-only" document | Bridge writes are not blocked by the read-only flag | Verify the target document before any write session; confirm before save (safety rules in SKILL.md) |
+| `skill uninstall`/`update` reports a location as `deregistered` | A leftover install manifest sat next to `revit-cli.exe` itself (release files, not a real install) | Nothing to fix — the tracking was removed and all files kept; that directory is the skill source, never an install target |
 
 ## Escalation Path
 
