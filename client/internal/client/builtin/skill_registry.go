@@ -295,6 +295,19 @@ func removeSkillIndexDir(dir string) {
 	saveSkillIndex(out)
 }
 
+// deregisterSkillDir undoes the bookkeeping of one install without
+// touching the directory itself: it removes the install manifest (the
+// marker that makes the location show up as "installed") and the index
+// record. Used by uninstall for the running executable's own directory,
+// which must never be deleted. A missing manifest is not an error.
+func deregisterSkillDir(dir string) error {
+	if err := os.Remove(filepath.Join(dir, skillManifestName)); err != nil && !os.IsNotExist(err) {
+		return err
+	}
+	removeSkillIndexDir(dir)
+	return nil
+}
+
 // findInstalledSkills returns every location currently managed by
 // revit-cli: known harness dirs in both scopes plus index records,
 // deduplicated and sorted by path. Used by update/uninstall/show.

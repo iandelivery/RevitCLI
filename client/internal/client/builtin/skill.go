@@ -113,7 +113,7 @@ type skillTarget struct {
 	Agent  string `json:"agent"`
 	Scope  string `json:"scope"`
 	Dir    string `json:"dir"`
-	Status string `json:"status"` // installed | already-installed | skipped | removed | failed
+	Status string `json:"status"` // installed | already-installed | skipped | removed | deregistered | failed
 	Error  string `json:"error,omitempty"`
 }
 
@@ -624,13 +624,24 @@ func skillUninstall(args []string) int {
 		if exePath, err := os.Executable(); err == nil && sameDir(filepath.Dir(exePath), c.Dir) {
 			// Self-reference guard: never remove the directory the
 			// running revit-cli.exe itself lives in, even if it holds a
-			// manifest planted by an older/other flow.
-			t.Status = "skipped"
-			t.Error = "refusing to remove the directory of the running revit-cli.exe"
-			if !opts.json {
-				fmt.Printf("  [-] %-10s %s — %s\n", c.Agent, c.Dir, t.Error)
+			// manifest planted by an older/other flow. Deregister instead:
+			// drop the manifest and the index record so the location
+			// leaves every listing, while the exe and its release files
+			// stay intact.
+			if rmErr := deregisterSkillDir(c.Dir); rmErr != nil {
+				t.Status = "failed"
+				t.Error = fmt.Sprintf("refusing to remove the directory of the running revit-cli.exe; could not deregister it either: %v", rmErr)
+				exitCode = 1
+				if !opts.json {
+					fmt.Printf("  [✗] %-10s %s — %s\n", c.Agent, c.Dir, t.Error)
+				}
+			} else {
+				t.Status = "deregistered"
+				t.Error = "directory of the running revit-cli.exe left in place; install manifest removed so this location is no longer tracked"
+				if !opts.json {
+					fmt.Printf("  [✓] %-10s %s — %s\n", c.Agent, c.Dir, t.Error)
+				}
 			}
-			exitCode = 1
 			results = append(results, t)
 			continue
 		}

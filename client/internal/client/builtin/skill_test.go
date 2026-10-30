@@ -355,3 +355,47 @@ func TestInstallSkillDirRefusesSourceSelf(t *testing.T) {
 		}
 	}
 }
+
+func TestDeregisterSkillDir(t *testing.T) {
+	t.Setenv("REVIT_CLI_DATA_DIR", t.TempDir())
+	dir := t.TempDir()
+
+	// Idempotent on a directory without a manifest.
+	if err := deregisterSkillDir(dir); err != nil {
+		t.Fatalf("deregisterSkillDir without manifest = %v, want nil", err)
+	}
+
+	if err := writeSkillManifest(dir, &SkillManifest{SkillName: skillDirName, Version: "1.0.0"}); err != nil {
+		t.Fatal(err)
+	}
+	upsertSkillIndex(skillInstallRecord{Agent: "custom", Scope: skillScopeCustom, Dir: dir, Manifest: SkillManifest{SkillName: skillDirName}})
+
+	// Other records in the index must survive.
+	other := t.TempDir()
+	upsertSkillIndex(skillInstallRecord{Agent: "claude", Scope: skillScopeProject, Dir: other, Manifest: SkillManifest{SkillName: skillDirName}})
+
+	if err := deregisterSkillDir(dir); err != nil {
+		t.Fatalf("deregisterSkillDir = %v, want nil", err)
+	}
+	if m := readSkillManifest(dir); m != nil {
+		t.Error("manifest not removed by deregistration")
+	}
+	for _, r := range loadSkillIndex() {
+		if strings.EqualFold(r.Dir, dir) {
+			t.Error("index record not removed by deregistration")
+		}
+	}
+	found := false
+	for _, r := range loadSkillIndex() {
+		if strings.EqualFold(r.Dir, other) {
+			found = true
+		}
+	}
+	if !found {
+		t.Error("unrelated index record was dropped")
+	}
+	// The directory itself must remain (only bookkeeping is undone).
+	if !dirExists(dir) {
+		t.Error("directory was removed by deregistration")
+	}
+}
