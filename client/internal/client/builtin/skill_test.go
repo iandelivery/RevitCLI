@@ -319,3 +319,39 @@ func TestFindInstalledSkills(t *testing.T) {
 		t.Error("unmanaged directory reported as installed")
 	}
 }
+
+func TestSameDir(t *testing.T) {
+	if !sameDir(`C:\a\skills\revit-cli`, `c:\a\skills\REVIT-CLI\`) {
+		t.Error("case/trailing-slash variants should match")
+	}
+	if sameDir(`C:\a\revit-cli`, `C:\a\revit-cli-2`) {
+		t.Error("distinct directories must not match")
+	}
+}
+
+func TestInstallSkillDirRefusesSourceSelf(t *testing.T) {
+	// Regression: --target resolving to the source directory itself used
+	// to overwrite SKILL.md in place and plant a manifest there, turning
+	// the executable's own directory into a removable "install".
+	t.Setenv("REVIT_CLI_DATA_DIR", t.TempDir())
+	src := makeSkillSource(t)
+	c := skillCandidate{Agent: "custom", Scope: skillScopeCustom, Dir: src}
+	err := installSkillDir(src, "# rewritten\n", `C:\x\revit-cli.exe`, c)
+	if err == nil {
+		t.Fatal("expected refusal when target equals the source directory")
+	}
+	if !strings.Contains(err.Error(), "source directory") {
+		t.Errorf("error not self-describing: %v", err)
+	}
+	// Source must be untouched: anchor intact, no manifest planted.
+	if b, rerr := os.ReadFile(filepath.Join(src, skillFileName)); rerr != nil || !strings.Contains(string(b), skillExeAnchor) {
+		t.Errorf("source SKILL.md overwritten: %v", rerr)
+	}
+	if fileExists(filepath.Join(src, skillManifestName)) {
+		// makeSkillSource seeds a stale manifest; install must not have
+		// rewritten it — verify it is still the stale content.
+		if b, rerr := os.ReadFile(filepath.Join(src, skillManifestName)); rerr != nil || string(b) != "stale" {
+			t.Error("manifest was written into the source directory")
+		}
+	}
+}

@@ -145,6 +145,13 @@ func loadSkillSource() (srcDir, exePath, rewritten string, ok bool) {
 // installSkillDir writes the rewritten SKILL.md, supporting files, and a
 // fresh manifest into one target directory and records it in the index.
 func installSkillDir(srcDir, rewritten, exePath string, c skillCandidate) error {
+	// Self-reference guard: installing onto the source itself would
+	// overwrite SKILL.md with the rewritten copy (destroying the anchor
+	// sentence) and plant a manifest in the executable's own directory —
+	// which uninstall would then try to remove entirely.
+	if sameDir(srcDir, c.Dir) {
+		return fmt.Errorf("target %s is the skill source directory itself; choose a different --target", c.Dir)
+	}
 	if err := os.MkdirAll(c.Dir, 0o755); err != nil {
 		return err
 	}
@@ -614,12 +621,25 @@ func skillUninstall(args []string) int {
 			results = append(results, t)
 			continue
 		}
+		if exePath, err := os.Executable(); err == nil && sameDir(filepath.Dir(exePath), c.Dir) {
+			// Self-reference guard: never remove the directory the
+			// running revit-cli.exe itself lives in, even if it holds a
+			// manifest planted by an older/other flow.
+			t.Status = "skipped"
+			t.Error = "refusing to remove the directory of the running revit-cli.exe"
+			if !opts.json {
+				fmt.Printf("  [-] %-10s %s — %s\n", c.Agent, c.Dir, t.Error)
+			}
+			exitCode = 1
+			results = append(results, t)
+			continue
+		}
 		if err := os.RemoveAll(c.Dir); err != nil {
 			t.Status = "failed"
-			t.Error = err.Error()
+			t.Error = fmt.Sprintf("%v (a file in use — e.g. revit-cli.exe running from this directory — blocks deletion; close it and retry)", err)
 			exitCode = 1
 			if !opts.json {
-				fmt.Printf("  [✗] %-10s %s — %v\n", c.Agent, c.Dir, err)
+				fmt.Printf("  [✗] %-10s %s — %s\n", c.Agent, c.Dir, t.Error)
 			}
 		} else {
 			t.Status = "removed"

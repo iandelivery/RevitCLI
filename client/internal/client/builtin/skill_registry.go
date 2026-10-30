@@ -327,6 +327,14 @@ func findInstalledSkills() []skillCandidate {
 	return out
 }
 
+// sameDir reports whether two paths resolve to the same directory
+// (case-insensitive best effort for Windows).
+func sameDir(a, b string) bool {
+	aa, ea := filepath.Abs(a)
+	bb, eb := filepath.Abs(b)
+	return ea == nil && eb == nil && strings.EqualFold(aa, bb)
+}
+
 // pathWithin reports whether p is equal to or inside dir (best effort;
 // on Rel errors it returns false).
 func pathWithin(dir, p string) bool {
