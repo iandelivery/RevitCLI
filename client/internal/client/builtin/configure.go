@@ -155,6 +155,7 @@ func configureSetup(args []string) int {
 	}
 
 	fmt.Println("\nDone! Restart Revit to activate the bridge.")
+	fmt.Println("Using an AI agent? Run 'revit-cli.exe skill install' to register this tool with Claude Code / Cursor / Trae / CodeBuddy.")
 	return 0
 }
 
