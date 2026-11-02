@@ -6,6 +6,21 @@ commits (feat/fix only) — do not edit released sections. Historical releases
 before v1.12.0 live on the
 [GitHub Releases page](https://github.com/iandelivery/RevitCLI/releases).
 
+## v1.14.0 (2026-11-02)
+
+### What's Changed
+#### Features
+- [feat(client): hint skill install after configure setup](https://github.com/iandelivery/RevitCLI/commit/4ad6520)
+- [feat(client): add skill command to install SKILL.md into agent harnesses](https://github.com/iandelivery/RevitCLI/commit/a1a6f24)
+
+#### Bug Fixes
+- [fix(client): surface and deregister exe-dir ghost installs everywhere](https://github.com/iandelivery/RevitCLI/commit/239a41d)
+- [fix(client): deregister the exe-dir install on uninstall instead of skipping](https://github.com/iandelivery/RevitCLI/commit/96b1809)
+- [fix(client): refuse skill targets that alias the running executable's own files](https://github.com/iandelivery/RevitCLI/commit/e4ccd1f)
+- [fix(client): copy skill references when target nests inside the source](https://github.com/iandelivery/RevitCLI/commit/5389b3f)
+
+**Full Changelog**: https://github.com/iandelivery/RevitCLI/compare/v1.13.0...v1.14.0
+
 ## v1.13.0 (2026-10-30)
 
 ### What's Changed
