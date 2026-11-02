@@ -1,6 +1,7 @@
 package builtin
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -260,6 +261,11 @@ func TestCopySkillFilesOverlapGuard(t *testing.T) {
 	if !fileExists(filepath.Join(insideDst, skillFileName)) {
 		t.Error("SKILL.md not installed into nested target")
 	}
+	// Release-zip scenario: destination nested inside the source must
+	// still copy references/ (only entries containing dst are skipped).
+	if b, err := os.ReadFile(filepath.Join(insideDst, "references", "api.md")); err != nil || string(b) != "ref" {
+		t.Errorf("references not copied into nested target: %v", err)
+	}
 	if m := readSkillManifest(insideDst); m == nil {
 		t.Error("manifest missing for nested target")
 	}
@@ -312,5 +318,151 @@ func TestFindInstalledSkills(t *testing.T) {
 	}
 	if dirs[strings.ToLower(lookalike)] {
 		t.Error("unmanaged directory reported as installed")
+	}
+}
+
+func TestSameDir(t *testing.T) {
+	if !sameDir(`C:\a\skills\revit-cli`, `c:\a\skills\REVIT-CLI\`) {
+		t.Error("case/trailing-slash variants should match")
+	}
+	if sameDir(`C:\a\revit-cli`, `C:\a\revit-cli-2`) {
+		t.Error("distinct directories must not match")
+	}
+}
+
+func TestInstallSkillDirRefusesSourceSelf(t *testing.T) {
+	// Regression: --target resolving to the source directory itself used
+	// to overwrite SKILL.md in place and plant a manifest there, turning
+	// the executable's own directory into a removable "install".
+	t.Setenv("REVIT_CLI_DATA_DIR", t.TempDir())
+	src := makeSkillSource(t)
+	c := skillCandidate{Agent: "custom", Scope: skillScopeCustom, Dir: src}
+	err := installSkillDir(src, "# rewritten\n", `C:\x\revit-cli.exe`, c)
+	if err == nil {
+		t.Fatal("expected refusal when target equals the source directory")
+	}
+	if !strings.Contains(err.Error(), "source directory") {
+		t.Errorf("error not self-describing: %v", err)
+	}
+	// Source must be untouched: anchor intact, no manifest planted.
+	if b, rerr := os.ReadFile(filepath.Join(src, skillFileName)); rerr != nil || !strings.Contains(string(b), skillExeAnchor) {
+		t.Errorf("source SKILL.md overwritten: %v", rerr)
+	}
+	if fileExists(filepath.Join(src, skillManifestName)) {
+		// makeSkillSource seeds a stale manifest; install must not have
+		// rewritten it — verify it is still the stale content.
+		if b, rerr := os.ReadFile(filepath.Join(src, skillManifestName)); rerr != nil || string(b) != "stale" {
+			t.Error("manifest was written into the source directory")
+		}
+	}
+}
+
+func TestDeregisterSkillDir(t *testing.T) {
+	t.Setenv("REVIT_CLI_DATA_DIR", t.TempDir())
+	dir := t.TempDir()
+
+	// Idempotent on a directory without a manifest.
+	if err := deregisterSkillDir(dir); err != nil {
+		t.Fatalf("deregisterSkillDir without manifest = %v, want nil", err)
+	}
+
+	if err := writeSkillManifest(dir, &SkillManifest{SkillName: skillDirName, Version: "1.0.0"}); err != nil {
+		t.Fatal(err)
+	}
+	upsertSkillIndex(skillInstallRecord{Agent: "custom", Scope: skillScopeCustom, Dir: dir, Manifest: SkillManifest{SkillName: skillDirName}})
+
+	// Other records in the index must survive.
+	other := t.TempDir()
+	upsertSkillIndex(skillInstallRecord{Agent: "claude", Scope: skillScopeProject, Dir: other, Manifest: SkillManifest{SkillName: skillDirName}})
+
+	if err := deregisterSkillDir(dir); err != nil {
+		t.Fatalf("deregisterSkillDir = %v, want nil", err)
+	}
+	if m := readSkillManifest(dir); m != nil {
+		t.Error("manifest not removed by deregistration")
+	}
+	for _, r := range loadSkillIndex() {
+		if strings.EqualFold(r.Dir, dir) {
+			t.Error("index record not removed by deregistration")
+		}
+	}
+	found := false
+	for _, r := range loadSkillIndex() {
+		if strings.EqualFold(r.Dir, other) {
+			found = true
+		}
+	}
+	if !found {
+		t.Error("unrelated index record was dropped")
+	}
+	// The directory itself must remain (only bookkeeping is undone).
+	if !dirExists(dir) {
+		t.Error("directory was removed by deregistration")
+	}
+}
+
+func TestFindInstalledSkillsExeDirGhost(t *testing.T) {
+	t.Setenv("REVIT_CLI_DATA_DIR", t.TempDir()) // empty install index
+	exeDir := t.TempDir()
+	exePath := filepath.Join(exeDir, "revit-cli.exe")
+
+	// Without a manifest the exe dir is not reported.
+	if got := findInstalledSkillsIn(exePath); len(got) != 0 {
+		t.Errorf("ghost reported without manifest: %+v", got)
+	}
+
+	// A ghost manifest surfaces as a "source" candidate so show/update/
+	// uninstall --all can deregister it.
+	if err := writeSkillManifest(exeDir, &SkillManifest{SkillName: skillDirName, Version: "0.9"}); err != nil {
+		t.Fatal(err)
+	}
+	found := findInstalledSkillsIn(exePath)
+	if len(found) != 1 {
+		t.Fatalf("findInstalledSkillsIn = %+v, want exactly the exe-dir ghost", found)
+	}
+	if found[0].Agent != "source" || found[0].Manifest == nil || !sameDir(found[0].Dir, exeDir) {
+		t.Errorf("ghost candidate = %+v, want source@%s", found[0], exeDir)
+	}
+
+	// An empty exe path (os.Executable failure) skips the check.
+	if got := findInstalledSkillsIn(""); len(got) != 0 {
+		t.Errorf("empty exe path reported installs: %+v", got)
+	}
+}
+
+func TestDeregisterTarget(t *testing.T) {
+	t.Setenv("REVIT_CLI_DATA_DIR", t.TempDir())
+	dir := t.TempDir()
+	if err := writeSkillManifest(dir, &SkillManifest{SkillName: skillDirName, Version: "1.0.0"}); err != nil {
+		t.Fatal(err)
+	}
+	upsertSkillIndex(skillInstallRecord{Agent: "source", Scope: skillScopeCustom, Dir: dir, Manifest: SkillManifest{SkillName: skillDirName}})
+
+	got := deregisterTarget(skillCandidate{Agent: "source", Scope: skillScopeCustom, Dir: dir, Detected: true})
+	if got.Status != "deregistered" {
+		t.Fatalf("status = %q, want deregistered", got.Status)
+	}
+	// Informational note must live in Detail, not Error, so JSON
+	// consumers never mistake the success for a failure.
+	if got.Error != "" || got.Detail == "" {
+		t.Errorf("error/detail = %q/%q, want empty error and non-empty detail", got.Error, got.Detail)
+	}
+	if m := readSkillManifest(dir); m != nil {
+		t.Error("manifest not removed by deregistration")
+	}
+	for _, r := range loadSkillIndex() {
+		if strings.EqualFold(r.Dir, dir) {
+			t.Error("index record not removed by deregistration")
+		}
+	}
+	if !dirExists(dir) {
+		t.Error("directory removed; deregistration must keep files")
+	}
+	b, err := json.Marshal(got)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if s := string(b); !strings.Contains(s, `"detail"`) || strings.Contains(s, `"error"`) {
+		t.Errorf("json = %s, want detail field without error field", s)
 	}
 }

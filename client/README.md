@@ -164,7 +164,7 @@ Server-side config is read from `.config/cli_bridge_setting.json`. The client al
 | `skill install --target <dir>` / `--global` / `--all` / `--force` | Custom skills root / user-level dirs / every detected dir / overwrite |
 | `skill show` | Report the local SKILL.md source and install status |
 | `skill update` | Re-sync every installed location from the current executable |
-| `skill uninstall` | Remove installs (only directories containing a revit-cli manifest) |
+| `skill uninstall` | Remove installs (only directories containing a revit-cli manifest; the running exe's own directory is deregistered, not deleted) |
 
 ## Use with AI Agents
 
