@@ -69,9 +69,8 @@ namespace RevitCliBridge.Handlers.Views
 
             Viewport? viewport = null;
 
-            using (Transaction t = new Transaction(doc, "CLI Place View on Sheet"))
+            using (var t = new DryRunTransaction(doc, "CLI Place View on Sheet", cmd.DryRun))
             {
-                t.Start();
                 t.ConfigureFailureHandling();
 
                 try

@@ -44,9 +44,8 @@ namespace RevitCliBridge.Handlers.Creation
             if (string.IsNullOrWhiteSpace(gridName))
                 return CommandResponse.Error(cmd.TaskId, "Missing required parameter: name.").ToJson();
 
-            using (Transaction t = new Transaction(doc, "CLI Create Grid"))
+            using (var t = new DryRunTransaction(doc, "CLI Create Grid", cmd.DryRun))
             {
-                t.Start();
                 t.ConfigureFailureHandling();
 
                 var start = new XYZ(startX.Value.MillimeterToFeet(), startY.Value.MillimeterToFeet(), 0);

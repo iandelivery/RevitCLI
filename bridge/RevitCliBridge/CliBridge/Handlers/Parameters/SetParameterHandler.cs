@@ -50,9 +50,8 @@ namespace RevitCliBridge.Handlers.Parameters
             if (parameter is null)
                 return CommandResponse.Error(cmd.TaskId, $"Parameter '{paramName}' not found on element.").ToJson();
 
-            using (Transaction t = new Transaction(doc, "CLI Set Parameter"))
+            using (var t = new DryRunTransaction(doc, "CLI Set Parameter", cmd.DryRun))
             {
-                t.Start();
                 t.ConfigureFailureHandling();
 
                 bool success = SetParameterValue(parameter, value);

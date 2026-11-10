@@ -54,9 +54,8 @@ namespace RevitCliBridge.Handlers.Creation
 
             Room? room = null;
 
-            using (Transaction t = new Transaction(doc, "CLI Create Room"))
+            using (var t = new DryRunTransaction(doc, "CLI Create Room", cmd.DryRun))
             {
-                t.Start();
                 t.ConfigureFailureHandling();
 
                 try

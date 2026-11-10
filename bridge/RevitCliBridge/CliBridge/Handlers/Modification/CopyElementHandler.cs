@@ -47,9 +47,8 @@ namespace RevitCliBridge.Handlers.Modification
             if (element is null)
                 return CommandResponse.Error(cmd.TaskId, $"Element with ID {elementId.Value} not found.").ToJson();
 
-            using (Transaction t = new Transaction(doc, "CLI Copy Element"))
+            using (var t = new DryRunTransaction(doc, "CLI Copy Element", cmd.DryRun))
             {
-                t.Start();
                 t.ConfigureFailureHandling();
 
                 var translation = new XYZ(dx.Value.MillimeterToFeet(), dy.Value.MillimeterToFeet(), (dz ?? 0).MillimeterToFeet());

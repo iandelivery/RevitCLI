@@ -56,9 +56,8 @@ namespace RevitCliBridge.Handlers.Parameters
             if (parameter is null)
                 return CommandResponse.Error(cmd.TaskId, $"BuiltInParameter '{bip}' not found on element.").ToJson();
 
-            using (Transaction t = new Transaction(doc, "CLI Set Parameter By ID"))
+            using (var t = new DryRunTransaction(doc, "CLI Set Parameter By ID", cmd.DryRun))
             {
-                t.Start();
                 t.ConfigureFailureHandling();
 
                 bool success = SetParameterValue(parameter, valVal);
