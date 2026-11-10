@@ -17,17 +17,17 @@ func (ExecuteRawHandler) Metadata() abstractions.CommandMetadata {
 	return abstractions.CommandMetadata{
 		Name:        "execute_raw",
 		Description: "Execute C# or Python code on the bridge",
-		Usage:       "execute_raw --code <code> | --file <path> [--lang csharp|python]",
+		Usage:       "execute_raw --code <code> | --file <path> [--language csharp|python]",
 		Category:    abstractions.CategoryRaw,
 		Examples: []string{
-			`revit-cli.exe execute_raw --lang csharp --code "return doc.Title;"`,
-			`revit-cli.exe execute_raw --file script.cs --lang csharp`,
+			`revit-cli.exe execute_raw --language csharp --code "return doc.Title;"`,
+			`revit-cli.exe execute_raw --file script.cs -l python`,
 		},
 	}
 }
 
 func (ExecuteRawHandler) Handle(ctx context.Context, args []string, send abstractions.SendCommandFunc) int {
-	code, hasCode := abstractions.FindArg(args, "--code")
+	code, hasCode := abstractions.FindArg(args, "--code", "-c")
 	filePath, hasFile := abstractions.FindArg(args, "--file")
 
 	if hasFile && filePath != "" {
@@ -45,14 +45,16 @@ func (ExecuteRawHandler) Handle(ctx context.Context, args []string, send abstrac
 		return 1
 	}
 
+	// The bridge schema names this parameter "language" (short flag -l);
+	// --lang is kept as a legacy alias for the previously documented form.
 	lang := "csharp"
-	if l, ok := abstractions.FindArg(args, "--lang"); ok && l != "" {
+	if l, ok := abstractions.FindArg(args, "--language", "-l", "--lang"); ok && l != "" {
 		lang = l
 	}
 
 	params := map[string]interface{}{
-		"code": code,
-		"lang": lang,
+		"code":     code,
+		"language": lang,
 	}
 	return send(ctx, "execute_raw", params)
 }
