@@ -67,11 +67,13 @@ func (h SchemaHandler) Metadata() abstractions.CommandMetadata {
 }
 
 func (h SchemaHandler) Handle(ctx context.Context, args []string, send abstractions.SendCommandFunc) int {
-	if len(args) == 0 {
+	// Skip global flags (--url/--pid/--revit) so "revit-cli --revit 2019
+	// schema create_wall" resolves "create_wall", not "--revit".
+	name, _ := abstractions.FirstPositional(args)
+	if name == "" {
 		printErr("Error: command name required (e.g. schema create_wall)")
 		return 1
 	}
-	name := args[0]
 
 	// Try the per-command endpoint first.
 	out, code, err := httpGet(h.Client, h.BaseURL, "/api/commands/"+name)

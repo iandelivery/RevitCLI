@@ -63,6 +63,34 @@ func HasFlag(args []string, flags ...string) bool {
 	return false
 }
 
+// FirstPositional returns the first positional argument in args and the
+// remaining arguments after it. It skips the global connection flags
+// (--url/--pid/--revit in both "--flag value" and "--flag=value" forms) and
+// any other leading flags, so built-in handlers that dispatch on a
+// sub-command or command name work regardless of where the user placed the
+// global flags (e.g. "revit-cli --revit 2019 schema create_wall"). Mirrors
+// the flag-skipping loop in main.dispatchDynamic.
+func FirstPositional(args []string) (string, []string) {
+	for i := 0; i < len(args); i++ {
+		a := args[i]
+		// Global flags that take a separate value: skip flag + value.
+		if a == "--url" || a == "--pid" || a == "--revit" {
+			i++
+			continue
+		}
+		// Inline "--flag=value" forms of the global flags.
+		if strings.HasPrefix(a, "--url=") || strings.HasPrefix(a, "--pid=") || strings.HasPrefix(a, "--revit=") {
+			continue
+		}
+		// Any other flag (boolean flags of the sub-command itself).
+		if strings.HasPrefix(a, "-") {
+			continue
+		}
+		return a, args[i+1:]
+	}
+	return "", nil
+}
+
 // GetInt returns the integer value following any of the given flags, or
 // false if not found or unparseable. Mirrors C# ArgHelper.GetInt.
 func GetInt(args []string, flags ...string) (int, bool) {
