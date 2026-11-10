@@ -15,6 +15,53 @@ func TestFindArg_FindsLongFlag(t *testing.T) {
 	}
 }
 
+func TestFirstPositional_Plain(t *testing.T) {
+	name, rest := FirstPositional([]string{"create_wall"})
+	if name != "create_wall" {
+		t.Fatalf("expected 'create_wall', got %q", name)
+	}
+	if len(rest) != 0 {
+		t.Fatalf("expected empty rest, got %v", rest)
+	}
+}
+
+func TestFirstPositional_SkipsGlobalFlagsWithValue(t *testing.T) {
+	name, rest := FirstPositional([]string{"--revit", "2019", "schema-cmd"})
+	if name != "schema-cmd" {
+		t.Fatalf("expected 'schema-cmd', got %q", name)
+	}
+	if len(rest) != 0 {
+		t.Fatalf("expected empty rest, got %v", rest)
+	}
+}
+
+func TestFirstPositional_SkipsInlineGlobalFlags(t *testing.T) {
+	name, rest := FirstPositional([]string{"--url=http://localhost:5011", "--pid", "42", "check", "--json"})
+	if name != "check" {
+		t.Fatalf("expected 'check', got %q", name)
+	}
+	if len(rest) != 1 || rest[0] != "--json" {
+		t.Fatalf("expected rest ['--json'], got %v", rest)
+	}
+}
+
+func TestFirstPositional_SkipsSubCommandBooleanFlags(t *testing.T) {
+	name, _ := FirstPositional([]string{"--refresh", "commands"})
+	if name != "commands" {
+		t.Fatalf("expected 'commands', got %q", name)
+	}
+}
+
+func TestFirstPositional_NoneFound(t *testing.T) {
+	name, rest := FirstPositional([]string{"--revit", "2019"})
+	if name != "" {
+		t.Fatalf("expected empty name, got %q", name)
+	}
+	if rest != nil {
+		t.Fatalf("expected nil rest, got %v", rest)
+	}
+}
+
 func TestFindArg_FindsShortAlias(t *testing.T) {
 	args := []string{"-n", "wall"}
 	val, ok := FindArg(args, "--name", "-n")

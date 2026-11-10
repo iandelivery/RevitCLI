@@ -173,7 +173,11 @@ namespace RevitCliBridge
                         CliLogger.Warn("auth_rejected",
                             ("request_id", requestId), ("path", path));
                         response.StatusCode = 401;
-                        response.Headers["WWW-Authenticate"] = "Bearer";
+                        // WWW-Authenticate is a restricted header: assigning it
+                        // through the Headers indexer throws ArgumentException
+                        // ("must be modified using the appropriate property or
+                        // method"). AddHeader is the supported way.
+                        response.AddHeader("WWW-Authenticate", "Bearer");
                         await WriteJsonResponseAsync(response, new
                         {
                             error = "Unauthorized. Provide 'Authorization: Bearer <api_key>' header.",
@@ -404,6 +408,11 @@ namespace RevitCliBridge
 
                 if (completedTask == taskInfo.Tcs.Task)
                 {
+                    // Map failed tasks to a non-2xx status so legacy (non-SSE)
+                    // clients exit non-zero on error responses too.
+                    var finalTask = TaskRegistry.GetTask(input.TaskId);
+                    if (finalTask != null && finalTask.Status == CliTaskStatus.Failed)
+                        response.StatusCode = 500;
                     await WriteJsonResponseAsync(response, taskInfo.Tcs.Task.Result);
                 }
                 else

@@ -44,22 +44,24 @@ func (ConfigureHandler) Metadata() abstractions.CommandMetadata {
 }
 
 func (ConfigureHandler) Handle(ctx context.Context, args []string, send abstractions.SendCommandFunc) int {
-	if len(args) == 0 {
+	// Skip global flags (--url/--pid/--revit) before reading the sub-command.
+	sub, rest := abstractions.FirstPositional(args)
+	if sub == "" {
 		fmt.Fprintln(os.Stderr, "Error: sub-command required (setup, teardown, check, port)")
 		return 1
 	}
 
-	switch args[0] {
+	switch sub {
 	case "setup":
-		return configureSetup(args[1:])
+		return configureSetup(rest)
 	case "teardown":
-		return configureTeardown(args[1:])
+		return configureTeardown(rest)
 	case "check":
-		return configureCheck(args[1:])
+		return configureCheck(rest)
 	case "port":
-		return configurePort(args[1:])
+		return configurePort(rest)
 	default:
-		fmt.Fprintf(os.Stderr, "Unknown configure sub-command: %s\n", args[0])
+		fmt.Fprintf(os.Stderr, "Unknown configure sub-command: %s\n", sub)
 		fmt.Fprintln(os.Stderr, "Available: setup, teardown, check, port")
 		return 1
 	}

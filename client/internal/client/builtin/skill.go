@@ -37,23 +37,25 @@ func (SkillHandler) Metadata() abstractions.CommandMetadata {
 }
 
 func (SkillHandler) Handle(_ context.Context, args []string, _ abstractions.SendCommandFunc) int {
-	if len(args) == 0 {
+	// Skip global flags (--url/--pid/--revit) before reading the sub-command.
+	sub, rest := abstractions.FirstPositional(args)
+	if sub == "" {
 		fmt.Fprintln(os.Stderr, "Error: sub-command required (install, show, update, uninstall)")
 		printSkillUsage()
 		return 1
 	}
 
-	switch args[0] {
+	switch sub {
 	case "install":
-		return skillInstall(args[1:])
+		return skillInstall(rest)
 	case "show":
-		return skillShow(args[1:])
+		return skillShow(rest)
 	case "update":
-		return skillUpdate(args[1:])
+		return skillUpdate(rest)
 	case "uninstall":
-		return skillUninstall(args[1:])
+		return skillUninstall(rest)
 	default:
-		fmt.Fprintf(os.Stderr, "Unknown skill sub-command: %s\n", args[0])
+		fmt.Fprintf(os.Stderr, "Unknown skill sub-command: %s\n", sub)
 		fmt.Fprintln(os.Stderr, "Available: install, show, update, uninstall")
 		return 1
 	}
