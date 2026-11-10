@@ -55,6 +55,48 @@ namespace RevitCliBridge.Handlers
         }
 
         /// <summary>
+        /// Commits (or rolls back in dry-run mode) AFTER evaluating
+        /// <paramref name="resultSnapshot"/>, so handlers can safely read
+        /// element state (Id, Name, parameters) that becomes invalid after
+        /// a dry-run rollback. The evaluation order — snapshot first, then
+        /// commit — is enforced by this API, removing the temporal hazard
+        /// from every call site:
+        /// <code>
+        /// var wall = Wall.Create(doc, line, levelId, false);
+        /// var result = tx.Commit(() => new { element_id = wall.Id.IntegerValue });
+        /// </code>
+        /// </summary>
+        public TResult Commit<TResult>(Func<TResult> resultSnapshot)
+        {
+            if (resultSnapshot is null)
+                throw new ArgumentNullException(nameof(resultSnapshot));
+
+            TResult result = resultSnapshot();
+            Commit();
+            return result;
+        }
+
+        /// <summary>
+        /// Returns <paramref name="dryRunMessage"/> in dry-run mode,
+        /// otherwise <paramref name="message"/> — for response text that
+        /// reflects what actually happened to the transaction.
+        /// </summary>
+        public string Describe(string dryRunMessage, string message)
+        {
+            return _dryRun ? dryRunMessage : message;
+        }
+
+        /// <summary>
+        /// Rolls back the transaction unconditionally (handler error paths).
+        /// Marks the transaction as handled so Dispose will not roll back again.
+        /// </summary>
+        public void RollBack()
+        {
+            _transaction.RollBack();
+            _committed = true;
+        }
+
+        /// <summary>
         /// Returns the transaction status.
         /// </summary>
         public TransactionStatus GetStatus()
