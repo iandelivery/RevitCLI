@@ -159,8 +159,8 @@ namespace RevitCliBridge
             // 8. Usage hint
             sb.AppendLine("## Usage");
             sb.AppendLine("Use the `raw` or `execute_raw` commands to invoke uncovered Revit API elements:");
-            sb.AppendLine("  revit-cli.exe raw -j '{\"command\":\"execute_raw\",\"parameters\":{\"code\":\"return doc.Title;\",\"lang\":\"csharp\"}}'");
-            sb.AppendLine("  revit-cli.exe execute_raw --lang csharp --code \"return doc.Title;\"");
+            sb.AppendLine("  revit-cli.exe raw -j '{\"command\":\"execute_raw\",\"parameters\":{\"code\":\"return doc.Title;\",\"language\":\"csharp\"}}'");
+            sb.AppendLine("  revit-cli.exe execute_raw --language csharp --code \"return doc.Title;\"");
 
             return sb.ToString();
         }
