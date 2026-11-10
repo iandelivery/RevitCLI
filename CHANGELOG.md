@@ -6,6 +6,22 @@ commits (feat/fix only) — do not edit released sections. Historical releases
 before v1.12.0 live on the
 [GitHub Releases page](https://github.com/iandelivery/RevitCLI/releases).
 
+## v1.15.0 (2026-11-10)
+
+### What's Changed
+#### Features
+- [feat(bridge): extend DryRunTransaction with rollback, snapshot commit and message helper](https://github.com/iandelivery/RevitCLI/commit/39b65cc)
+
+#### Bug Fixes
+- [fix(bridge): use language key in llms.txt execute_raw examples](https://github.com/iandelivery/RevitCLI/commit/ac33582)
+- [fix(client): match execute_raw flags and language param to bridge schema](https://github.com/iandelivery/RevitCLI/commit/d597d45)
+- [fix(client): accept global flags before schema/configure/skill sub-commands](https://github.com/iandelivery/RevitCLI/commit/eff6645)
+- [fix(bridge): make error responses behave like errors end to end](https://github.com/iandelivery/RevitCLI/commit/307b58f)
+- [fix(bridge): build create_wall result via snapshot commit and report dry_run](https://github.com/iandelivery/RevitCLI/commit/cc35642)
+- [fix(bridge): make dry-run roll back in all handlers declaring SupportsDryRun](https://github.com/iandelivery/RevitCLI/commit/ded08dd)
+
+**Full Changelog**: https://github.com/iandelivery/RevitCLI/compare/v1.14.0...v1.15.0
+
 ## v1.14.0 (2026-11-02)
 
 ### What's Changed
