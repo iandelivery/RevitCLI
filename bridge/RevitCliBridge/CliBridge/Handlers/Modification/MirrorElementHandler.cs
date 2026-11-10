@@ -57,9 +57,8 @@ namespace RevitCliBridge.Handlers.Modification
 
             var plane = Plane.CreateByNormalAndOrigin(normal, origin);
 
-            using (Transaction t = new Transaction(doc, "CLI Mirror Element"))
+            using (var t = new DryRunTransaction(doc, "CLI Mirror Element", cmd.DryRun))
             {
-                t.Start();
                 t.ConfigureFailureHandling();
 
                 ElementTransformUtils.MirrorElement(doc, element.Id, plane);

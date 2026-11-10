@@ -60,9 +60,8 @@ namespace RevitCliBridge.Handlers.Creation
 
             ViewSheet? sheet = null;
 
-            using (Transaction t = new Transaction(doc, "CLI Create Sheet"))
+            using (var t = new DryRunTransaction(doc, "CLI Create Sheet", cmd.DryRun))
             {
-                t.Start();
                 t.ConfigureFailureHandling();
 
                 try

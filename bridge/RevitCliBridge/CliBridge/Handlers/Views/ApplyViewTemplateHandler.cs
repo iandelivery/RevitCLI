@@ -67,9 +67,8 @@ namespace RevitCliBridge.Handlers.Views
             int failCount = 0;
             var results = new List<object>();
 
-            using (Transaction t = new Transaction(doc, "CLI Apply View Template"))
+            using (var t = new DryRunTransaction(doc, "CLI Apply View Template", cmd.DryRun))
             {
-                t.Start();
                 t.ConfigureFailureHandling();
 
                 foreach (var view in targetViews)

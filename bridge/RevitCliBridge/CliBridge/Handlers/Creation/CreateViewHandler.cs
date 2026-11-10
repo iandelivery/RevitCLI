@@ -41,9 +41,8 @@ namespace RevitCliBridge.Handlers.Creation
 
             View? newView = null;
 
-            using (Transaction t = new Transaction(doc, "CLI Create View"))
+            using (var t = new DryRunTransaction(doc, "CLI Create View", cmd.DryRun))
             {
-                t.Start();
                 t.ConfigureFailureHandling();
 
                 try

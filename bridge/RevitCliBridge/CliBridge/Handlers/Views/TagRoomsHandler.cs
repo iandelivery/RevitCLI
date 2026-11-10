@@ -72,9 +72,8 @@ namespace RevitCliBridge.Handlers.Views
             int successCount = 0;
             int failCount = 0;
 
-            using (Transaction t = new Transaction(doc, "CLI Tag Rooms"))
+            using (var t = new DryRunTransaction(doc, "CLI Tag Rooms", cmd.DryRun))
             {
-                t.Start();
                 t.ConfigureFailureHandling();
 
                 if (!tagType.IsActive)

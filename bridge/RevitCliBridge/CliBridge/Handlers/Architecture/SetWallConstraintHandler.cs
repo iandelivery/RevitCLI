@@ -46,9 +46,8 @@ namespace RevitCliBridge.Handlers.Architecture
             var result = new Dictionary<string, object>();
             result["wall_id"] = wallId.Value;
 
-            using (Transaction t = new Transaction(doc, "CLI Set Wall Constraint"))
+            using (var t = new DryRunTransaction(doc, "CLI Set Wall Constraint", cmd.DryRun))
             {
-                t.Start();
                 t.ConfigureFailureHandling();
 
                 if (baseLevelId is not null)

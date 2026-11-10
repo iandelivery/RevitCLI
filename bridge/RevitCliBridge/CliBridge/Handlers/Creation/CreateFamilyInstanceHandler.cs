@@ -51,9 +51,8 @@ namespace RevitCliBridge.Handlers.Creation
                         $"Invalid StructuralType: {p.StructuralType}. Valid values: {string.Join(", ", Enum.GetNames(typeof(StructuralType)))}").ToJson();
             }
 
-            using (Transaction t = new Transaction(doc, "CLI Create Family Instance"))
+            using (var t = new DryRunTransaction(doc, "CLI Create Family Instance", cmd.DryRun))
             {
-                t.Start();
                 t.ConfigureFailureHandling();
 
                 if (!symbol.IsActive)

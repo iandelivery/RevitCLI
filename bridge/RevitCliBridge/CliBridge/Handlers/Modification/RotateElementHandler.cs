@@ -59,9 +59,8 @@ namespace RevitCliBridge.Handlers.Modification
             var axis = Line.CreateUnbound(axisOrigin, axisDirection);
             var angleRadians = angleDegrees.Value * Math.PI / 180.0;
 
-            using (Transaction t = new Transaction(doc, "CLI Rotate Element"))
+            using (var t = new DryRunTransaction(doc, "CLI Rotate Element", cmd.DryRun))
             {
-                t.Start();
                 t.ConfigureFailureHandling();
 
                 ElementTransformUtils.RotateElement(doc, element.Id, axis, angleRadians);

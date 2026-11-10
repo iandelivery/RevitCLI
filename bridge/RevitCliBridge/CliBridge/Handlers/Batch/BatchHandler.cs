@@ -81,7 +81,9 @@ namespace RevitCliBridge.Handlers.Batch
                         Parameters = resolvedParams,
                         // Inherit parent request ID so sub-commands correlate
                         // back to the same originating HTTP request in logs.
-                        RequestId = cmd.RequestId
+                        RequestId = cmd.RequestId,
+                        // Propagate dry-run so sub-handlers roll back too.
+                        DryRun = cmd.DryRun
                     };
 
                     string resultJson;
@@ -137,7 +139,9 @@ namespace RevitCliBridge.Handlers.Batch
                     }
                 }
 
-                if (assimilate)
+                if (cmd.DryRun)
+                    tg.RollBack();
+                else if (assimilate)
                     tg.Assimilate();
                 else
                     tg.Commit();

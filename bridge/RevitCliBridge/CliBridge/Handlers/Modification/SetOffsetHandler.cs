@@ -53,9 +53,8 @@ namespace RevitCliBridge.Handlers.Modification
             if (topOffsetParam is null && topOffset is not null)
                 return CommandResponse.Error(cmd.TaskId, $"Element does not support top offset.").ToJson();
 
-            using (Transaction t = new Transaction(doc, "CLI Set Offset"))
+            using (var t = new DryRunTransaction(doc, "CLI Set Offset", cmd.DryRun))
             {
-                t.Start();
                 t.ConfigureFailureHandling();
 
                 double? oldBaseOffset = null;

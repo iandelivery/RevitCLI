@@ -34,9 +34,8 @@ namespace RevitCliBridge.Handlers.Creation
             var p = TryBind<CreateWallParams>(cmd, out var error);
             if (p is null) return error!;
 
-            using (Transaction t = new Transaction(doc, "CLI Create Wall"))
+            using (var t = new DryRunTransaction(doc, "CLI Create Wall", cmd.DryRun))
             {
-                t.Start();
                 t.ConfigureFailureHandling();
 
                 var start = new XYZ(p.StartX.MillimeterToFeet(), p.StartY.MillimeterToFeet(), 0);
@@ -48,20 +47,24 @@ namespace RevitCliBridge.Handlers.Creation
                     new ElementId(p.LevelId),
                     false);
 
-                t.Commit();
-
-                var result = new
+                // Commit<TResult> evaluates the snapshot BEFORE committing
+                // (or rolling back in dry-run), so wall.Id is read while the
+                // element is still alive.
+                var result = t.Commit(() => new
                 {
                     element_id = wall.Id.IntegerValue,
+                    dry_run = t.IsDryRun,
                     start_x = p.StartX,
                     start_y = p.StartY,
                     end_x = p.EndX,
                     end_y = p.EndY,
                     level_id = p.LevelId,
                     height = p.Height
-                };
+                });
 
-                return CommandResponse.Success(cmd.TaskId, result, "Wall created successfully.").ToJson();
+                return CommandResponse.Success(cmd.TaskId, result,
+                    t.Describe("[DRY-RUN] Wall validated and rolled back.",
+                               "Wall created successfully.")).ToJson();
             }
         }
     }

@@ -55,9 +55,8 @@ namespace RevitCliBridge.Handlers.Creation
             if (doorType is null)
                 return CommandResponse.Error(cmd.TaskId, $"FamilySymbol with ID {familyTypeId} not found.").ToJson();
 
-            using (Transaction t = new Transaction(doc, "CLI Create Door"))
+            using (var t = new DryRunTransaction(doc, "CLI Create Door", cmd.DryRun))
             {
-                t.Start();
                 t.ConfigureFailureHandling();
 
                 if (!doorType.IsActive)

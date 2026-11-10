@@ -52,9 +52,8 @@ namespace RevitCliBridge.Handlers.Modification
 
             string action = cmd.Command == "unhide_elements" ? "Unhide" : "Hide";
 
-            using (var t = new Transaction(doc, $"CLI {action} Elements"))
+            using (var t = new DryRunTransaction(doc, $"CLI {action} Elements", cmd.DryRun))
             {
-                t.Start();
                 t.ConfigureFailureHandling();
 
                 try

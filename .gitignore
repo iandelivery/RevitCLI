@@ -55,3 +55,8 @@ client/skills/revit-cli/revit-cli.exe
 
 # Trae
 .trae/
+
+# Secrets / credentials (CodeUp PAT, API keys) — never commit real values
+.env
+.env.*
+!.env.example

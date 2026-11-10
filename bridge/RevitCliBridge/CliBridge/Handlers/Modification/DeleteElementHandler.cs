@@ -35,9 +35,8 @@ namespace RevitCliBridge.Handlers.Modification
             if (element is null)
                 return CommandResponse.Error(cmd.TaskId, $"Element with ID {elementId} not found.").ToJson();
 
-            using (Transaction t = new Transaction(doc, "CLI Delete Element"))
+            using (var t = new DryRunTransaction(doc, "CLI Delete Element", cmd.DryRun))
             {
-                t.Start();
                 t.ConfigureFailureHandling();
 
                 doc.Delete(element.Id);

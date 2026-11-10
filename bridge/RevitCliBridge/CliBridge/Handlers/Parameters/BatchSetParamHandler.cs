@@ -55,9 +55,8 @@ namespace RevitCliBridge.Handlers.Parameters
             int failCount = 0;
             int totalElements = elementIds.Count;
 
-            using (Transaction t = new Transaction(doc, "CLI Batch Set Parameter"))
+            using (var t = new DryRunTransaction(doc, "CLI Batch Set Parameter", cmd.DryRun))
             {
-                t.Start();
                 t.ConfigureFailureHandling();
 
                 for (int i = 0; i < elementIds.Count; i++)

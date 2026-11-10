@@ -80,9 +80,8 @@ namespace RevitCliBridge.Handlers.Creation
             var resultPairs = new List<object>();
             int totalWalls = wallEntries.Count;
 
-            using (Transaction t = new Transaction(doc, "CLI Create Walls"))
+            using (var t = new DryRunTransaction(doc, "CLI Create Walls", cmd.DryRun))
             {
-                t.Start();
                 t.ConfigureFailureHandling();
 
                 for (int i = 0; i < wallEntries.Count; i++)

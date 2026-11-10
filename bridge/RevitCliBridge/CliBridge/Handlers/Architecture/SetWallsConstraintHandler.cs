@@ -72,9 +72,8 @@ namespace RevitCliBridge.Handlers.Architecture
             var resultPairs = new List<object>();
             int totalWalls = wallIds.Count;
 
-            using (Transaction t = new Transaction(doc, "CLI Set Walls Constraint"))
+            using (var t = new DryRunTransaction(doc, "CLI Set Walls Constraint", cmd.DryRun))
             {
-                t.Start();
                 t.ConfigureFailureHandling();
 
                 for (int i = 0; i < wallIds.Count; i++)
@@ -144,9 +143,8 @@ namespace RevitCliBridge.Handlers.Architecture
             int totalWalls = walls.Count;
             int processedCount = 0;
 
-            using (Transaction t = new Transaction(doc, "CLI Set All Walls Constraint"))
+            using (var t = new DryRunTransaction(doc, "CLI Set All Walls Constraint", cmd.DryRun))
             {
-                t.Start();
                 t.ConfigureFailureHandling();
 
                 foreach (Element elem in walls)
