@@ -14,12 +14,14 @@ namespace RevitCliBridge.Handlers.Query
 
         public override CommandParamSchema[] Parameters => new[]
         {
-            new CommandParamSchema { Name = "element_id", Type = "int", Required = true, Description = "Element ID to get parameters from" }
+            new CommandParamSchema { Name = "element_id", Type = "int", Required = true, Description = "Element ID to get parameters from (within the target document)" },
+            new CommandParamSchema { Name = "link", Type = "string", Required = false, Description = "Linked document to query: RevitLinkInstance id or exact link name (see get_links). Default: the host document." }
         };
 
         public override string[] Examples => new[]
         {
-            "{ \"command\": \"get_parameters\", \"parameters\": { \"element_id\": 12345 } }"
+            "{ \"command\": \"get_parameters\", \"parameters\": { \"element_id\": 12345 } }",
+            "{ \"command\": \"get_parameters\", \"parameters\": { \"element_id\": 100123, \"link\": 184324 } }"
         };
 
         protected override string Execute(UIApplication app, Document doc, Dictionary<string, object> parameters, QueuedCommand cmd)
@@ -28,11 +30,19 @@ namespace RevitCliBridge.Handlers.Query
             if (!parameters.TryGetValue("element_id", out var idVal) || idVal is null)
                 return CommandResponse.Error(cmd.TaskId, "Missing 'element_id' parameter.").ToJson();
 
+            var target = HandlerUtilities.TryResolveTargetDocument(doc, parameters, out var linkLabel);
+            if (target is null)
+                return CommandResponse.Error(cmd.TaskId, $"Linked document not loaded or not found: {linkLabel}").ToJson();
+
             int elementId = Convert.ToInt32(idVal);
-            var element = doc.GetElement(new ElementId(elementId));
+            var element = target.GetElement(new ElementId(elementId));
 
             if (element is null)
                 return CommandResponse.Error(cmd.TaskId, $"Element with ID {elementId} not found.").ToJson();
+
+            var selector = HandlerUtilities.ResolveLinkSelector(
+                HandlerUtilities.GetStringOrNull(parameters, "link"));
+            var instance = selector is null ? null : GetElementsHandler.FindInstance(doc, selector);
 
             var paramList = new List<object>();
 
@@ -55,6 +65,8 @@ namespace RevitCliBridge.Handlers.Query
             {
                 element_id = elementId,
                 element_name = element.Name,
+                link_id = instance?.Id.IntegerValue,
+                link_name = instance?.Name,
                 parameters = paramList
             };
 

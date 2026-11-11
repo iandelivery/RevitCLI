@@ -21,7 +21,8 @@ namespace RevitCliBridge.Handlers.Query
             new CommandParamSchema { Name = "category", Type = "string", Required = true, Description = "BuiltInCategory enum value (e.g. 'OST_Walls')" },
             new CommandParamSchema { Name = "param_name", Type = "string", Required = true, Description = "Parameter name to search on" },
             new CommandParamSchema { Name = "param_value", Type = "string", Required = false, Description = "Parameter value to compare (not required for 'empty' operator)" },
-            new CommandParamSchema { Name = "param_operator", Type = "string", Required = false, Description = "Comparison operator", EnumValues = new[] { "eq", "neq", "contains", "gt", "lt", "empty", "notempty" }, Default = "eq" }
+            new CommandParamSchema { Name = "param_operator", Type = "string", Required = false, Description = "Comparison operator", EnumValues = new[] { "eq", "neq", "contains", "gt", "lt", "empty", "notempty" }, Default = "eq" },
+            new CommandParamSchema { Name = "link", Type = "string", Required = false, Description = "Linked document to query: RevitLinkInstance id or exact link name (see get_links). Default: the host document." }
         };
 
         public override string[] Examples => new[]
@@ -51,6 +52,10 @@ namespace RevitCliBridge.Handlers.Query
             if (!Enum.TryParse(category, out BuiltInCategory _))
                 return $"Invalid category: {category}";
 
+            var linkError = GetElementsHandler.ValidateLinkOrNull(parameters);
+            if (linkError is not null)
+                return linkError;
+
             return null;
         }
 
@@ -72,7 +77,15 @@ namespace RevitCliBridge.Handlers.Query
             // Validate already checked these are non-null / valid enum.
             var bic = (BuiltInCategory)Enum.Parse(typeof(BuiltInCategory), category);
 
-            var collector = new FilteredElementCollector(doc)
+            var target = HandlerUtilities.TryResolveTargetDocument(doc, parameters, out var linkLabel);
+            if (target is null)
+                throw new InvalidOperationException($"Linked document not loaded or not found: {linkLabel}");
+
+            var selector = HandlerUtilities.ResolveLinkSelector(
+                HandlerUtilities.GetStringOrNull(parameters, "link"));
+            var instance = selector is null ? null : GetElementsHandler.FindInstance(doc, selector);
+
+            var collector = new FilteredElementCollector(target)
                 .OfCategory(bic)
                 .WhereElementIsNotElementType();
 
@@ -84,7 +97,9 @@ namespace RevitCliBridge.Handlers.Query
                     id = e.Id.IntegerValue,
                     name = e.Name,
                     category = e.Category?.Name,
-                    class_type = e.GetType().Name
+                    class_type = e.GetType().Name,
+                    link_id = instance?.Id.IntegerValue,
+                    link_name = instance?.Name
                 })
                 .OrderBy(e => e.id)
                 .Select(e => (object)e);
