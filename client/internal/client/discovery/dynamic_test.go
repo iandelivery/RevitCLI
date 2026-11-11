@@ -94,6 +94,38 @@ func TestParseArgs_boolCoercion(t *testing.T) {
 	}
 }
 
+// A bare boolean flag without a value means true ("doc_close --all"),
+// while an explicit value still wins ("doc_close --all false" is false)
+// and an absent flag falls back to the schema default.
+func TestParseArgs_bareBoolFlagMeansTrue(t *testing.T) {
+	def := models.CommandDef{
+		Name: "doc_close",
+		Parameters: []models.CommandParamSchema{
+			{Name: "all", Type: "bool"},
+			{Name: "save", Type: "bool", Default: false},
+		},
+	}
+	d := NewDynamicCommand(def)
+
+	params := d.parseArgs([]string{"--all"})
+	if v, ok := params["all"]; !ok || v != true {
+		t.Errorf("bare --all: got %v (%T), want true", v, v)
+	}
+	if v, ok := params["save"]; !ok || v != false {
+		t.Errorf("absent --save: got %v (%T), want schema default false", v, v)
+	}
+
+	params = d.parseArgs([]string{"--all", "false"})
+	if v, ok := params["all"]; !ok || v != false {
+		t.Errorf("--all false: got %v (%T), want false", v, v)
+	}
+
+	params = d.parseArgs([]string{"--all=true"})
+	if v, ok := params["all"]; !ok || v != true {
+		t.Errorf("--all=true: got %v (%T), want true", v, v)
+	}
+}
+
 func sectionBoxDef() models.CommandDef {
 	return models.CommandDef{
 		Name: "set_section_box",
