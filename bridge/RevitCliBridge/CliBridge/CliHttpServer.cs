@@ -1,5 +1,6 @@
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using Autodesk.Revit.DB;
 using RevitCliBridge.Abstractions;
 using System;
 using System.Collections.Generic;
@@ -230,6 +231,10 @@ namespace RevitCliBridge
                 else if (path == "/api/llms.txt" && request.HttpMethod == "GET")
                 {
                     await HandleLlmsTxtRequestAsync(response);
+                }
+                else if (path == "/api/documents" && request.HttpMethod == "GET")
+                {
+                    await HandleDocumentsRequestAsync(response);
                 }
                 else if (path == "/api/commands" && request.HttpMethod == "GET")
                 {
@@ -803,6 +808,68 @@ namespace RevitCliBridge
                 CliLogger.Error($"Error generating llms.txt: {ex.Message}");
                 response.StatusCode = 500;
                 await WriteJsonResponseAsync(response, new { error = $"Failed to generate llms.txt: {ex.Message}" });
+            }
+        }
+
+        /// <summary>
+        /// GET /api/documents — lists every open document and the active one.
+        /// Reads live Revit state from the HTTP thread, like /api/llms.txt.
+        /// The client's `list` command calls this to fill the DOCUMENT column.
+        /// </summary>
+        private async Task HandleDocumentsRequestAsync(HttpListenerResponse response)
+        {
+            try
+            {
+                var uiApp = CliBridgeStateManager.UIApplication;
+
+                var documents = new List<object>();
+                string? activePath = null;
+
+                if (uiApp != null)
+                {
+                    var activeDoc = uiApp.ActiveUIDocument?.Document;
+                    // The open-document collection lives on Application, not UIApplication.
+                    var allDocs = uiApp.Application?.Documents;
+
+                    if (allDocs != null)
+                    {
+                        foreach (Document doc in allDocs)
+                        {
+                            string? path = doc.PathName;
+                            if (string.IsNullOrEmpty(path))
+                                path = null;
+
+                            // Document has no Id property; PathName (+ Title for
+                            // unsaved docs) is the stable identity available.
+                            bool isActive = activeDoc != null &&
+                                doc.PathName == activeDoc.PathName &&
+                                doc.Title == activeDoc.Title;
+
+                            documents.Add(new
+                            {
+                                title = doc.Title,
+                                path,
+                                is_active = isActive
+                            });
+
+                            if (isActive)
+                                activePath = path;
+                        }
+                    }
+                }
+
+                response.StatusCode = 200;
+                await WriteJsonResponseAsync(response, new
+                {
+                    documents,
+                    active_path = activePath
+                });
+            }
+            catch (Exception ex)
+            {
+                CliLogger.Error($"Error listing documents: {ex.Message}");
+                response.StatusCode = 500;
+                await WriteJsonResponseAsync(response, new { error = $"Failed to list documents: {ex.Message}" });
             }
         }
 
