@@ -90,6 +90,11 @@ func (d *DynamicCommand) parseArgs(args []string) map[string]interface{} {
 		val, ok := abstractions.FindArg(args, flags...)
 		if ok {
 			result[p.Name] = coerce(val, p.Type)
+		} else if p.Type == "bool" && abstractions.HasFlag(args, flags...) {
+			// Bare boolean flag: "doc_close --all" means --all true. An
+			// explicit value still wins ("--all false" is handled by
+			// FindArg above).
+			result[p.Name] = true
 		} else if p.Default != nil {
 			result[p.Name] = p.Default
 		}
