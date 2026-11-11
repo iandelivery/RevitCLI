@@ -30,12 +30,14 @@ func (ListHandler) Handle(ctx context.Context, args []string, send abstractions.
 		return 0
 	}
 
+	enriched := enrichInstances(ctx, instances)
+
 	if abstractions.HasFlag(args, "--json") {
-		b, _ := json.MarshalIndent(instances, "", "  ")
+		b, _ := json.MarshalIndent(enriched, "", "  ")
 		fmt.Println(string(b))
 		return 0
 	}
 
-	instance.PrintInstances(instances)
+	PrintEnrichedInstances(enriched)
 	return 0
 }
