@@ -101,7 +101,7 @@ The CLI caches the command schema (fetched from `GET /api/commands`) locally wit
    cd C:\revit-cli
    .\revit-cli.exe configure setup
    ```
-   This scans the Windows registry, then copies the matching bridge files to each Revit version's addins folder with the correct port assignment.
+   This scans the Windows registry, then copies the matching bridge files to each Revit version's addins folder with the correct port assignment. For uninstalling and upgrading later, see [Install, Uninstall, and Update](#install-uninstall-and-update).
 4. Start Revit. The bridge starts in **AI Mode** automatically (controlled by `enabled` in `.config/cli_bridge_setting.json`, which is `true` by default). The **AI Mode Toggle** button in the **Revit CLI Bridge** ribbon tab is only needed if you ever want to disable it.
 5. Test the connection:
    ```powershell
@@ -220,7 +220,7 @@ cd ..\client
 .\build.ps1
 ```
 
-Both scripts accept the same `-SkipVet` / `-SkipVet` style flags and write to the same output directories the root script uses (`bridge/dist/Revit20XX/` and `client/revit-cli.exe`), so artifacts produced by either path are interchangeable. Use the root `build.ps1` for releases; use the per-project scripts for tight inner-loop development.
+Both scripts accept the same flags and write to the same output directories the root script uses (`bridge/dist/Revit20XX/` and `client/revit-cli.exe`), so artifacts produced by either path are interchangeable. Use the root `build.ps1` for releases; use the per-project scripts for tight inner-loop development.
 
 **Troubleshooting**
 
@@ -304,6 +304,43 @@ revit-cli.exe raw-mode --disable
 
 This calls `GET /api/raw-mode` to query and `POST /api/raw-mode` to toggle. The setting is in-memory only — restarting Revit resets it to the value in `cli_bridge_setting.json` (`allow_raw_execution`). For persistent changes, edit that file.
 
+## Install, Uninstall, and Update
+
+Two components can be managed independently: the **bridge add-in** (copied into each Revit version's addins folder) and the **agent skill** (`SKILL.md` registered with AI coding agents). `configure check` reports the bridge state; `skill show` reports which agents have the skill.
+
+### Install
+
+```powershell
+# Bridge add-in — installs into every detected Revit version
+revit-cli.exe configure setup
+
+# Agent skill — see Use with AI Agents below for all flags
+revit-cli.exe skill install
+```
+
+Re-running `configure setup` is safe: it refreshes the bridge files in place and preserves the stored API key so already-configured instances keep authenticating. `skill install --force` overwrites an existing skill installation.
+
+### Uninstall
+
+```powershell
+# Remove the bridge add-in from every Revit version
+revit-cli.exe configure teardown
+
+# Remove the skill from agents
+revit-cli.exe skill uninstall --all            # every agent that has it
+revit-cli.exe skill uninstall --agent claude   # specific agents only
+revit-cli.exe skill uninstall --target <dir>   # a custom skills root
+```
+
+`configure teardown` removes the `RevitCliBridge` folder and both the `@RevitCliBridge.addin` and legacy `RevitCliBridge.addin` manifests from each detected version, so upgrades never leave a stale registration behind. Close Revit first if the DLL folder is locked. Runtime state under `%LOCALAPPDATA%\revit-cli\` (instance registry, schema cache, stored API keys) is not touched — delete that folder manually for a full reset.
+
+### Update
+
+1. Download the new `revit-cli-<version>.zip` from [Releases](../../releases) and replace the previous install location (e.g. `C:\revit-cli\`).
+2. Re-run `revit-cli.exe configure setup` — it upgrades the bridge files in each Revit version's addins folder and preserves the API key.
+3. Re-sync the skill so agents reference the new executable: `revit-cli.exe skill update` (or `skill install --force`).
+4. Restart Revit, then confirm: `revit-cli.exe --version` and `revit-cli.exe ping`.
+
 ## Use with AI Agents
 
 Every release zip ships `SKILL.md` — an [Open Skill protocol](https://github.com/open-skill/protocol) file that teaches AI coding agents (Claude Code, Cursor, Codex, Trae, Trae CN, CodeBuddy, WorkBuddy, Kimi) how to drive Revit through this CLI. Register it with the agents installed in your project:
@@ -325,7 +362,7 @@ Installation copies `SKILL.md` into `<agent>/skills/revit-cli/` and rewrites the
 | `--force` | Overwrite an existing installation |
 | `--list` / `--json` | List candidates / machine-readable output |
 
-Run without flags in a terminal for an interactive multi-select. Related sub-commands: `skill show` (status), `skill update` (re-sync after upgrading the CLI), `skill uninstall`.
+Run without flags in a terminal for an interactive multi-select. For `skill show` / `skill update` / `skill uninstall`, see [Install, Uninstall, and Update](#install-uninstall-and-update).
 
 ## Features
 

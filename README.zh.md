@@ -98,8 +98,8 @@ CLI 客户端会把命令 schema（通过 `GET /api/commands` 获取）在本地
    cd C:\revit-cli
    .\revit-cli.exe configure setup
    ```
-   命令会扫描 Windows 注册表，然后把每个版本对应的桥接器文件复制到对应 Revit 版本的插件目录，并写入正确的端口。
-4. 启动 Revit，点击 **Revit CLI Bridge** 功能区选项卡中的 **AI Mode Toggle** 按钮。
+   命令会扫描 Windows 注册表，然后把每个版本对应的桥接器文件复制到对应 Revit 版本的插件目录，并写入正确的端口。卸载与升级参见[安装、卸载与更新](#安装卸载与更新)。
+4. 启动 Revit。桥接器会以 **AI Mode（默认开启）** 自动运行（由 `.config/cli_bridge_setting.json` 中的 `enabled` 控制，默认为 `true`）。**Revit CLI Bridge** 功能区选项卡中的 **AI Mode Toggle** 按钮仅在需要关闭桥接器时使用。
 5. 测试连接：
    ```powershell
    .\revit-cli.exe ping
@@ -292,6 +292,43 @@ revit-cli.exe raw-mode --disable
 
 该命令通过 `GET /api/raw-mode` 查询当前状态，通过 `POST /api/raw-mode` 进行切换。设置仅保存在内存中——重启 Revit 后会恢复为 `cli_bridge_setting.json` 中 `allow_raw_execution` 的值。若需持久化更改，请直接编辑该文件。
 
+## 安装、卸载与更新
+
+两个组件可以独立管理：**桥接器插件**（复制到各 Revit 版本的插件目录）和 **Agent skill**（注册到 AI 编程 Agent 的 `SKILL.md`）。`configure check` 报告桥接器状态；`skill show` 查看哪些 Agent 已安装 skill。
+
+### 安装
+
+```powershell
+# 桥接器插件 — 安装到所有检测到的 Revit 版本
+revit-cli.exe configure setup
+
+# Agent skill — 完整参数见下文「配合 AI 编程 Agent 使用」
+revit-cli.exe skill install
+```
+
+重复执行 `configure setup` 是安全的：它会原地刷新桥接器文件，并保留已存储的 API key，已配置的实例仍可正常认证。`skill install --force` 可覆盖已安装的 skill。
+
+### 卸载
+
+```powershell
+# 从所有 Revit 版本移除桥接器插件
+revit-cli.exe configure teardown
+
+# 从 Agent 移除 skill
+revit-cli.exe skill uninstall --all            # 所有已安装的 Agent
+revit-cli.exe skill uninstall --agent claude   # 仅指定 Agent
+revit-cli.exe skill uninstall --target <dir>   # 自定义 skills 根目录
+```
+
+`configure teardown` 会移除每个检测到版本中的 `RevitCliBridge` 文件夹，以及 `@RevitCliBridge.addin` 和旧版 `RevitCliBridge.addin` 两个清单文件，确保升级不会留下过期注册。若 DLL 目录被占用，请先关闭 Revit。`%LOCALAPPDATA%\revit-cli\` 下的运行期状态（实例注册表、Schema 缓存、已存 API key）不会被触碰——如需彻底重置，请手动删除该文件夹。
+
+### 更新
+
+1. 从 [Releases](../../releases) 下载新的 `revit-cli-<version>.zip`，替换原安装目录（如 `C:\revit-cli\`）。
+2. 重新执行 `revit-cli.exe configure setup` —— 它会升级各 Revit 版本插件目录中的桥接器文件，并保留 API key。
+3. 重新同步 skill，使 Agent 指向新的可执行文件：`revit-cli.exe skill update`（或 `skill install --force`）。
+4. 重启 Revit，然后确认：`revit-cli.exe --version` 和 `revit-cli.exe ping`。
+
 ## 配合 AI 编程 Agent 使用
 
 每个 release 压缩包都内置 `SKILL.md` —— 一个 [Open Skill 协议](https://github.com/open-skill/protocol)文件，教会 AI 编程 Agent（Claude Code、Cursor、Codex、Trae、Trae CN、CodeBuddy、WorkBuddy、Kimi）如何通过本 CLI 驱动 Revit。一条命令即可注册到项目中已安装的 Agent：
@@ -313,7 +350,7 @@ cd C:\revit-cli
 | `--force` | 覆盖已安装版本 |
 | `--list` / `--json` | 仅列出候选目标 / 机器可读输出 |
 
-在终端中不带参数运行会进入交互式多选。相关子命令：`skill show`（查看状态）、`skill update`（升级 CLI 后重新同步）、`skill uninstall`（卸载）。
+在终端中不带参数运行会进入交互式多选。`skill show` / `skill update` / `skill uninstall` 参见[安装、卸载与更新](#安装卸载与更新)。
 
 ## 功能特性
 
