@@ -329,6 +329,8 @@ revit-cli.exe skill uninstall --target <dir>   # 自定义 skills 根目录
 3. 重新同步 skill，使 Agent 指向新的可执行文件：`revit-cli.exe skill update`（或 `skill install --force`）。
 4. 重启 Revit，然后确认：`revit-cli.exe --version` 和 `revit-cli.exe ping`。
 
+如果从源码部署（`bridge\build.ps1 -Deploy`），已部署的 API key 同样会被保留；重启规则相同——运行中的桥接器在 Revit 退出前一直使用旧的二进制文件，重启 Revit 后新构建才会生效。
+
 ## 配合 AI 编程 Agent 使用
 
 每个 release 压缩包都内置 `SKILL.md` —— 一个 [Open Skill 协议](https://github.com/open-skill/protocol)文件，教会 AI 编程 Agent（Claude Code、Cursor、Codex、Trae、Trae CN、CodeBuddy、WorkBuddy、Kimi）如何通过本 CLI 驱动 Revit。一条命令即可注册到项目中已安装的 Agent：
