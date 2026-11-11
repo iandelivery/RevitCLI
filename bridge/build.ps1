@@ -340,11 +340,32 @@ if (-not $Deploy) {
                 # Copy version-specific config
                 $configSrc = Join-Path $sourceDir ".config\cli_bridge_setting.json"
                 $configDir = Join-Path $targetBridgeDir ".config"
+                $configDst = Join-Path $configDir "cli_bridge_setting.json"
                 if (-not (Test-Path $configDir)) {
                     New-Item -ItemType Directory -Path $configDir -Force | Out-Null
                 }
                 if (Test-Path $configSrc) {
-                    Copy-Item -Path $configSrc -Destination (Join-Path $configDir "cli_bridge_setting.json") -Force
+                    # Preserve the deployed api_key before the template (which
+                    # carries no key) overwrites it. Otherwise EnsureApiKey
+                    # generates a fresh key on next Revit start and every
+                    # client with a stored key gets 401s.
+                    $preservedKey = $null
+                    if (Test-Path $configDst) {
+                        try {
+                            $existing = Get-Content $configDst -Raw | ConvertFrom-Json
+                            if ($existing.api_key) { $preservedKey = $existing.api_key }
+                        } catch { }
+                    }
+                    Copy-Item -Path $configSrc -Destination $configDst -Force
+                    if ($preservedKey) {
+                        try {
+                            $json = Get-Content $configDst -Raw | ConvertFrom-Json
+                            $json | Add-Member -NotePropertyName api_key -NotePropertyValue $preservedKey -Force
+                            $json | ConvertTo-Json -Depth 10 | Set-Content $configDst -Encoding utf8
+                        } catch {
+                            Write-Host "    Warning: could not preserve api_key ($($_.Exception.Message)). Run 'revit-cli configure setup' to re-sync." -ForegroundColor Yellow
+                        }
+                    }
                 }
 
                 Write-Host "  [ OK ] Revit $version — deployed to $targetAddinsDir" -ForegroundColor Green
