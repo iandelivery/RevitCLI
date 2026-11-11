@@ -341,6 +341,8 @@ revit-cli.exe skill uninstall --target <dir>   # a custom skills root
 3. Re-sync the skill so agents reference the new executable: `revit-cli.exe skill update` (or `skill install --force`).
 4. Restart Revit, then confirm: `revit-cli.exe --version` and `revit-cli.exe ping`.
 
+If you deploy from source instead (`bridge\build.ps1 -Deploy`), the deployed API key is preserved and the same restart rule applies: a running bridge keeps its binaries until Revit exits, so restart Revit to activate the new build.
+
 ## Use with AI Agents
 
 Every release zip ships `SKILL.md` — an [Open Skill protocol](https://github.com/open-skill/protocol) file that teaches AI coding agents (Claude Code, Cursor, Codex, Trae, Trae CN, CodeBuddy, WorkBuddy, Kimi) how to drive Revit through this CLI. Register it with the agents installed in your project:

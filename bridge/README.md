@@ -86,6 +86,23 @@ client cache is updated.
 
 To disable authentication, set `api_key` to `null` or `""` in the config.
 
+### Upgrading
+
+Upgrades keep the key stable on both supported paths:
+
+- `revit-cli configure setup` (the documented update flow) rewrites the
+  deployed config in place and preserves its `api_key`, then syncs the same
+  key into the client cache. Revit can stay running — the preserved key is
+  the one the bridge already loaded.
+- `bridge\build.ps1 -Deploy` (the developer path) preserves the deployed
+  `api_key` before copying the keyless template over it.
+
+**Restart Revit after any deploy or file replacement.** A running bridge
+keeps its binaries and its in-memory key until the process exits, so a
+deploy only takes effect on the next start. If you ever replace the config
+by hand and lose the key, re-run `configure setup` to generate a fresh one
+and re-sync the client cache.
+
 Public probe endpoints (no auth required):
 
 - `GET /api/health` — liveness check
