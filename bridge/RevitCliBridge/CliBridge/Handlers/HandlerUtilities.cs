@@ -74,52 +74,87 @@ namespace RevitCliBridge.Handlers
             return null;
         }
 
-        public static List<Document> ResolveLinkDocuments(Document doc, List<RevitLinkInstance> linkInstances, Dictionary<string, object> parameters)
+        /// <summary>
+        /// Parses a raw `link` parameter value into an instance-id selector
+        /// or an exact-name selector. Delegates the pure string logic to
+        /// <see cref="LinkSelectorParser.ResolveLinkSelector"/> (linked into
+        /// the test project; see LinkSelectorParser.cs).
+        /// </summary>
+        public static LinkSelector? ResolveLinkSelector(string? raw)
         {
-            bool noLinks = parameters.ContainsKey("no_links");
-            bool allLinks = parameters.ContainsKey("all_links");
-            string[]? linkNames = null;
+            return LinkSelectorParser.ResolveLinkSelector(raw);
+        }
 
-            if (parameters.TryGetValue("link_names", out var linkNamesObj) && linkNamesObj is not null)
+        /// <summary>
+        /// Returns the linked document of a RevitLinkInstance, falling back
+        /// to a lookup in Application.Documents by the link type's external
+        /// file path. Revit 2019 can leave GetLinkDocument() null even while
+        /// the linked document is open and queryable (observed for
+        /// API-created link types, persisting across save/reopen); the path
+        /// match recovers those cases. Returns null when the link is
+        /// genuinely not loaded (no open document carries its path).
+        /// </summary>
+        public static Document? GetLinkDocumentSafe(Document hostDoc, RevitLinkInstance instance)
+        {
+            var linkDoc = instance.GetLinkDocument();
+            if (linkDoc is not null)
+                return linkDoc;
+
+            var type = hostDoc.GetElement(instance.GetTypeId()) as RevitLinkType;
+            var absPath = type?.GetExternalFileReference()?.GetAbsolutePath();
+            if (absPath is null)
+                return null;
+
+            var expected = NormalizePath(ModelPathUtils.ConvertModelPathToUserVisiblePath(absPath));
+            foreach (Document d in hostDoc.Application.Documents)
             {
-                if (linkNamesObj is System.Collections.IEnumerable enumerable && linkNamesObj is not string)
-                {
-                    var nameList = new List<string>();
-                    foreach (var item in enumerable)
-                        nameList.Add(item.ToString() ?? "");
-                    linkNames = nameList.ToArray();
-                }
-                else
-                {
-                    linkNames = linkNamesObj.ToString()?.Split(',');
-                }
+                if (!d.IsLinked || string.IsNullOrEmpty(d.PathName))
+                    continue;
+                if (string.Equals(NormalizePath(d.PathName), expected, StringComparison.Ordinal))
+                    return d;
+            }
+            return null;
+        }
+
+        private static string NormalizePath(string path)
+        {
+            return path.Replace('/', '\\').Trim().TrimEnd('\\').ToLowerInvariant();
+        }
+
+        /// <summary>
+        /// Resolves the target document for a query: the host document when
+        /// no `link` parameter is present, otherwise the linked document of
+        /// the named or id-addressed RevitLinkInstance. Returns null with
+        /// linkLabel set when the link exists but is not loaded.
+        /// </summary>
+        public static Document? TryResolveTargetDocument(
+            Document hostDoc,
+            Dictionary<string, object> parameters,
+            out string? linkLabel)
+        {
+            linkLabel = null;
+            var selector = ResolveLinkSelector(GetStringOrNull(parameters, "link"));
+            if (selector is null)
+                return hostDoc;
+
+            var instances = new FilteredElementCollector(hostDoc)
+                .OfClass(typeof(RevitLinkInstance))
+                .Cast<RevitLinkInstance>()
+                .ToList();
+
+            RevitLinkInstance? match = selector.InstanceId.HasValue
+                ? instances.FirstOrDefault(l => l.Id.IntegerValue == selector.InstanceId.Value)
+                : instances.FirstOrDefault(l =>
+                    string.Equals(l.Name, selector.Name, StringComparison.OrdinalIgnoreCase));
+
+            if (match is null)
+            {
+                linkLabel = $"no placed link matches {LinkSelectorParser.Describe(selector)}";
+                return null;
             }
 
-            if (noLinks)
-                return new List<Document>();
-
-            if (linkNames is not null && linkNames.Length > 0)
-            {
-                var nameSet = new HashSet<string>(linkNames);
-                return linkInstances
-                    .Where(l => nameSet.Contains(l.Name))
-                    .Select(l => l.GetLinkDocument())
-                    .Where(d => d is not null)
-                    .ToList()!;
-            }
-
-            if (allLinks)
-            {
-                return linkInstances
-                    .Select(l => l.GetLinkDocument())
-                    .Where(d => d is not null)
-                    .ToList()!;
-            }
-
-            return linkInstances
-                .Select(l => l.GetLinkDocument())
-                .Where(d => d is not null)
-                .ToList()!;
+            linkLabel = $"{match.Name} (id {match.Id.IntegerValue})";
+            return GetLinkDocumentSafe(hostDoc, match);
         }
     }
 }

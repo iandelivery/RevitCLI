@@ -34,5 +34,6 @@
     <Compile Include="..\RevitCliBridge\CliBridge\TaskStatus.cs" Link="Linked\TaskStatus.cs" />
     <Compile Include="..\RevitCliBridge\CliBridge\TaskInfo.cs" Link="Linked\TaskInfo.cs" />
     <Compile Include="..\RevitCliBridge\CliBridge\TaskStateMachine.cs" Link="Linked\TaskStateMachine.cs" />
+    <Compile Include="..\RevitCliBridge\CliBridge\LinkSelectorParser.cs" Link="Linked\LinkSelectorParser.cs" />
   </ItemGroup>
 </Project>

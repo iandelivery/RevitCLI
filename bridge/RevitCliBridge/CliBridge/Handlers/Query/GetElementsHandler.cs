@@ -10,7 +10,7 @@ namespace RevitCliBridge.Handlers.Query
     public class GetElementsHandler : PaginatedQueryHandler<object>
     {
         public override string CommandName => "get_elements";
-        public override string Description => "Retrieves elements from the active document, optionally filtered by category";
+        public override string Description => "Retrieves elements from the active document or a linked document, optionally filtered by category";
         public override string Category => "Query";
 
         protected override string ItemsProperty => "elements";
@@ -18,15 +18,40 @@ namespace RevitCliBridge.Handlers.Query
 
         protected override CommandParamSchema[] BaseParameters => new[]
         {
-            new CommandParamSchema { Name = "category", Type = "string", Required = false, Description = "BuiltInCategory enum value to filter (e.g. 'OST_Walls', 'OST_Doors')" }
+            new CommandParamSchema { Name = "category", Type = "string", Required = false, Description = "BuiltInCategory enum value to filter (e.g. 'OST_Walls', 'OST_Doors')" },
+            new CommandParamSchema { Name = "link", Type = "string", Required = false, Description = "Linked document to query: RevitLinkInstance id or exact link name (see get_links). Default: the host document." }
         };
 
         public override string[] Examples => new[]
         {
             "{ \"command\": \"get_elements\", \"parameters\": {} }",
             "{ \"command\": \"get_elements\", \"parameters\": { \"category\": \"OST_Walls\" } }",
-            "{ \"command\": \"get_elements\", \"parameters\": { \"category\": \"OST_Walls\", \"limit\": 100, \"offset\": 200 } }"
+            "{ \"command\": \"get_elements\", \"parameters\": { \"category\": \"OST_Walls\", \"limit\": 100, \"offset\": 200 } }",
+            "{ \"command\": \"get_elements\", \"parameters\": { \"category\": \"OST_Walls\", \"link\": 184324 } }"
         };
+
+        protected override string? Validate(Dictionary<string, object> parameters)
+        {
+            // Handlers are singletons, so the host document cannot be stashed
+            // between Validate and QuerySource. Resolve here only to surface
+            // a bad or unloaded link as an error response; QuerySource
+            // resolves again per request (cheap: a few RVT_LINK_INSTANCE
+            // elements per document).
+            return ValidateLinkOrNull(parameters);
+        }
+
+        internal static string? ValidateLinkOrNull(Dictionary<string, object> parameters)
+        {
+            if (!parameters.ContainsKey("link"))
+                return null;
+
+            var selector = HandlerUtilities.ResolveLinkSelector(
+                HandlerUtilities.GetStringOrNull(parameters, "link"));
+            if (selector is null)
+                return "Parameter 'link' is empty.";
+
+            return null;
+        }
 
         protected override IEnumerable<object> QuerySource(UIApplication app, Document doc, Dictionary<string, object> parameters)
         {
@@ -34,7 +59,24 @@ namespace RevitCliBridge.Handlers.Query
             if (parameters.TryGetValue("category", out var catVal))
                 category = catVal?.ToString();
 
-            var collector = new FilteredElementCollector(doc);
+            var target = HandlerUtilities.TryResolveTargetDocument(doc, parameters, out var linkLabel);
+            if (target is null)
+                throw new InvalidOperationException($"Linked document not loaded or not found: {linkLabel}");
+
+            // The link instance id completes the LinkElementId tuple
+            // (link_id, element id) so callers can re-address any item.
+            int? linkId = null;
+            string? linkName = null;
+            if (linkLabel is not null)
+            {
+                var selector = HandlerUtilities.ResolveLinkSelector(
+                    HandlerUtilities.GetStringOrNull(parameters, "link"));
+                var instance = FindInstance(doc, selector);
+                linkId = instance?.Id.IntegerValue;
+                linkName = instance?.Name;
+            }
+
+            var collector = new FilteredElementCollector(target);
 
             if (!string.IsNullOrEmpty(category))
             {
@@ -61,10 +103,29 @@ namespace RevitCliBridge.Handlers.Query
                     id = e.Id.IntegerValue,
                     name = e.Name,
                     category = e.Category?.Name,
-                    class_type = e.GetType().Name
+                    class_type = e.GetType().Name,
+                    link_id = linkId,
+                    link_name = linkName
                 })
                 .OrderBy(e => e.id)
                 .Select(e => (object)e);
+        }
+
+        internal static RevitLinkInstance? FindInstance(Document hostDoc, LinkSelector? selector)
+        {
+            if (selector is null)
+                return null;
+
+            var instances = new FilteredElementCollector(hostDoc)
+                .OfClass(typeof(RevitLinkInstance))
+                .Cast<RevitLinkInstance>()
+                .ToList();
+
+            if (selector.InstanceId.HasValue)
+                return instances.FirstOrDefault(l => l.Id.IntegerValue == selector.InstanceId.Value);
+
+            return instances.FirstOrDefault(l =>
+                string.Equals(l.Name, selector.Name, StringComparison.OrdinalIgnoreCase));
         }
     }
 }

@@ -43,13 +43,13 @@ aliases and to the domain-path / underscore-reversal matching in
 `CommandNameResolver` — e.g. `domain.create_wall@v2` and `wall_create@v2` both
 resolve to `create_wall@v2`.
 
-## Catalog (98 commands, 15 categories)
+## Catalog (99 commands, 15 categories)
 
 | Category | Command | Modifies Model |
 |------|------|:------------:|
 | **General** | `ping`, `undo` | No |
 | **Documents** | `document_info`, `doc_list`, `doc_open`, `doc_close`, `doc_save`, `doc_save_as`, `doc_sync` | save/save_as/sync: Yes |
-| **Query** | `get_elements`, `get_element_by_id`, `get_element_locations`, `get_element_boxes`, `get_element_types`, `get_family_symbols`, `get_family_symbol`, `get_symbol_instances`, `get_levels`, `get_parameters`, `get_views`, `get_sheets`, `get_rooms`, `get_selected_elements`, `search_elements` | No |
+| **Query** | `get_links`, `get_elements`, `get_element_by_id`, `get_element_locations`, `get_element_boxes`, `get_element_types`, `get_family_symbols`, `get_family_symbol`, `get_symbol_instances`, `get_levels`, `get_parameters`, `get_views`, `get_sheets`, `get_rooms`, `get_selected_elements`, `search_elements` | No |
 | **Creation** | `create_wall`, `create_walls`, `create_door`, `create_window`, `create_grid`, `create_family_instance`, `create_view`, `create_dimensions`, `create_sheet`, `create_room` | Yes |
 | **Modification** | `move_element`, `copy_element`, `rotate_element`, `mirror_element`, `delete_element`, `hide_elements`, `isolate_elements`, `clear_temporary_isolate`, `select_elements`, `set_offset` | most: Yes |
 | **Parameters** | `set_parameter`, `set_parameter_by_id`, `batch_set_param` | Yes |
@@ -65,6 +65,28 @@ resolve to `create_wall@v2`.
 
 > Full per-command schemas (params, types, examples, aliases) are available at
 > runtime via `GET /api/commands` or the lightweight `GET /api/catalog`.
+
+## Linked-Document Queries
+
+`get_links` lists every placed RVT link (id, load state, source path,
+placement origin). Four query commands accept a `link` parameter —
+`RevitLinkInstance` id or exact link name — and run against that linked
+document instead of the host:
+
+```bash
+revit-cli.exe get_links
+revit-cli.exe get_elements --category OST_Walls --link 184324
+revit-cli.exe get_element_by_id --element-id 100123 --link "Structural Model.rvt"
+revit-cli.exe get_parameters --element-id 100123 --link 184324
+revit-cli.exe search_elements --category OST_Walls --param_name Comments --param_operator contains --param_value Review --link 184324
+```
+
+Element ids are per document: the same integer can name different elements
+in the host and the link. Responses from a link carry `link_id` and
+`link_name`; `link_id` plus the item `id` together identify the element the
+way Revit's `LinkElementId` does. Linked documents are read-only, so modify
+commands cannot target them, and a `link` value that names an unloaded link
+returns an error naming that link.
 
 ## Parameter Binding
 
