@@ -19,23 +19,18 @@ namespace RevitCliBridge
         {
             try
             {
-                // Resolve assemblies from the add-in directory
                 AppDomain.CurrentDomain.AssemblyResolve += CurrentDomain_AssemblyResolve;
 
-                // Detect Revit version from the controlled application.
                 int revitVersion = 0;
                 try
                 {
                     var versionString = application.ControlledApplication.VersionNumber;
                     int.TryParse(versionString, out revitVersion);
                 }
-                catch { /* version detection is best-effort */ }
+                catch { }
 
-                // Initialize the CLI Bridge HTTP server with version info
                 CliBridgeStateManager.Initialize(revitVersion);
 
-                // Create the toggle external event in a valid API context so
-                // the modeless status window can request a bridge toggle later.
                 try
                 {
                     ToggleBridgeEventHandler.ToggleEvent =
@@ -47,14 +42,12 @@ namespace RevitCliBridge
                     ToggleBridgeEventHandler.ToggleEvent = null;
                 }
 
-                // Create Ribbon UI
                 try
                 {
                     application.CreateRibbonTab(TabName);
                 }
                 catch (Exception)
                 {
-                    // Tab already exists, ignore
                 }
 
                 RibbonPanel panel = application.CreateRibbonPanel(TabName, PanelName);
@@ -62,7 +55,6 @@ namespace RevitCliBridge
                 string assemblyPath = Assembly.GetExecutingAssembly().Location;
                 string directoryName = Path.GetDirectoryName(assemblyPath) ?? "";
 
-                // Add the "AI Mode Toggle" button
                 var pushButtonData = new PushButtonData(
                     "ToggleCliBridge",
                     "AI模式",

@@ -23,18 +23,11 @@ namespace RevitCliBridge
         private Task? _serverTask;
         private volatile bool _isRunning;
 
-        // Concurrency limiter to prevent unbounded task spawning.
         private static readonly SemaphoreSlim _concurrencyLimiter = new SemaphoreSlim(10, 10);
 
-        // Identity info for the /api/identity endpoint.
         private int _revitVersion;
         private int _processId;
 
-        // Static schema cache — the command definitions are derived entirely
-        // from CommandRouter (static) and do not depend on the server instance.
-        // Invalidated by InvalidateSchemaCache() when handlers are registered
-        // at runtime (e.g. plugin loading). The ETag is version-stamped so the
-        // 304 fast path is a pure string comparison with no serialization.
         private static List<CommandDef>? _cachedCommandDefs;
         private static string? _cachedSchemaEtag;
         private static readonly object _schemaCacheLock = new object();
@@ -64,7 +57,6 @@ namespace RevitCliBridge
         {
             if (_isRunning) return;
 
-            // Create a fresh CTS in case Stop() was called previously.
             _cancellationTokenSource = new CancellationTokenSource();
 
             _listener.Start();
@@ -144,8 +136,6 @@ namespace RevitCliBridge
         private async Task HandleRequestAsync(HttpListenerContext context)
         {
             bool responseHandled = false;
-            // Generate or reuse a request ID for end-to-end tracing. Clients
-            // may pass X-Request-Id to correlate; otherwise we mint a short one.
             string requestId = context.Request.Headers["X-Request-Id"];
             if (string.IsNullOrWhiteSpace(requestId))
                 requestId = Guid.NewGuid().ToString("N").Substring(0, 8);
@@ -162,10 +152,6 @@ namespace RevitCliBridge
                     ("method", request.HttpMethod),
                     ("path", path));
 
-                // Authentication gate. /api/health and /api/identity remain
-                // public so clients can probe the bridge and discover the
-                // instance without credentials. All other endpoints require
-                // a valid Bearer token when api_key is configured.
                 if (IsAuthRequired(path))
                 {
                     var authHeader = request.Headers["Authorization"];
@@ -174,10 +160,6 @@ namespace RevitCliBridge
                         CliLogger.Warn("auth_rejected",
                             ("request_id", requestId), ("path", path));
                         response.StatusCode = 401;
-                        // WWW-Authenticate is a restricted header: assigning it
-                        // through the Headers indexer throws ArgumentException
-                        // ("must be modified using the appropriate property or
-                        // method"). AddHeader is the supported way.
                         response.AddHeader("WWW-Authenticate", "Bearer");
                         await WriteJsonResponseAsync(response, new
                         {
@@ -190,13 +172,11 @@ namespace RevitCliBridge
 
                 if (path == "/api/execute" && request.HttpMethod == "POST")
                 {
-                    // Check if client requests SSE mode
                     bool isSseRequested = request.Headers["Accept"]?.Contains("text/event-stream") == true;
 
                     if (isSseRequested)
                     {
                         await HandleSseExecuteRequestAsync(request, response, requestId);
-                        // SSE handles its own response lifecycle — skip finally Close().
                         responseHandled = true;
                         return;
                     }
@@ -290,8 +270,6 @@ namespace RevitCliBridge
             }
         }
 
-        // Maximum request body size. Sourced from cli_bridge_setting.json
-        // (max_request_body_size_bytes), defaulting to 10 MB when unset.
         private static long MaxRequestBodySize =>
             CliBridgeConfigLoader.Config.MaxRequestBodySizeBytes;
 
@@ -379,7 +357,6 @@ namespace RevitCliBridge
                 RequestId = requestId
             };
 
-            // Enforce max queue size to prevent unbounded command accumulation.
             var config = CliBridgeConfigLoader.Config;
             if (TaskRegistry.CommandQueue.Count >= config.MaxCommandQueueSize)
             {
@@ -413,8 +390,6 @@ namespace RevitCliBridge
 
                 if (completedTask == taskInfo.Tcs.Task)
                 {
-                    // Map failed tasks to a non-2xx status so legacy (non-SSE)
-                    // clients exit non-zero on error responses too.
                     var finalTask = TaskRegistry.GetTask(input.TaskId);
                     if (finalTask != null && finalTask.Status == CliTaskStatus.Failed)
                         response.StatusCode = 500;
@@ -437,7 +412,6 @@ namespace RevitCliBridge
         /// </summary>
         private async Task HandleSseExecuteRequestAsync(HttpListenerRequest request, HttpListenerResponse response, string requestId)
         {
-            // 1. Parse request body
             string body = await ReadRequestBodyAsync(request, response);
             if (string.IsNullOrEmpty(body) && response.StatusCode == 413) return;
 
@@ -466,14 +440,12 @@ namespace RevitCliBridge
             if (string.IsNullOrEmpty(input.TaskId))
                 input.TaskId = Guid.NewGuid().ToString();
 
-            // 2. Set SSE response headers
             response.ContentType = "text/event-stream";
             response.Headers.Add("Cache-Control", "no-cache");
             response.Headers.Add("Connection", "keep-alive");
             response.Headers.Add("X-Accel-Buffering", "no");
             response.StatusCode = 200;
 
-            // 3. Create task and attach SSE broadcast
             var taskInfo = TaskRegistry.CreateTask(input.TaskId, input.Command);
 
             var sseCts = CancellationTokenSource.CreateLinkedTokenSource(_cancellationTokenSource.Token);
@@ -493,7 +465,6 @@ namespace RevitCliBridge
                 }
             };
 
-            // 4. Send initial "accepted" event
             try
             {
                 await WriteSseEventAsync(response.OutputStream, "accepted",
@@ -506,7 +477,6 @@ namespace RevitCliBridge
                 return;
             }
 
-            // 5. Enqueue command and wake Revit main thread up
             var queuedCommand = new QueuedCommand
             {
                 TaskId = input.TaskId,
@@ -518,7 +488,6 @@ namespace RevitCliBridge
             TaskRegistry.CommandQueue.Enqueue(queuedCommand);
             TaskRegistry.RevitEvent?.Raise();
 
-            // 6. Heartbeat mechanism: send heartbeat every 15 seconds to prevent connection from being closed by proxy/firewall
             var heartbeatCts = CancellationTokenSource.CreateLinkedTokenSource(sseCts.Token);
             var heartbeatTask = Task.Run(async () =>
             {
@@ -541,7 +510,6 @@ namespace RevitCliBridge
                 catch (OperationCanceledException) { }
             }, heartbeatCts.Token);
 
-            // 7. Keep connection alive until task completion or timeout
             int timeoutSeconds = input.TimeoutSeconds ?? CliBridgeConfigLoader.Config.TimeoutSeconds;
             var timeoutTask = Task.Delay(TimeSpan.FromSeconds(timeoutSeconds), sseCts.Token);
 
@@ -553,8 +521,6 @@ namespace RevitCliBridge
                     CommandResponse.Error(input.TaskId, "Revit API execution timed out").ToJson());
             }
 
-            // 8. Send a final SSE event to ensure the client receives the
-            // terminal state, even if the broadcast was missed.
             if (!clientDisconnected)
             {
                 try
@@ -567,10 +533,9 @@ namespace RevitCliBridge
                         await WriteSseEventAsync(response.OutputStream, finalEvent, finalData);
                     }
                 }
-                catch { /* client may have disconnected */ }
+                catch { }
             }
 
-            // 9. Cleanup
             heartbeatCts.Cancel();
             try { await heartbeatTask; } catch { }
 
@@ -782,8 +747,6 @@ namespace RevitCliBridge
                 }
                 else
                 {
-                    // No UIApplication yet (no command has been executed).
-                    // Return a minimal static version.
                     content = $"# Revit CLI Bridge - API Reference\n" +
                               $"# Instance: Revit {_revitVersion} | Port: {_port} | PID: {_processId}\n" +
                               $"# Note: Full reference requires at least one command execution.\n\n" +
@@ -828,7 +791,6 @@ namespace RevitCliBridge
                 if (uiApp != null)
                 {
                     var activeDoc = uiApp.ActiveUIDocument?.Document;
-                    // The open-document collection lives on Application, not UIApplication.
                     var allDocs = uiApp.Application?.Documents;
 
                     if (allDocs != null)
@@ -839,8 +801,6 @@ namespace RevitCliBridge
                             if (string.IsNullOrEmpty(path))
                                 path = null;
 
-                            // Document has no Id property; PathName (+ Title for
-                            // unsaved docs) is the stable identity available.
                             bool isActive = activeDoc != null &&
                                 doc.PathName == activeDoc.PathName &&
                                 doc.Title == activeDoc.Title;
@@ -883,15 +843,11 @@ namespace RevitCliBridge
         {
             var etag = GetOrBuildSchemaEtag();
 
-            // Check If-None-Match header — return 304 if schema unchanged.
-            // Fast path: pure string comparison, no serialization or hashing.
             var ifNoneMatch = request.Headers["If-None-Match"];
             if (ifNoneMatch != null && ifNoneMatch.Trim('"') == etag)
             {
                 response.StatusCode = 304;
                 response.Headers["ETag"] = $"\"{etag}\"";
-                // Do not call response.Close() here — the finally block in
-                // HandleRequestAsync will close the response safely.
                 return;
             }
 
@@ -931,7 +887,6 @@ namespace RevitCliBridge
                     defs.Add(BuildCommandDef(handler));
                 }
 
-                // Compute content hash once — not on every request.
                 var json = JsonConvert.SerializeObject(defs, Formatting.None);
                 var hash = ComputeEtag(json);
                 _cachedSchemaEtag = $"{BridgeVersionString}:{defs.Count}:{hash}";
@@ -968,7 +923,6 @@ namespace RevitCliBridge
                 var v = typeof(CliHttpServer).Assembly
                     .GetCustomAttribute<AssemblyFileVersionAttribute>()?.Version;
                 if (string.IsNullOrEmpty(v)) return "0.0.0";
-                // "2022.1.5.0" -> "2022.1.5"; v is non-null here (IsNullOrEmpty checked).
                 var parts = v!.Split('.');
                 return parts.Length >= 3 ? $"{parts[0]}.{parts[1]}.{parts[2]}" : v!;
             }
@@ -1107,8 +1061,6 @@ namespace RevitCliBridge
 
             response.ContentType = contentType;
             response.ContentLength64 = buffer.Length;
-            // Preserve any status code already set by the caller (e.g. 400, 404, 500).
-            // Only default to 200 if no non-200 code has been assigned.
             if (response.StatusCode == 0)
                 response.StatusCode = 200;
 
@@ -1121,8 +1073,6 @@ namespace RevitCliBridge
 
             response.ContentType = contentType;
             response.ContentLength64 = buffer.Length;
-            // Preserve any status code already set by the caller (e.g. 400, 404, 500).
-            // Only default to 200 if no non-200 code has been assigned.
             if (response.StatusCode == 0)
                 response.StatusCode = 200;
 

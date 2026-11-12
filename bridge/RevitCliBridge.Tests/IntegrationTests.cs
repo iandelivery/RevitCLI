@@ -22,8 +22,6 @@ namespace RevitCliBridge.Tests
     /// </summary>
     public class IntegrationTests
     {
-        // ---------- Workflow: command dispatch (resolve → bind → respond) ----------
-
         /// <summary>
         /// Sample parameter DTO used by several integration tests. Mirrors
         /// the shape of a real wall-creation command payload.
@@ -42,16 +40,12 @@ namespace RevitCliBridge.Tests
         [Fact]
         public void CommandDispatch_HappyPath_ResolvesName_BindsParams_BuildsResponse()
         {
-            // Simulate the production dispatch flow for a domain-prefixed
-            // command name with structured parameters.
             var registered = new HashSet<string> { "create_wall@v1" };
             string input = "domain.create_wall@v1";
 
-            // 1. Resolve the command name against the registry.
             string resolved = CommandNameResolver.Resolve(input, registered);
             Assert.Equal("create_wall@v1", resolved);
 
-            // 2. Bind the request parameter dictionary to the strongly-typed DTO.
             var parameters = new Dictionary<string, object>
             {
                 ["start_x"] = 0.0,
@@ -64,7 +58,6 @@ namespace RevitCliBridge.Tests
             };
             var bound = ParameterBinder.Bind<WallParams>(parameters);
 
-            // 3. Build a success response with the bound data.
             var response = CommandResponse.Success("task-1", new
             {
                 command = resolved,
@@ -74,8 +67,6 @@ namespace RevitCliBridge.Tests
             Assert.Equal("success", response.Status);
             var json = JObject.Parse(response.ToJson());
             Assert.Equal("create_wall@v1", json["data"]!["command"]!.ToString());
-            // WallParams properties are PascalCase in C# and serialize as such
-            // (no JsonProperty attributes on the test DTO).
             Assert.Equal(10.0, json["data"]!["bound"]!["EndX"]!.Value<double>());
             Assert.Equal("Curtain", json["data"]!["bound"]!["WallType"]!.ToString());
             Assert.Equal(3, json["data"]!["bound"]!["TagIds"]!.Count());
@@ -84,13 +75,9 @@ namespace RevitCliBridge.Tests
         [Fact]
         public void CommandDispatch_MissingRequiredParam_ThrowsMissingParameterException()
         {
-            // Production handlers translate missing-parameter errors into
-            // a 400 response. Verify the binder raises the expected
-            // exception type so the handler can convert it cleanly.
             var parameters = new Dictionary<string, object>
             {
                 ["start_x"] = 0.0,
-                // start_y missing
                 ["end_x"] = 10.0,
                 ["end_y"] = 20.0,
                 ["wall_type"] = "Basic",
@@ -122,31 +109,20 @@ namespace RevitCliBridge.Tests
         [Fact]
         public void CommandDispatch_UnknownCommand_ReturnsInputForHandlerTo404()
         {
-            // When the resolver can't match the input to a registered
-            // command, it returns the input unchanged. Production
-            // handlers use this as the signal to return a 404-style
-            // error response.
             var registered = new HashSet<string> { "create_wall@v1" };
             string resolved = CommandNameResolver.Resolve("nonexistent@v1", registered);
 
             Assert.Equal("nonexistent@v1", resolved);
             Assert.NotEqual("create_wall@v1", resolved);
 
-            // Handler builds an error response with the unresolved name.
             var response = CommandResponse.Error("task-x", $"Unknown command: {resolved}");
             Assert.Equal("error", response.Status);
             Assert.Contains("Unknown command: nonexistent@v1", response.Message);
         }
 
-        // ---------- Workflow: pagination (parse → build → serialize) ----------
-
         [Fact]
         public void Pagination_FullFlow_ParsesQuery_BuildsPage_SerializesResult()
         {
-            // Mirrors the production list-elements handler:
-            // 1. Parse limit/offset from the query dict (with clamping).
-            // 2. Apply pagination to the ordered source.
-            // 3. Wrap the page in a JSON response.
             var query = new Dictionary<string, object>
             {
                 ["limit"] = "5",
@@ -182,15 +158,11 @@ namespace RevitCliBridge.Tests
         [Fact]
         public void Pagination_ClampsOversizedLimitToMax_BeforeBuildingPage()
         {
-            // A malicious client requests limit=999_999. GetPagingParams
-            // must clamp to MaxLimit (5000) so we don't materialize
-            // an enormous list.
             var query = new Dictionary<string, object> { ["limit"] = 999_999 };
             var (limit, _) = PagedResultBuilder.GetPagingParams(query);
 
             Assert.Equal(PagedResultBuilder.MaxLimit, limit);
 
-            // The clamped limit is then used to build the page.
             var source = Enumerable.Range(1, 6000);
             var page = PagedResultBuilder.Build(source, limit, offset: 0);
             Assert.Equal(PagedResultBuilder.MaxLimit, page.Items.Count);
@@ -200,8 +172,6 @@ namespace RevitCliBridge.Tests
         [Fact]
         public void Pagination_LastPartialPage_HasMoreFalse_StopsIteration()
         {
-            // The has_more trick must return false on the final page
-            // so the client knows to stop fetching.
             var source = Enumerable.Range(1, 25);
             var query = new Dictionary<string, object> { ["limit"] = 10, ["offset"] = 20 };
             var (limit, offset) = PagedResultBuilder.GetPagingParams(query);
@@ -212,18 +182,12 @@ namespace RevitCliBridge.Tests
 
             var response = CommandResponse.Success("t", new { page.Items, page.HasMore });
             var json = JObject.Parse(response.ToJson());
-            // Anonymous-type properties serialize as PascalCase by default.
             Assert.False(json["data"]!["HasMore"]!.Value<bool>());
         }
-
-        // ---------- Workflow: SSE event stream for task lifecycle ----------
 
         [Fact]
         public void SseEvent_Lifecycle_PendingToRunningToCompleted_SubscriberReceivesAllEvents()
         {
-            // The SSE subscriber registered on a TaskInfo must see one event
-            // per state-machine transition, in order. This is the contract
-            // the bridge's /events endpoint relies on.
             var task = new TaskInfo { TaskId = "task-sse", Command = "ping" };
             var events = new List<(string name, string json)>();
             task.OnSseEvent += (name, json) => events.Add((name, json));
@@ -237,22 +201,18 @@ namespace RevitCliBridge.Tests
             Assert.Equal("progress", events[1].name);
             Assert.Equal("completed", events[2].name);
 
-            // First event: progress=0 (the SetRunning broadcast).
             var first = JObject.Parse(events[0].json);
             Assert.Equal(0, first["progress"]!.Value<int>());
             Assert.Equal("Execution started", first["message"]!.ToString());
 
-            // Second event: progress=50.
             var second = JObject.Parse(events[1].json);
             Assert.Equal(50, second["progress"]!.Value<int>());
             Assert.Equal("halfway", second["message"]!.ToString());
 
-            // Third event: completed with parsed JSON result.
             var third = JObject.Parse(events[2].json);
             Assert.Equal("completed", third["status"]!.ToString());
             Assert.Equal(true, third["result"]!["ok"]!.Value<bool>());
 
-            // Final task state reflects the last transition.
             Assert.Equal(CliTaskStatus.Completed, task.Status);
         }
 
@@ -278,39 +238,27 @@ namespace RevitCliBridge.Tests
         [Fact]
         public async System.Threading.Tasks.Task SseEvent_TaskCompletion_AwaiterUnblocksOnCompleted()
         {
-            // A client polling the task result via the TCS must unblock
-            // when SetCompleted fires. This is the contract that makes
-            // long-poll work without busy-waiting.
             var task = new TaskInfo { TaskId = "task-await", Command = "ping" };
 
-            // Start an awaiter that completes when the TCS does.
             var awaiter = System.Threading.Tasks.Task.Run(() => task.Tcs.Task.Result);
 
-            // Give the awaiter a moment to register.
             await System.Threading.Tasks.Task.Delay(20);
             Assert.False(awaiter.IsCompleted);
 
             TaskStateMachine.SetCompleted(task, "{\"done\":true}");
 
-            // The awaiter should now complete with the result JSON.
             string result = await awaiter;
             Assert.Equal("{\"done\":true}", result);
         }
 
-        // ---------- Workflow: auth gate then dispatch ----------
-
         [Fact]
         public void AuthGate_ValidToken_ProceedsToDispatch()
         {
-            // Production flow: validate bearer token, then resolve command
-            // and bind params. Token must be stripped of "Bearer " prefix
-            // before being compared to the configured ApiKey.
             var config = new CliBridgeConfig { ApiKey = "secret-123" };
             string bearer = "Bearer secret-123";
 
             Assert.True(CliBridgeConfigAuth.Validate(config, bearer));
 
-            // Auth succeeded → proceed with dispatch.
             var registered = new HashSet<string> { "ping@v1" };
             string resolved = CommandNameResolver.Resolve("ping@v1", registered);
             Assert.Equal("ping@v1", resolved);
@@ -327,7 +275,6 @@ namespace RevitCliBridge.Tests
 
             Assert.False(CliBridgeConfigAuth.Validate(config, bearer));
 
-            // Auth failed → handler short-circuits before dispatch.
             var response = CommandResponse.Error("task-auth-fail", "Unauthorized", "Invalid API key");
             Assert.Equal("error", response.Status);
             Assert.Equal("Unauthorized", response.Message);
@@ -336,12 +283,9 @@ namespace RevitCliBridge.Tests
         [Fact]
         public void AuthGate_Disabled_SkipsAuthAndDispatches()
         {
-            // When ApiKey is null/empty, auth is disabled and every
-            // request proceeds to dispatch directly.
             var config = new CliBridgeConfig { ApiKey = null };
             Assert.False(CliBridgeConfigAuth.IsEnabled(config));
 
-            // Any token (including null) passes the gate.
             Assert.True(CliBridgeConfigAuth.Validate(config, null));
 
             var registered = new HashSet<string> { "ping@v1" };
@@ -349,14 +293,9 @@ namespace RevitCliBridge.Tests
             Assert.Equal("ping@v1", resolved);
         }
 
-        // ---------- Workflow: schema generation → response serialization ----------
-
         [Fact]
         public void SchemaGeneration_BuildsCommandDef_SerializesToExpectedJsonContract()
         {
-            // The /schema endpoint exposes a CommandDef per registered
-            // command. Verify the DTO serializes with the field names
-            // the Go client expects.
             var def = new CommandDef
             {
                 Name = "create_wall",
@@ -404,9 +343,6 @@ namespace RevitCliBridge.Tests
         [Fact]
         public void SchemaGeneration_VersionedCommand_PreservesVersionInName()
         {
-            // The resolver may normalize a domain-prefixed input to a
-            // registered versioned name. The schema response should
-            // report the resolved (registered) name, not the input.
             var registered = new HashSet<string> { "create_wall@v2" };
             string resolved = CommandNameResolver.Resolve("domain.create_wall@v2", registered);
 
@@ -440,29 +376,23 @@ namespace RevitCliBridge.Tests
         {
             var names = new HashSet<string>();
 
-            // 70 bare names: cmd_000 ... cmd_069
             for (int i = 0; i < 70; i++)
                 names.Add($"cmd_{i:D3}");
 
-            // 50 versioned names: cmd_070@v1 ... cmd_119@v1
             for (int i = 70; i < 120; i++)
                 names.Add($"cmd_{i:D3}@v1");
 
-            // 30 domain-prefixed names: domain_alpha.cmd_120 ...
             for (int i = 120; i < 150; i++)
                 names.Add($"domain_alpha.cmd_{i:D3}");
 
             return names;
         }
 
-        // ---------- CommandNameResolver at scale ----------
-
         [Fact]
         public void Resolve_AtScale_BareName_LookupIsFastAndCorrect()
         {
             var registered = BuildRegisteredNames();
 
-            // Resolve a bare name from the middle of the set.
             string resolved = CommandNameResolver.Resolve("cmd_035", registered);
 
             Assert.Equal("cmd_035", resolved);
@@ -481,11 +411,6 @@ namespace RevitCliBridge.Tests
         [Fact]
         public void Resolve_AtScale_DomainPath_TriesSuffixButFallsBackToInput()
         {
-            // cmd_125 is registered as "domain_alpha.cmd_125". An input
-            // like "domain_beta.cmd_125" tries the suffix "cmd_125",
-            // which isn't registered on its own — so the resolver
-            // returns the input unchanged. Cross-domain suffix matching
-            // is NOT supported; only bare-suffix matches resolve.
             var registered = BuildRegisteredNames();
 
             string resolved = CommandNameResolver.Resolve("domain_beta.cmd_125", registered);
@@ -496,8 +421,6 @@ namespace RevitCliBridge.Tests
         [Fact]
         public void Resolve_AtScale_DomainPath_BareSuffixMatchResolves()
         {
-            // Register a bare "cmd_125" alongside the domain-prefixed
-            // entry. A domain_beta input should resolve to the bare name.
             var registered = BuildRegisteredNames();
             registered.Add("cmd_125");
 
@@ -509,8 +432,6 @@ namespace RevitCliBridge.Tests
         [Fact]
         public void Resolve_AtScale_UnderscoreReversal_FindsTwoPartMatch()
         {
-            // For two-segment names, the resolver tries the underscore-
-            // reversed form. Register cmd_a_b and resolve b_a_cmd.
             var registered = new HashSet<string> { "create_wall", "create_door", "create_window" };
             registered.Add("level_wall");
 
@@ -522,8 +443,6 @@ namespace RevitCliBridge.Tests
         [Fact]
         public void Resolve_AtScale_NonExistent_ReturnsInputUnchanged()
         {
-            // Out of 150 commands, none matches "no_such_command@v9".
-            // The resolver must return the input unchanged (no exception).
             var registered = BuildRegisteredNames();
 
             string resolved = CommandNameResolver.Resolve("no_such_command@v9", registered);
@@ -534,10 +453,6 @@ namespace RevitCliBridge.Tests
         [Fact]
         public void Resolve_AtScale_AllCommandsResolveCorrectly()
         {
-            // Brute-force verify that every registered name resolves to
-            // itself when passed directly. This catches off-by-one errors
-            // in the resolver's suffix/reversal logic that might surface
-            // only on specific name patterns.
             var registered = BuildRegisteredNames();
 
             foreach (string name in registered)
@@ -547,14 +462,9 @@ namespace RevitCliBridge.Tests
             }
         }
 
-        // ---------- Schema serialization at scale ----------
-
         [Fact]
         public void SchemaSerialization_AtScale_AllCommandsIncludedInResponse()
         {
-            // The /api/commands endpoint serializes the full CommandSchema
-            // with every registered command. At 150 commands, the response
-            // JSON must include all of them — none dropped silently.
             var registered = BuildRegisteredNames();
             var schema = new CommandSchema
             {
@@ -574,7 +484,6 @@ namespace RevitCliBridge.Tests
             var parsed = JObject.Parse(json);
 
             Assert.Equal(CommandCount, parsed["commands"]!.Count());
-            // Spot-check first and last entries to ensure no truncation.
             Assert.Equal("cmd_000", parsed["commands"]![0]!["name"]!.ToString());
             Assert.Equal("domain_alpha.cmd_149", parsed["commands"]![149]!["name"]!.ToString());
         }
@@ -582,12 +491,6 @@ namespace RevitCliBridge.Tests
         [Fact]
         public void SchemaSerialization_AtScale_ResponseSizeStaysReasonable()
         {
-            // Guard against the schema response growing unbounded as
-            // command count grows. With 150 commands and minimal
-            // per-command metadata, the JSON should be well under
-            // 200 KB. If this test starts failing, it means per-command
-            // metadata is bloating — split into the lightweight catalog
-            // response (CommandCatalog) and full schema.
             var registered = BuildRegisteredNames();
             var schema = new CommandSchema
             {
@@ -604,21 +507,13 @@ namespace RevitCliBridge.Tests
 
             string json = JsonConvert.SerializeObject(schema);
 
-            // 150 commands × ~80 bytes each ≈ 12 KB. Allow generous
-            // headroom for parameter schemas and examples.
             Assert.True(json.Length < 200_000,
                 $"Schema JSON grew to {json.Length} bytes — investigate per-command bloat");
         }
 
-        // ---------- Catalog (lightweight) at scale ----------
-
         [Fact]
         public void CatalogSerialization_AtScale_ReportedCountMatchesActualCount()
         {
-            // The catalog endpoint exists specifically for the 100+
-            // command case — it trades parameter schemas for size.
-            // Verify CommandCount matches the actual list length so
-            // clients can use it for sanity checks.
             var registered = BuildRegisteredNames();
             var catalog = new CommandCatalog
             {
@@ -645,9 +540,6 @@ namespace RevitCliBridge.Tests
         [Fact]
         public void CatalogSerialization_AtScale_IsMuchSmallerThanFullSchema()
         {
-            // The whole point of the catalog DTO is to be smaller than
-            // the full schema. Verify the size ratio holds at 150
-            // commands so AI agents don't waste context tokens.
             var registered = BuildRegisteredNames();
 
             var fullSchema = new CommandSchema
@@ -684,19 +576,14 @@ namespace RevitCliBridge.Tests
                 $"Catalog ({catalogJson.Length} bytes) should be smaller than full schema ({fullJson.Length} bytes)");
         }
 
-        // ---------- Pagination at scale ----------
-
         [Fact]
         public void Pagination_AtScale_WalksAllPagesWithoutOverlapOrGaps()
         {
-            // With 150 commands and a page size of 25, walking 6 pages
-            // must cover every command exactly once. This is the
-            // pagination contract clients rely on for discovery.
             var all = Enumerable.Range(0, CommandCount)
                 .Select(i => $"cmd_{i:D3}")
                 .ToList();
             int pageSize = 25;
-            int expectedPages = (CommandCount + pageSize - 1) / pageSize; // 6 pages
+            int expectedPages = (CommandCount + pageSize - 1) / pageSize;
 
             var seen = new HashSet<string>();
             int actualPages = 0;
@@ -718,13 +605,10 @@ namespace RevitCliBridge.Tests
         [Fact]
         public void Pagination_AtScale_HasMoreFlipsOnFinalPage()
         {
-            // The has_more flag must be true for all pages except the
-            // last one, where it flips to false. This is how clients
-            // know to stop fetching.
             var all = Enumerable.Range(0, CommandCount)
                 .Select(i => $"cmd_{i:D3}")
                 .ToList();
-            int pageSize = 50; // 3 pages: 50, 50, 50
+            int pageSize = 50;
 
             for (int page = 0; page < 3; page++)
             {
@@ -737,9 +621,6 @@ namespace RevitCliBridge.Tests
         [Fact]
         public void Pagination_AtScale_DefaultLimitReturnsFirstPageOnly()
         {
-            // A client that omits the limit query parameter gets the
-            // default page (DefaultLimit=500). With only 150 commands,
-            // everything fits on one page and has_more is false.
             var all = Enumerable.Range(0, CommandCount)
                 .Select(i => $"cmd_{i:D3}")
                 .ToList();
@@ -753,24 +634,16 @@ namespace RevitCliBridge.Tests
             Assert.False(result.HasMore);
         }
 
-        // ---------- Auth + dispatch at scale ----------
-
         [Fact]
         public void AuthGate_AtScale_DoesNotBlockOnCommandCount()
         {
-            // The auth gate runs before command lookup. With 150
-            // registered commands, the auth check must still be O(1)
-            // — it only inspects the configured ApiKey, not the
-            // command registry.
             var registered = BuildRegisteredNames();
             var config = new CliBridgeConfig { ApiKey = "key-123" };
 
-            // Validate token then resolve a command from the middle.
             Assert.True(CliBridgeConfigAuth.Validate(config, "Bearer key-123"));
             string resolved = CommandNameResolver.Resolve("cmd_075@v1", registered);
             Assert.Equal("cmd_075@v1", resolved);
 
-            // Auth rejection must short-circuit before lookup.
             Assert.False(CliBridgeConfigAuth.Validate(config, "Bearer wrong"));
         }
     }

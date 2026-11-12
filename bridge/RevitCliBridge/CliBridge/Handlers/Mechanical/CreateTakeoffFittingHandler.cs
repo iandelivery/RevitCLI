@@ -53,7 +53,6 @@ namespace RevitCliBridge.Handlers.Mechanical
             if (mainCurve is null)
                 return CommandResponse.Error(cmd.TaskId, "Main duct has no location curve.").ToJson();
 
-            // Resolve the branch connector.
             Connector? branchConnector;
             if (p.BranchConnectorIndex.HasValue)
             {
@@ -67,7 +66,6 @@ namespace RevitCliBridge.Handlers.Mechanical
             }
             else
             {
-                // Auto-select the branch connector closest to the main curve.
                 branchConnector = MepCurveGeometry.FindClosestConnectorToCurve(branch, mainCurve);
             }
 
@@ -78,8 +76,6 @@ namespace RevitCliBridge.Handlers.Mechanical
             try
             {
                 tx.ConfigureFailureHandling();
-                // NewTakeoffFitting takes (branchConnector, mainMEPCurve).
-                // Revit places the tap on the main body automatically.
                 var fitting = doc.Create.NewTakeoffFitting(branchConnector, main);
                 tx.Commit();
 

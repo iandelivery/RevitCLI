@@ -36,7 +36,6 @@ namespace RevitCliBridge.Handlers.Mep
             if (e1 is null || e2 is null)
                 return (null, null, $"One or both element IDs do not refer to a {elementLabel}.");
 
-            // Auto-select closest pair when no indices provided.
             if (!connectorIndex1.HasValue && !connectorIndex2.HasValue)
             {
                 var pair = MepCurveGeometry.FindClosestConnectors(e1, e2);
@@ -45,7 +44,6 @@ namespace RevitCliBridge.Handlers.Mep
                 return (pair.Value.a, pair.Value.b, null);
             }
 
-            // Explicit indices — validate range and pick.
             var c1 = PickByIndex(e1, connectorIndex1);
             var c2 = PickByIndex(e2, connectorIndex2);
 

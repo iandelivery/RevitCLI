@@ -27,7 +27,7 @@ type SseClient struct {
 // NewSseClient creates a new SSE client targeting the given base URL.
 func NewSseClient(baseURL string) *SseClient {
 	return &SseClient{
-		httpClient: &http.Client{Timeout: 0}, // no overall timeout; SSE is long-lived
+		httpClient: &http.Client{Timeout: 0},
 		baseURL:    baseURL,
 	}
 }
@@ -60,8 +60,6 @@ func (c *SseClient) consumeSSEStream(ctx context.Context, command string, parame
 		"timeout_seconds": 120,
 	}
 	if parameters != nil {
-		// The bridge reads dry_run from the top-level payload, while the
-		// CLI injects it into the parameters map — hoist it before sending.
 		if pm, ok := parameters.(map[string]interface{}); ok {
 			if dr, exists := pm["dry_run"]; exists {
 				payload["dry_run"] = dr
@@ -95,7 +93,6 @@ func (c *SseClient) consumeSSEStream(ctx context.Context, command string, parame
 	}
 	defer resp.Body.Close()
 
-	// If server doesn't support SSE, fall back to legacy JSON handling.
 	ct := resp.Header.Get("Content-Type")
 	if !strings.HasPrefix(ct, "text/event-stream") {
 		return c.handleLegacyResponse(resp)
@@ -148,7 +145,6 @@ func (c *SseClient) readSSEStream(ctx context.Context, command string, body io.R
 		default:
 		}
 
-		// Read one line with a heartbeat timeout.
 		line, err := readLineWithTimeout(ctx, reader, heartbeatTimeout)
 		if err != nil {
 			if err == io.EOF {
@@ -160,7 +156,6 @@ func (c *SseClient) readSSEStream(ctx context.Context, command string, body io.R
 		}
 
 		if line == "" {
-			// Blank line = end of event. Dispatch accumulated data.
 			if currentEvent != "" && currentData.Len() > 0 {
 				if exitCode, done := c.handleSSEEvent(currentEvent, currentData.String(), &lastProgress); done {
 					return exitCode, nil
@@ -171,7 +166,6 @@ func (c *SseClient) readSSEStream(ctx context.Context, command string, body io.R
 			continue
 		}
 
-		// Handle SSE comment lines (start with ':').
 		if strings.HasPrefix(line, ":") {
 			continue
 		}
@@ -236,7 +230,6 @@ func (c *SseClient) handleSSEEvent(eventName, data string, lastProgress *int) (i
 		return 1, true
 
 	case "heartbeat":
-		// no-op, timeout already reset by successful read
 	}
 	return 0, false
 }
@@ -266,15 +259,12 @@ func (c *SseClient) pollTaskResult(ctx context.Context, taskID string, maxWaitSe
 		default:
 		}
 
-		// Use a select-based sleep so context cancellation is respected.
 		select {
 		case <-ctx.Done():
 			return 1
 		case <-time.After(interval):
 		}
 
-		// Build an authenticated GET request instead of using
-		// httpClient.Get so the Authorization header is attached.
 		req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.baseURL+"/api/task/"+taskID, nil)
 		if err != nil {
 			continue
@@ -327,9 +317,6 @@ func (c *SseClient) pollTaskResult(ctx context.Context, taskID string, maxWaitSe
 	return 1
 }
 
-// readLineWithTimeout reads a single line from the reader, returning
-// io.EOF or an error if no data arrives within the timeout.
-// Uses context cancellation to prevent goroutine leaks.
 func readLineWithTimeout(ctx context.Context, reader *bufio.Reader, timeout time.Duration) (string, error) {
 	type result struct {
 		line string
@@ -337,13 +324,11 @@ func readLineWithTimeout(ctx context.Context, reader *bufio.Reader, timeout time
 	}
 	ch := make(chan result, 1)
 
-	// Create a cancellable context for the read goroutine.
 	readCtx, cancelRead := context.WithCancel(ctx)
-	defer cancelRead() // Ensure goroutine is cancelled when we return.
+	defer cancelRead()
 
 	go func() {
 		line, err := reader.ReadString('\n')
-		// Only send result if we haven't been cancelled.
 		select {
 		case <-readCtx.Done():
 			return
@@ -361,7 +346,6 @@ func readLineWithTimeout(ctx context.Context, reader *bufio.Reader, timeout time
 	}
 }
 
-// formatJSON pretty-prints a value as indented JSON, falling back to %v.
 func formatJSON(v interface{}) string {
 	b, err := json.MarshalIndent(v, "", "  ")
 	if err != nil {

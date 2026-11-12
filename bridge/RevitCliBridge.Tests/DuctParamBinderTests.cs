@@ -14,8 +14,6 @@ namespace RevitCliBridge.Tests
     /// </summary>
     public class DuctParamBinderTests
     {
-        // ---------- POCOs mirroring the real handler parameter bags ----------
-
         class CreateDuctParams
         {
             [Param("start_x", Required = true)]
@@ -145,8 +143,6 @@ namespace RevitCliBridge.Tests
             public int? BranchConnectorIndex { get; set; }
         }
 
-        // ---------- create_duct ----------
-
         [Fact]
         public void CreateDuct_Bind_RequiredOnly()
         {
@@ -202,7 +198,6 @@ namespace RevitCliBridge.Tests
                 ["start_x"] = 0.0, ["start_y"] = 0.0, ["start_z"] = 3000.0,
                 ["end_x"] = 5000.0, ["end_y"] = 0.0, ["end_z"] = 3000.0,
                 ["level_id"] = 3001L,
-                // system_type_id missing
             };
 
             var ex = Assert.Throws<MissingParameterException>(
@@ -218,15 +213,12 @@ namespace RevitCliBridge.Tests
                 ["start_x"] = 0.0, ["start_y"] = 0.0, ["start_z"] = 3000.0,
                 ["end_x"] = 5000.0, ["end_y"] = 0.0, ["end_z"] = 3000.0,
                 ["system_type_id"] = 4L,
-                // level_id missing
             };
 
             var ex = Assert.Throws<MissingParameterException>(
                 () => ParameterBinder.Bind<CreateDuctParams>(dict));
             Assert.Equal("level_id", ex.ParameterName);
         }
-
-        // ---------- modify_duct ----------
 
         [Fact]
         public void ModifyDuct_Bind_OnlyElementId_Required()
@@ -280,8 +272,6 @@ namespace RevitCliBridge.Tests
             Assert.Equal("element_id", ex.ParameterName);
         }
 
-        // ---------- elbow / transition / union (shared FittingParams shape) ----------
-
         [Fact]
         public void Fitting_Bind_RequiredElementIds()
         {
@@ -329,8 +319,6 @@ namespace RevitCliBridge.Tests
             Assert.Equal("element_id_2", ex.ParameterName);
         }
 
-        // ---------- tee ----------
-
         [Fact]
         public void Tee_Bind_RequiredIds()
         {
@@ -360,8 +348,6 @@ namespace RevitCliBridge.Tests
             Assert.Equal("main_element_id", ex.ParameterName);
         }
 
-        // ---------- cross ----------
-
         [Fact]
         public void Cross_Bind_AllFourRequired()
         {
@@ -389,15 +375,12 @@ namespace RevitCliBridge.Tests
                 ["main_element_id_1"] = 100L,
                 ["main_element_id_2"] = 101L,
                 ["branch_element_id_1"] = 200L,
-                // branch_element_id_2 missing
             };
 
             var ex = Assert.Throws<MissingParameterException>(
                 () => ParameterBinder.Bind<CrossParams>(dict));
             Assert.Equal("branch_element_id_2", ex.ParameterName);
         }
-
-        // ---------- takeoff ----------
 
         [Fact]
         public void Takeoff_Bind_RequiredIds()

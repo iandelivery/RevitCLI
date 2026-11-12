@@ -16,8 +16,6 @@ namespace RevitCliBridge.Tests
     /// </summary>
     public class SectionBoxParamBinderTests
     {
-        // ---------- POCOs mirroring the real handler parameter bags ----------
-
         class SetSectionBoxParams
         {
             [Param("view_id")]
@@ -53,8 +51,6 @@ namespace RevitCliBridge.Tests
             [Param("enable", Default = true)]
             public bool Enable { get; set; }
         }
-
-        // ---------- set_section_box ----------
 
         [Fact]
         public void SetSectionBox_Bind_EmptyParameters_AllOptional()
@@ -104,8 +100,6 @@ namespace RevitCliBridge.Tests
         [Fact]
         public void SetSectionBox_Bind_LongValuesCoercedToDouble()
         {
-            // JSON deserialization produces longs for integer literals —
-            // the binder must coerce them to the nullable double bounds.
             var dict = new Dictionary<string, object>
             {
                 ["min_x"] = 0L, ["min_y"] = 0L, ["min_z"] = 0L,
@@ -145,8 +139,6 @@ namespace RevitCliBridge.Tests
                 () => ParameterBinder.Bind<SetSectionBoxParams>(dict));
             Assert.Equal("element_ids", ex.ParameterName);
         }
-
-        // ---------- toggle_section_box ----------
 
         [Fact]
         public void ToggleSectionBox_Bind_EmptyParameters_EnableDefaultsTrue()

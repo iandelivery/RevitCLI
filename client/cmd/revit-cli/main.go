@@ -26,7 +26,6 @@ var Version = "dev"
 // Author is set at build time via -ldflags "-X main.Author=...".
 var Author = "Ian Chan"
 
-// banner is the ASCII art shown in help and version output.
 const banner = ".-./`)    ____    ,---.   .--.            _______   .---.  .---.    ____    ,---.   .--. \n" +
 	"\\ .-.') .'  __ `. |    \\  |  |           /   __  \\  |   |  |_ _|  .'  __ `. |    \\  |  | \n" +
 	"/ `-' \\/   '  \\  \\|  ,  \\ |  |          | ,_/  \\__) |   |  ( ' ) /   '  \\  \\|  ,  \\ |  | \n" +
@@ -37,11 +36,8 @@ const banner = ".-./`)    ____    ,---.   .--.            _______   .---.  .---.
 	" |   | \\ (_ o _) /|  |    |  |         `-'`-'     / (_{;}_)|   | \\ (_ o _) /|  |    |  | \n" +
 	" '---'  '.(_,_).' '--'    '--'           `._____.'  '(_,_) '---'  '.(_,_).' '--'    '--'"
 
-// exitCode is set by command RunE functions and read by main() after Execute().
 var exitCode int
 
-// Dummy variables for persistent flag registration (flags are parsed
-// manually from os.Args because DisableFlagParsing is true).
 var (
 	flagURL   string
 	flagPID   int
@@ -52,20 +48,13 @@ func main() {
 	builtin.ClientVersion = Version
 	root := newRootCmd()
 	if err := root.Execute(); err != nil && exitCode == 0 {
-		// Execute() returned an error but no RunE set the exit code.
-		// This happens for errors from Find()/ValidateArgs() that bypass
-		// RunE entirely (e.g., arg validation failures). Exit with 1
-		// rather than silently succeeding with exit code 0.
 		os.Exit(1)
 	}
 	os.Exit(exitCode)
 }
 
-// skillHint is the discoverability one-liner shown in help and version
-// output so users learn the AI-agent skill exists.
 const skillHint = "AI agent integration: run 'revit-cli skill install' to register this tool with Claude Code / Cursor / Trae / CodeBuddy."
 
-// newRootCmd creates the root cobra command with all built-in sub-commands.
 func newRootCmd() *cobra.Command {
 	longDesc := fmt.Sprintf("%s\n\nRevit CLI Client (Go) v%s\nCommand-line tool for AI agents to drive Autodesk Revit.\nDeveloped by %s.\n\n%s",
 		banner, Version, Author, skillHint)
@@ -76,15 +65,8 @@ func newRootCmd() *cobra.Command {
 		DisableFlagParsing: true,
 		SilenceUsage:       true,
 		SilenceErrors:      true,
-		// ArbitraryArgs allows the root command to accept any positional
-		// args. Without this, Cobra's default legacyArgs validator rejects
-		// unknown commands (anything not matching a registered subcommand)
-		// with an "unknown command" error, preventing dispatchDynamic from
-		// ever being called for dynamic commands like doc_list, undo, etc.
 		Args: cobra.ArbitraryArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			// Handle --help/-h and --version/-V manually (DisableFlagParsing
-			// prevents cobra from intercepting them).
 			for _, a := range args {
 				if a == "--help" || a == "-h" {
 					return cmd.Help()
@@ -105,8 +87,6 @@ func newRootCmd() *cobra.Command {
 		},
 	}
 
-	// Register global flags for help documentation. Actual parsing is done
-	// manually in resolveBaseURL() because DisableFlagParsing is true.
 	root.PersistentFlags().StringVar(&flagURL, "url", "", "Revit CLI server address (default: auto-discover)")
 	root.PersistentFlags().IntVar(&flagPID, "pid", 0, "Connect to a specific Revit instance by process ID")
 	root.PersistentFlags().IntVar(&flagRevit, "revit", 0, "Connect to a specific Revit version (e.g. 2022)")
@@ -115,8 +95,6 @@ func newRootCmd() *cobra.Command {
 	return root
 }
 
-// resolveBaseURL scans os.Args for --url, --pid, --revit flags and resolves
-// the bridge base URL. Used by sub-commands whose flag parsing is disabled.
 func resolveBaseURL() string {
 	args := os.Args[1:]
 	var explicitURL string
@@ -156,7 +134,6 @@ func resolveBaseURL() string {
 	return instance.ResolveURL(explicitURL, pidFlag, revitFlag)
 }
 
-// makeSend creates the SSE send function for dispatching commands to the bridge.
 func makeSend(baseURL string) abstractions.SendCommandFunc {
 	sseClient := client.NewSseClient(baseURL)
 	return abstractions.SendCommandFunc(func(ctx context.Context, cmd string, params interface{}, extra ...map[string]interface{}) int {
@@ -164,28 +141,20 @@ func makeSend(baseURL string) abstractions.SendCommandFunc {
 	})
 }
 
-// dispatchDynamic handles unknown (dynamic) commands by discovering the schema
-// from the bridge and dispatching to the matching DynamicCommand.
 func dispatchDynamic(args []string) int {
 	baseURL := resolveBaseURL()
 
-	// Find the command name (first non-flag arg). Skip global flags
-	// (--url, --pid, --revit) and their values, since DisableFlagParsing
-	// means they are still present in args.
 	cmdName := ""
 	var cmdArgs []string
 	for i := 0; i < len(args); i++ {
 		a := args[i]
-		// Skip known global flags that take a value.
 		if a == "--url" || a == "--pid" || a == "--revit" {
-			i++ // skip the value
+			i++
 			continue
 		}
-		// Skip --flag=value forms of global flags.
 		if strings.HasPrefix(a, "--url=") || strings.HasPrefix(a, "--pid=") || strings.HasPrefix(a, "--revit=") {
 			continue
 		}
-		// Skip other flags (e.g. --dry-run).
 		if strings.HasPrefix(a, "-") {
 			continue
 		}
@@ -200,18 +169,12 @@ func dispatchDynamic(args []string) int {
 	httpClient := &http.Client{Timeout: 0}
 	fetcher := discovery.NewSchemaFetcher(baseURL, httpClient)
 
-	// Fast path: fetch only the requested command's schema (~1 KB) instead
-	// of the full schema (~100 KB). The server resolves aliases, so this
-	// works even if the user typed an alias.
 	if def := fetcher.FetchCommand(cmdName); def != nil {
 		dynCmd := discovery.NewDynamicCommand(*def)
 		send := makeSend(baseURL)
 		return dynCmd.Handle(context.Background(), cmdArgs, send)
 	}
 
-	// Fallback: fetch the full schema. Needed if the per-command endpoint
-	// is unavailable (old bridge) or FetchCommand returned nil for any
-	// reason. Searches by name and aliases.
 	schema := fetcher.Fetch(false)
 	if schema == nil {
 		fmt.Fprintf(os.Stderr, "Unknown command: %s\n", cmdName)
@@ -219,7 +182,6 @@ func dispatchDynamic(args []string) int {
 		return 1
 	}
 
-	// Find matching command (by name or alias).
 	for _, def := range schema.Commands {
 		if def.Name != cmdName {
 			matched := false
@@ -243,10 +205,7 @@ func dispatchDynamic(args []string) int {
 	return 1
 }
 
-// registerBuiltinCmds creates cobra sub-commands for all built-in handlers.
 func registerBuiltinCmds(root *cobra.Command) {
-	// --- Commands that use SSE send (no direct HTTP) ---
-
 	root.AddCommand(newBuiltinCmd(
 		"ping [--json]", "Test connection to Revit",
 		[]string{"revit-cli ping", "revit-cli ping --json"},
@@ -277,8 +236,6 @@ func registerBuiltinCmds(root *cobra.Command) {
 			return builtin.ExecuteRawHandler{}
 		},
 	))
-
-	// --- Commands that use HTTP GET/POST directly ---
 
 	root.AddCommand(newBuiltinCmd(
 		"status [--json]", "Show service status",
@@ -352,8 +309,6 @@ func registerBuiltinCmds(root *cobra.Command) {
 		},
 	))
 
-	// --- Commands that don't need a bridge connection ---
-
 	root.AddCommand(newBuiltinCmd(
 		"list [--json]", "List running Revit instances",
 		[]string{"revit-cli list", "revit-cli list --json"},
@@ -384,10 +339,6 @@ func registerBuiltinCmds(root *cobra.Command) {
 	))
 }
 
-// newBuiltinCmd creates a cobra command wrapping a built-in handler.
-// needsURL indicates whether the command requires a resolved bridge URL.
-// DisableFlagParsing is true so handlers can parse their own args via
-// abstractions.FindArg / HasFlag without cobra rejecting unknown flags.
 func newBuiltinCmd(use, short string, examples []string, needsURL bool,
 	factory func(baseURL string, httpClient *http.Client) abstractions.CliCommand,
 ) *cobra.Command {
@@ -399,8 +350,6 @@ func newBuiltinCmd(use, short string, examples []string, needsURL bool,
 		SilenceUsage:       true,
 		SilenceErrors:      true,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			// Handle --help/-h manually (DisableFlagParsing prevents cobra
-			// from intercepting them).
 			for _, a := range args {
 				if a == "--help" || a == "-h" {
 					return cmd.Help()

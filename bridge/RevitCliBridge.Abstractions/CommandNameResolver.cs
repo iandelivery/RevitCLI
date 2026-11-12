@@ -56,15 +56,9 @@ namespace RevitCliBridge.Abstractions
             if (registeredNames is null || registeredNames.Count == 0) return input;
             if (registeredNames.Contains(input)) return input;
 
-            // Strip @version suffix before applying domain/underscore rules,
-            // then re-attach it so the caller looks up the versioned key.
             var (baseName, version) = SplitVersion(input);
             if (version is not null)
             {
-                // Apply domain path and underscore rules on the base name,
-                // checking for "{candidate}@{version}" in registered names.
-                // We can't recurse on Resolve() because registered names carry
-                // @version suffixes that would prevent base-name matching.
                 if (baseName.Contains("."))
                 {
                     var parts = baseName.Split('.');
@@ -93,8 +87,6 @@ namespace RevitCliBridge.Abstractions
                 return $"{baseName}@{version}";
             }
 
-            // Domain path: try progressively shorter suffixes.
-            // "elements.walls.create" → "walls.create" → "create"
             if (input.Contains("."))
             {
                 var parts = input.Split('.');
@@ -104,12 +96,10 @@ namespace RevitCliBridge.Abstractions
                     if (registeredNames.Contains(candidate)) return candidate;
                 }
 
-                // Try last segment only.
                 var lastSegment = parts[parts.Length - 1];
                 if (registeredNames.Contains(lastSegment)) return lastSegment;
             }
 
-            // Underscore reversal: "wall_create" → "create_wall" (two-segment only).
             if (input.Contains("_"))
             {
                 var parts = input.Split('_');

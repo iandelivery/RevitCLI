@@ -50,14 +50,12 @@ namespace RevitCliBridge.Abstractions
                 var hasValue = parameters is not null && parameters.TryGetValue(name, out raw) && raw is not null;
                 var isNullable = IsNullable(prop.PropertyType);
 
-                // Resolve the effective value: explicit > default > (none).
                 object? value = hasValue ? raw : attr.Default;
 
                 if (value is null)
                 {
                     if (attr.Required && !isNullable)
                         throw new MissingParameterException(name);
-                    // Leave property at its default (null for nullable, 0/false for value types).
                     continue;
                 }
 
@@ -135,7 +133,6 @@ namespace RevitCliBridge.Abstractions
                 }
             }
 
-            // Fallback: try direct assignment for matching types.
             if (nonNullable.IsAssignableFrom(value.GetType()))
                 return value;
 

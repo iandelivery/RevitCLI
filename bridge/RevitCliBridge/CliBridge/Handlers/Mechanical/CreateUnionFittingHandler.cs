@@ -49,7 +49,6 @@ namespace RevitCliBridge.Handlers.Mechanical
             if (collinearError is not null)
                 return CommandResponse.Error(cmd.TaskId, collinearError).ToJson();
 
-            // Size check: cross-sections must match for a union.
             var duct1 = (Duct)c1!.Owner;
             var duct2 = (Duct)c2!.Owner;
             var (dia1, w1, h1) = DuctUtils.Default.GetSize(duct1);

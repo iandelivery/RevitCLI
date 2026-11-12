@@ -47,7 +47,6 @@ func Discover() []InstanceInfo {
 		if entry.IsDir() || filepath.Ext(entry.Name()) != ".json" {
 			continue
 		}
-		// Only read files matching revit-*.json pattern.
 		if !matchInstanceFile(entry.Name()) {
 			continue
 		}
@@ -64,7 +63,6 @@ func Discover() []InstanceInfo {
 		}
 
 		if !isProcessAlive(info.Pid) {
-			// Clean up stale registry file.
 			os.Remove(path)
 			continue
 		}
@@ -72,7 +70,6 @@ func Discover() []InstanceInfo {
 		instances = append(instances, info)
 	}
 
-	// Sort by version (desc), then by PID.
 	sort.Slice(instances, func(i, j int) bool {
 		if instances[i].Version != instances[j].Version {
 			return instances[i].Version > instances[j].Version
@@ -97,7 +94,6 @@ func ResolveURL(explicitURL string, pidFlag int, revitFlag int) string {
 
 	instances := Discover()
 
-	// --pid takes highest priority after --url.
 	if pidFlag > 0 {
 		for _, inst := range instances {
 			if inst.Pid == pidFlag {
@@ -108,7 +104,6 @@ func ResolveURL(explicitURL string, pidFlag int, revitFlag int) string {
 		os.Exit(1)
 	}
 
-	// --revit: find first instance of that version.
 	if revitFlag > 0 {
 		for _, inst := range instances {
 			if inst.Version == revitFlag {
@@ -119,12 +114,10 @@ func ResolveURL(explicitURL string, pidFlag int, revitFlag int) string {
 		os.Exit(1)
 	}
 
-	// Auto-discover: single instance → use it.
 	if len(instances) == 1 {
 		return fmt.Sprintf("http://localhost:%d", instances[0].Port)
 	}
 
-	// Multiple instances → prompt user.
 	if len(instances) > 1 {
 		fmt.Fprintln(os.Stderr, "Multiple Revit instances detected. Specify which one to use:")
 		PrintInstances(instances)
@@ -132,15 +125,11 @@ func ResolveURL(explicitURL string, pidFlag int, revitFlag int) string {
 		os.Exit(1)
 	}
 
-	// No instances found → fail with actionable guidance. There is no
-	// legacy port fallback: no bridge version ever listens on a fixed
-	// default port, so dialing one would only produce a misleading
-	// "connection refused" error.
 	fmt.Fprintln(os.Stderr, "No running Revit bridge instance found.")
 	fmt.Fprintln(os.Stderr, "Start Revit and enable the bridge (Revit CLI Bridge tab > AI Mode Toggle), then try again.")
 	fmt.Fprintln(os.Stderr, "Run 'revit-cli list' to see running instances.")
 	os.Exit(1)
-	return "" // unreachable
+	return ""
 }
 
 // PrintInstances formats instance info as a table.
@@ -160,7 +149,6 @@ func PrintInstances(instances []InstanceInfo) {
 	}
 }
 
-// matchInstanceFile checks if a filename matches the revit-{version}-{pid}.json pattern.
 func matchInstanceFile(name string) bool {
 	if len(name) < 6 || name[:6] != "revit-" {
 		return false
@@ -172,14 +160,10 @@ func matchInstanceFile(name string) bool {
 	return true
 }
 
-// isProcessAlive checks if a process with the given PID is running.
-// On Windows, uses tasklist command since os.FindProcess always succeeds.
-// On non-Windows, uses os.FindProcess + Signal(0).
 func isProcessAlive(pid int) bool {
 	if runtime.GOOS == "windows" {
 		return isWindowsProcessAlive(pid)
 	}
-	// Unix: use FindProcess + Signal(0).
 	proc, err := os.FindProcess(pid)
 	if err != nil {
 		return false
@@ -187,22 +171,16 @@ func isProcessAlive(pid int) bool {
 	return proc.Signal(nil) == nil
 }
 
-// isWindowsProcessAlive uses tasklist to check if a PID exists on Windows.
 func isWindowsProcessAlive(pid int) bool {
 	cmd := exec.Command("tasklist", "/FI", fmt.Sprintf("PID eq %d", pid), "/NH", "/FO", "CSV")
 	output, err := cmd.Output()
 	if err != nil {
-		// If tasklist fails, conservatively assume the process is alive.
 		return true
 	}
-	// tasklist /NH /FO CSV outputs one line per matching process, e.g.:
-	// "revit.exe","1234","Console","1","1,234 KB"
-	// If no match, output is: "INFO: No tasks are running which match the specified criteria."
 	line := strings.TrimSpace(string(output))
 	if line == "" || strings.HasPrefix(line, "INFO:") {
 		return false
 	}
-	// Verify the PID appears in the output.
 	return strings.Contains(line, fmt.Sprintf("%d", pid))
 }
 

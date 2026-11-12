@@ -47,9 +47,6 @@ namespace RevitCliBridge.Handlers.Creation
                     new ElementId(p.LevelId),
                     false);
 
-                // Commit<TResult> evaluates the snapshot BEFORE committing
-                // (or rolling back in dry-run), so wall.Id is read while the
-                // element is still alive.
                 var result = t.Commit(() => new
                 {
                     element_id = wall.Id.IntegerValue,

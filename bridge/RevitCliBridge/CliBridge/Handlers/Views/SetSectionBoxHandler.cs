@@ -50,7 +50,6 @@ namespace RevitCliBridge.Handlers.Views
             }
             else
             {
-                // All six bounds are required when element_ids is omitted.
                 if (!p.MinX.HasValue || !p.MinY.HasValue || !p.MinZ.HasValue ||
                     !p.MaxX.HasValue || !p.MaxY.HasValue || !p.MaxZ.HasValue)
                 {

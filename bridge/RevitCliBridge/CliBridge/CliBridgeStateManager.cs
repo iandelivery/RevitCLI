@@ -150,7 +150,6 @@ namespace RevitCliBridge
                     _cliServer = null;
                 }
 
-                // Clean up stale instance registry files from crashed Revit instances.
                 InstanceRegistry.CleanupStale();
 
                 var handler = new CliCommandHandler();
@@ -171,7 +170,6 @@ namespace RevitCliBridge
                     allowUnsigned: CliBridgeConfigLoader.Config.AllowUnsignedPlugins,
                     trustedPublishers: CliBridgeConfigLoader.Config.TrustedPublishers);
 
-                // Write instance registry file.
                 InstanceRegistry.Register(new InstanceRegistry.InstanceInfo
                 {
                     Pid = pid,
@@ -228,7 +226,6 @@ namespace RevitCliBridge
 
             if (disposed)
             {
-                // Remove instance registry file.
                 InstanceRegistry.Unregister();
 
                 _cliServer = null;
@@ -254,7 +251,6 @@ namespace RevitCliBridge
             {
                 _ = Stop();
             }
-            // Flush any buffered log lines so nothing is lost on shutdown.
             CliLogger.Shutdown();
         }
 

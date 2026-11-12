@@ -46,7 +46,7 @@ namespace RevitCliBridge.Tests
         {
             CliLogger.Shutdown();
             ResetCliLoggerState(null);
-            try { Directory.Delete(_tempDir, recursive: true); } catch { /* best effort */ }
+            try { Directory.Delete(_tempDir, recursive: true); } catch { }
         }
 
         private static void ResetCliLoggerState(string? newDir)
@@ -60,8 +60,6 @@ namespace RevitCliBridge.Tests
             Path.Combine(
                 (string)LogDirectoryField.GetValue(null)!,
                 $"cli_bridge_{DateTime.Now:yyyy-MM-dd}.log");
-
-        // ---------- LogDirectory ----------
 
         [Fact]
         public void LogDirectory_ReturnsConfiguredPathAfterInjection()
@@ -77,8 +75,6 @@ namespace RevitCliBridge.Tests
             var second = CliLogger.LogDirectory;
             Assert.Equal(first, second);
         }
-
-        // ---------- Plain message (no fields) ----------
 
         [Fact]
         public void Info_PlainMessage_WritesLineWithInfoLevel()
@@ -109,8 +105,6 @@ namespace RevitCliBridge.Tests
             var content = File.ReadAllText(TodayLogFile());
             Assert.Contains("[ERROR] kaboom", content);
         }
-
-        // ---------- Structured fields ----------
 
         [Fact]
         public void Info_StructuredFields_RendersKeyEqualsValuePairs()
@@ -183,18 +177,13 @@ namespace RevitCliBridge.Tests
             var line = content.Split(new[] { Environment.NewLine },
                 StringSplitOptions.RemoveEmptyEntries).Last();
             Assert.Contains("[INFO] no fields", line);
-            // No trailing key=value pair should appear after the message.
             var suffix = line.Substring(line.IndexOf("no fields") + "no fields".Length);
             Assert.Equal(string.Empty, suffix.Trim());
         }
 
-        // ---------- Buffering & flushing ----------
-
         [Fact]
         public void Shutdown_FlushesBufferedLinesToDisk()
         {
-            // Before Shutdown, the 4KB buffer may not have flushed. After
-            // Shutdown, every prior line must be readable from disk.
             CliLogger.Info("buffered line 1");
             CliLogger.Info("buffered line 2");
             CliLogger.Info("buffered line 3");
@@ -229,8 +218,6 @@ namespace RevitCliBridge.Tests
             Assert.Contains("after shutdown", content);
         }
 
-        // ---------- Timestamp format ----------
-
         [Fact]
         public void LogLine_PrefixedWithTimestampAndLevel()
         {
@@ -239,12 +226,9 @@ namespace RevitCliBridge.Tests
 
             var line = File.ReadAllLines(TodayLogFile())
                 .First(l => l.Contains("timestamped"));
-            // Format: [yyyy-MM-dd HH:mm:ss.fff] [INFO] timestamped
             Assert.StartsWith("[", line);
             Assert.Contains("] [INFO] ", line);
         }
-
-        // ---------- Daily rollover ----------
 
         [Fact]
         public void EnsureWriter_OnSameDay_ReusesExistingWriter()
@@ -258,12 +242,9 @@ namespace RevitCliBridge.Tests
             Assert.Equal(firstFile, secondFile);
         }
 
-        // ---------- Independence ----------
-
         [Fact]
         public void LogDirectory_IsolatedFromProductionPath()
         {
-            // The injected temp dir must never equal the real LocalAppData path.
             var productionPath = Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
                 "RevitCliBridge", "Logs");

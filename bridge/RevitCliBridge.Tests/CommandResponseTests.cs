@@ -45,12 +45,9 @@ namespace RevitCliBridge.Tests
         {
             var resp = CommandResponse.Success("task-4", null);
             var json = resp.ToJson();
-            // NullValueHandling.Ignore should drop these fields.
             Assert.DoesNotContain("\"data\"", json);
             Assert.DoesNotContain("\"error_details\"", json);
         }
-
-        // ---------- Edge cases: factory defaults ----------
 
         [Fact]
         public void Success_WithCustomMessage_PropagatesMessage()
@@ -62,11 +59,6 @@ namespace RevitCliBridge.Tests
         [Fact]
         public void Success_WithNullTaskId_AllowsNullAndSerializesAsNull()
         {
-            // The factory doesn't null-coerce; TaskId is set directly to
-            // null. The property's default ("") is only used when the
-            // setter is never called. Verify ToJson still succeeds and
-            // produces "task_id":null (the property lacks
-            // NullValueHandling.Ignore).
             var resp = CommandResponse.Success(null!, null);
             var json = resp.ToJson();
             Assert.Contains("\"task_id\":null", json);
@@ -77,7 +69,6 @@ namespace RevitCliBridge.Tests
         {
             var resp = CommandResponse.Error("t", "fail");
             Assert.Null(resp.ErrorDetails);
-            // Data is never set by Error — should remain null.
             Assert.Null(resp.Data);
         }
 
@@ -89,15 +80,12 @@ namespace RevitCliBridge.Tests
             Assert.Equal("error", resp.Status);
         }
 
-        // ---------- Edge cases: JSON serialization ----------
-
         [Fact]
         public void ToJson_ErrorIncludesErrorDetails_WhenNonNull()
         {
             var resp = CommandResponse.Error("t", "fail", "trace@1");
             var json = resp.ToJson();
             Assert.Contains("\"error_details\":\"trace@1\"", json);
-            // Error responses never set Data, so data should be omitted.
             Assert.DoesNotContain("\"data\"", json);
         }
 
@@ -120,10 +108,6 @@ namespace RevitCliBridge.Tests
         [Fact]
         public void ToJson_ProducesStableKeyOrdering()
         {
-            // Newtonsoft serializes properties in declaration order; for the
-            // CommandResponse class, the expected order is task_id, status,
-            // message, data, error_details. Verify the serialized string
-            // respects this ordering for client compatibility.
             var resp = CommandResponse.Success("t", new { x = 1 }, "m");
             var json = resp.ToJson();
 
@@ -140,8 +124,6 @@ namespace RevitCliBridge.Tests
         [Fact]
         public void ToJson_RoundTripsThroughDeserialization()
         {
-            // Verify the JSON can be deserialized back to a CommandResponse
-            // with matching field values.
             var original = CommandResponse.Error("t-rt", "fail", "details-here");
             var json = original.ToJson();
             var deserialized = Newtonsoft.Json.JsonConvert.DeserializeObject<CommandResponse>(json);

@@ -24,7 +24,7 @@ namespace RevitCliBridge.Tests
         {
             var key = config.ApiKey;
             if (string.IsNullOrEmpty(key))
-                return true; // Auth disabled
+                return true;
 
             if (string.IsNullOrEmpty(bearerToken))
                 return false;

@@ -22,14 +22,11 @@ func FindArg(args []string, flags ...string) (string, bool) {
 	for _, flag := range flags {
 		for i := 0; i < len(args); i++ {
 			a := args[i]
-			// Inline "--flag=value" form.
 			if strings.HasPrefix(a, flag+"=") {
 				return strings.TrimPrefix(a, flag+"="), true
 			}
 			if a == flag && i+1 < len(args) {
 				val := args[i+1]
-				// Reject if the next argument looks like a flag, but keep
-				// negative numeric values.
 				if strings.HasPrefix(val, "-") && !isNumeric(val) {
 					return "", false
 				}
@@ -40,8 +37,6 @@ func FindArg(args []string, flags ...string) (string, bool) {
 	return "", false
 }
 
-// isNumeric reports whether the string parses as an integer or float,
-// which is how negative values like "-100" are distinguished from flags.
 func isNumeric(s string) bool {
 	if _, err := strconv.ParseFloat(s, 64); err == nil {
 		return true
@@ -73,16 +68,13 @@ func HasFlag(args []string, flags ...string) bool {
 func FirstPositional(args []string) (string, []string) {
 	for i := 0; i < len(args); i++ {
 		a := args[i]
-		// Global flags that take a separate value: skip flag + value.
 		if a == "--url" || a == "--pid" || a == "--revit" {
 			i++
 			continue
 		}
-		// Inline "--flag=value" forms of the global flags.
 		if strings.HasPrefix(a, "--url=") || strings.HasPrefix(a, "--pid=") || strings.HasPrefix(a, "--revit=") {
 			continue
 		}
-		// Any other flag (boolean flags of the sub-command itself).
 		if strings.HasPrefix(a, "-") {
 			continue
 		}

@@ -8,9 +8,6 @@ import (
 	"testing"
 )
 
-// makeSkillSource creates a fake skill source directory: SKILL.md with
-// the exe anchor, a references/ subdirectory, a stray exe, and a stale
-// manifest — everything install must handle.
 func makeSkillSource(t *testing.T) string {
 	t.Helper()
 	dir := t.TempDir()
@@ -50,7 +47,6 @@ func TestFindSkillSourceDirEnvOverride(t *testing.T) {
 func TestRewriteSkillContent(t *testing.T) {
 	exe := `C:\tools\revit-cli.exe`
 
-	// Anchor present: replaced in place, nothing appended.
 	in := "intro\n\n" + skillExeAnchor + "\n\noutro\n"
 	out, ok := rewriteSkillContent(in, exe)
 	if !ok {
@@ -66,7 +62,6 @@ func TestRewriteSkillContent(t *testing.T) {
 		t.Error("replacement clobbered surrounding content")
 	}
 
-	// Anchor missing: fallback appends a Local Binary Path section.
 	out, ok = rewriteSkillContent("# no anchor here\n", exe)
 	if ok {
 		t.Error("expected ok=false when anchor missing")
@@ -99,7 +94,6 @@ func TestSkillManifestRoundTrip(t *testing.T) {
 		t.Errorf("round trip = %+v, want %+v", *got, *want)
 	}
 
-	// A manifest for another skill must not be adopted.
 	other := *want
 	other.SkillName = "some-other-skill"
 	if err := writeSkillManifest(dir, &other); err != nil {
@@ -111,31 +105,25 @@ func TestSkillManifestRoundTrip(t *testing.T) {
 }
 
 func TestParseSelection(t *testing.T) {
-	// Empty input cancels.
 	idx, ok := parseSelection("", 3)
 	if !ok || len(idx) != 0 {
 		t.Errorf("empty input = %v,%v; want cancel", idx, ok)
 	}
-	// Whitespace cancels too.
 	idx, ok = parseSelection("  \n", 3)
 	if !ok || len(idx) != 0 {
 		t.Errorf("blank input = %v,%v; want cancel", idx, ok)
 	}
 
-	// all selects everything.
 	idx, ok = parseSelection("ALL", 3)
 	if !ok || len(idx) != 3 {
 		t.Errorf("ALL = %v,%v; want 3 indices", idx, ok)
 	}
 
-	// Comma list with duplicates and spaces.
 	idx, ok = parseSelection("3, 1,1", 3)
 	if !ok || len(idx) != 2 || idx[0] != 2 || idx[1] != 0 {
 		t.Errorf("'3, 1,1' = %v,%v; want [2 0]", idx, ok)
 	}
 
-	// Out of range and garbage are rejected. ("1,," is accepted leniently:
-	// FieldsFunc drops empty segments, leaving a valid "1".)
 	for _, bad := range []string{"0", "4", "1,x", "x", "-1"} {
 		if _, ok := parseSelection(bad, 3); ok {
 			t.Errorf("parseSelection(%q) accepted, want rejected", bad)
@@ -164,8 +152,6 @@ func TestFindHarnesses(t *testing.T) {
 }
 
 func TestSkillCandidatesScopes(t *testing.T) {
-	// Project scope: chdir into a temp dir that has a .claude harness dir
-	// with an installed skill, plus an empty .cursor dir.
 	proj := t.TempDir()
 	wd, err := os.Getwd()
 	if err != nil {
@@ -210,7 +196,7 @@ func TestSkillCandidatesScopes(t *testing.T) {
 }
 
 func TestCopySkillFilesAndInstallDir(t *testing.T) {
-	t.Setenv("REVIT_CLI_DATA_DIR", t.TempDir()) // isolate install index writes
+	t.Setenv("REVIT_CLI_DATA_DIR", t.TempDir())
 	src := makeSkillSource(t)
 	dst := filepath.Join(t.TempDir(), "out", skillDirName)
 
@@ -219,7 +205,6 @@ func TestCopySkillFilesAndInstallDir(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Rewritten SKILL.md (not the source copy).
 	data, err := os.ReadFile(filepath.Join(dst, skillFileName))
 	if err != nil {
 		t.Fatal(err)
@@ -228,12 +213,10 @@ func TestCopySkillFilesAndInstallDir(t *testing.T) {
 		t.Errorf("SKILL.md = %q, want rewritten content", data)
 	}
 
-	// references/ copied recursively.
 	if b, err := os.ReadFile(filepath.Join(dst, "references", "api.md")); err != nil || string(b) != "ref" {
 		t.Errorf("references/api.md not copied: %v", err)
 	}
 
-	// Exe and stale manifest excluded.
 	if fileExists(filepath.Join(dst, "revit-cli.exe")) {
 		t.Error("revit-cli.exe must not be copied into installs")
 	}
@@ -241,7 +224,6 @@ func TestCopySkillFilesAndInstallDir(t *testing.T) {
 		t.Error("stale source manifest leaked into install")
 	}
 
-	// Fresh manifest written and readable.
 	m := readSkillManifest(dst)
 	if m == nil || m.SkillName != skillDirName || m.SourceExe != `C:\bin\revit-cli.exe` {
 		t.Errorf("install manifest = %+v", m)
@@ -249,8 +231,6 @@ func TestCopySkillFilesAndInstallDir(t *testing.T) {
 }
 
 func TestCopySkillFilesOverlapGuard(t *testing.T) {
-	// Regression: installing into a directory inside the source must not
-	// recurse into the growing destination (used to hit path-too-long).
 	t.Setenv("REVIT_CLI_DATA_DIR", t.TempDir())
 	src := makeSkillSource(t)
 	insideDst := filepath.Join(src, "nested", skillDirName)
@@ -261,20 +241,16 @@ func TestCopySkillFilesOverlapGuard(t *testing.T) {
 	if !fileExists(filepath.Join(insideDst, skillFileName)) {
 		t.Error("SKILL.md not installed into nested target")
 	}
-	// Release-zip scenario: destination nested inside the source must
-	// still copy references/ (only entries containing dst are skipped).
 	if b, err := os.ReadFile(filepath.Join(insideDst, "references", "api.md")); err != nil || string(b) != "ref" {
 		t.Errorf("references not copied into nested target: %v", err)
 	}
 	if m := readSkillManifest(insideDst); m == nil {
 		t.Error("manifest missing for nested target")
 	}
-	// Source SKILL.md must survive (no self-truncation).
 	if b, err := os.ReadFile(filepath.Join(src, skillFileName)); err != nil || !strings.Contains(string(b), skillExeAnchor) {
 		t.Errorf("source SKILL.md corrupted: %v", err)
 	}
 
-	// Equal dirs must be a no-op for the bulk copy.
 	if err := copySkillFiles(src, src); err != nil {
 		t.Fatalf("copySkillFiles(src, src) errored: %v", err)
 	}
@@ -284,7 +260,7 @@ func TestCopySkillFilesOverlapGuard(t *testing.T) {
 }
 
 func TestFindInstalledSkills(t *testing.T) {
-	t.Setenv("REVIT_CLI_DATA_DIR", t.TempDir()) // isolate install index reads
+	t.Setenv("REVIT_CLI_DATA_DIR", t.TempDir())
 	proj := t.TempDir()
 	wd, err := os.Getwd()
 	if err != nil {
@@ -295,7 +271,6 @@ func TestFindInstalledSkills(t *testing.T) {
 	}
 	defer os.Chdir(wd)
 
-	// One installed project-level location and one unmanaged lookalike.
 	installed := filepath.Join(proj, ".claude", "skills", skillDirName)
 	if err := os.MkdirAll(installed, 0o755); err != nil {
 		t.Fatal(err)
@@ -331,9 +306,6 @@ func TestSameDir(t *testing.T) {
 }
 
 func TestInstallSkillDirRefusesSourceSelf(t *testing.T) {
-	// Regression: --target resolving to the source directory itself used
-	// to overwrite SKILL.md in place and plant a manifest there, turning
-	// the executable's own directory into a removable "install".
 	t.Setenv("REVIT_CLI_DATA_DIR", t.TempDir())
 	src := makeSkillSource(t)
 	c := skillCandidate{Agent: "custom", Scope: skillScopeCustom, Dir: src}
@@ -344,13 +316,10 @@ func TestInstallSkillDirRefusesSourceSelf(t *testing.T) {
 	if !strings.Contains(err.Error(), "source directory") {
 		t.Errorf("error not self-describing: %v", err)
 	}
-	// Source must be untouched: anchor intact, no manifest planted.
 	if b, rerr := os.ReadFile(filepath.Join(src, skillFileName)); rerr != nil || !strings.Contains(string(b), skillExeAnchor) {
 		t.Errorf("source SKILL.md overwritten: %v", rerr)
 	}
 	if fileExists(filepath.Join(src, skillManifestName)) {
-		// makeSkillSource seeds a stale manifest; install must not have
-		// rewritten it — verify it is still the stale content.
 		if b, rerr := os.ReadFile(filepath.Join(src, skillManifestName)); rerr != nil || string(b) != "stale" {
 			t.Error("manifest was written into the source directory")
 		}
@@ -361,7 +330,6 @@ func TestDeregisterSkillDir(t *testing.T) {
 	t.Setenv("REVIT_CLI_DATA_DIR", t.TempDir())
 	dir := t.TempDir()
 
-	// Idempotent on a directory without a manifest.
 	if err := deregisterSkillDir(dir); err != nil {
 		t.Fatalf("deregisterSkillDir without manifest = %v, want nil", err)
 	}
@@ -371,7 +339,6 @@ func TestDeregisterSkillDir(t *testing.T) {
 	}
 	upsertSkillIndex(skillInstallRecord{Agent: "custom", Scope: skillScopeCustom, Dir: dir, Manifest: SkillManifest{SkillName: skillDirName}})
 
-	// Other records in the index must survive.
 	other := t.TempDir()
 	upsertSkillIndex(skillInstallRecord{Agent: "claude", Scope: skillScopeProject, Dir: other, Manifest: SkillManifest{SkillName: skillDirName}})
 
@@ -395,24 +362,20 @@ func TestDeregisterSkillDir(t *testing.T) {
 	if !found {
 		t.Error("unrelated index record was dropped")
 	}
-	// The directory itself must remain (only bookkeeping is undone).
 	if !dirExists(dir) {
 		t.Error("directory was removed by deregistration")
 	}
 }
 
 func TestFindInstalledSkillsExeDirGhost(t *testing.T) {
-	t.Setenv("REVIT_CLI_DATA_DIR", t.TempDir()) // empty install index
+	t.Setenv("REVIT_CLI_DATA_DIR", t.TempDir())
 	exeDir := t.TempDir()
 	exePath := filepath.Join(exeDir, "revit-cli.exe")
 
-	// Without a manifest the exe dir is not reported.
 	if got := findInstalledSkillsIn(exePath); len(got) != 0 {
 		t.Errorf("ghost reported without manifest: %+v", got)
 	}
 
-	// A ghost manifest surfaces as a "source" candidate so show/update/
-	// uninstall --all can deregister it.
 	if err := writeSkillManifest(exeDir, &SkillManifest{SkillName: skillDirName, Version: "0.9"}); err != nil {
 		t.Fatal(err)
 	}
@@ -424,7 +387,6 @@ func TestFindInstalledSkillsExeDirGhost(t *testing.T) {
 		t.Errorf("ghost candidate = %+v, want source@%s", found[0], exeDir)
 	}
 
-	// An empty exe path (os.Executable failure) skips the check.
 	if got := findInstalledSkillsIn(""); len(got) != 0 {
 		t.Errorf("empty exe path reported installs: %+v", got)
 	}
@@ -442,8 +404,6 @@ func TestDeregisterTarget(t *testing.T) {
 	if got.Status != "deregistered" {
 		t.Fatalf("status = %q, want deregistered", got.Status)
 	}
-	// Informational note must live in Detail, not Error, so JSON
-	// consumers never mistake the success for a failure.
 	if got.Error != "" || got.Detail == "" {
 		t.Errorf("error/detail = %q/%q, want empty error and non-empty detail", got.Error, got.Detail)
 	}

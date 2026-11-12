@@ -52,7 +52,6 @@ namespace RevitCliBridge.Handlers.Piping
             if (mainCurve is null)
                 return CommandResponse.Error(cmd.TaskId, "Main pipe has no location curve.").ToJson();
 
-            // Resolve the branch connector.
             Connector? branchConnector;
             if (p.BranchConnectorIndex.HasValue)
             {
@@ -66,7 +65,6 @@ namespace RevitCliBridge.Handlers.Piping
             }
             else
             {
-                // Auto-select the branch connector closest to the main curve.
                 branchConnector = MepCurveGeometry.FindClosestConnectorToCurve(branch, mainCurve);
             }
 

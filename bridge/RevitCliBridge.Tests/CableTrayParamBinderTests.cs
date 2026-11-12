@@ -14,8 +14,6 @@ namespace RevitCliBridge.Tests
     /// </summary>
     public class CableTrayParamBinderTests
     {
-        // ---------- POCOs mirroring the real handler parameter bags ----------
-
         class CreateCableTrayParams
         {
             [Param("start_x", Required = true)]
@@ -124,8 +122,6 @@ namespace RevitCliBridge.Tests
             public int BranchElementId2 { get; set; }
         }
 
-        // ---------- create_cable_tray ----------
-
         [Fact]
         public void CreateCableTray_Bind_RequiredOnly()
         {
@@ -173,15 +169,12 @@ namespace RevitCliBridge.Tests
             var dict = new Dictionary<string, object>
             {
                 ["start_x"] = 0.0, ["start_y"] = 0.0, ["start_z"] = 3000.0,
-                // end_x, end_y, end_z, level_id missing
             };
 
             var ex = Assert.Throws<MissingParameterException>(
                 () => ParameterBinder.Bind<CreateCableTrayParams>(dict));
             Assert.Equal("end_x", ex.ParameterName);
         }
-
-        // ---------- modify_cable_tray ----------
 
         [Fact]
         public void ModifyCableTray_Bind_OnlyElementId_Required()
@@ -233,8 +226,6 @@ namespace RevitCliBridge.Tests
             Assert.Equal("element_id", ex.ParameterName);
         }
 
-        // ---------- elbow / transition / union (shared FittingParams shape) ----------
-
         [Fact]
         public void Fitting_Bind_RequiredElementIds()
         {
@@ -282,8 +273,6 @@ namespace RevitCliBridge.Tests
             Assert.Equal("element_id_2", ex.ParameterName);
         }
 
-        // ---------- tee ----------
-
         [Fact]
         public void Tee_Bind_RequiredIds()
         {
@@ -313,8 +302,6 @@ namespace RevitCliBridge.Tests
             Assert.Equal("main_element_id", ex.ParameterName);
         }
 
-        // ---------- cross ----------
-
         [Fact]
         public void Cross_Bind_AllFourRequired()
         {
@@ -342,7 +329,6 @@ namespace RevitCliBridge.Tests
                 ["main_element_id_1"] = 100L,
                 ["main_element_id_2"] = 101L,
                 ["branch_element_id_1"] = 200L,
-                // branch_element_id_2 missing
             };
 
             var ex = Assert.Throws<MissingParameterException>(

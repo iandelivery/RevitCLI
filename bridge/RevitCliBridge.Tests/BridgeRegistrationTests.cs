@@ -121,8 +121,6 @@ namespace RevitCliBridge.Tests
         [Fact]
         public void Register_CommandWithEmptyName_ThrowsBeforeBridgeLookup()
         {
-            // Validation must fire before the bridge-not-loaded error so
-            // plugin authors get the precise diagnostic.
             var cmd = new FakeCommand { CommandName = "" };
             Assert.Throws<ArgumentException>(() => BridgeRegistration.Register(cmd));
         }

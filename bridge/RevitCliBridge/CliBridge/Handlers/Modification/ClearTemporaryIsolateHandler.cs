@@ -37,7 +37,6 @@ namespace RevitCliBridge.Handlers.Modification
                 t.Start();
                 t.ConfigureFailureHandling();
 
-                // Safe no-op when temporary hide/isolate is not active.
                 view.DisableTemporaryViewMode(TemporaryViewMode.TemporaryHideIsolate);
 
                 t.Commit();

@@ -69,7 +69,6 @@ namespace RevitCliBridge.Handlers.Piping
                 tx.ConfigureFailureHandling();
                 var pipe = Pipe.Create(doc, systemType.Id, pipeType.Id, new ElementId(p.LevelId), start, end);
 
-                // Apply the instance diameter override (pipes are round).
                 if (p.DiameterMm > 0)
                     pipe.get_Parameter(BuiltInParameter.RBS_PIPE_DIAMETER_PARAM)?.Set(p.DiameterMm.MillimeterToFeet());
 

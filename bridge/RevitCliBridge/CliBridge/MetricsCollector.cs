@@ -33,14 +33,12 @@ namespace RevitCliBridge
 
             _byCommand.AddOrUpdate(
                 command,
-                // Factory: first sighting of this command
                 _ => new CommandStats
                 {
                     Count = 1,
                     Errors = success ? 0 : 1,
                     TotalDurationMs = durationMs
                 },
-                // Update: accumulate into existing stats
                 (_, existing) => new CommandStats
                 {
                     Count = existing.Count + 1,

@@ -44,7 +44,6 @@ namespace RevitCliBridge.Handlers.Views
             if (activeView is null)
                 return CommandResponse.Error(cmd.TaskId, "No active view.").ToJson();
 
-            // Resolve target view by name; fall back to the active view.
             string? viewNameParam = HandlerUtilities.GetStringOrNull(parameters, "view_name");
             Autodesk.Revit.DB.View targetView = activeView;
             if (!string.IsNullOrWhiteSpace(viewNameParam))
@@ -122,7 +121,6 @@ namespace RevitCliBridge.Handlers.Views
                     if (resolution.HasValue && zoomType == ZoomFitType.FitToPage)
                         imageExportOptions.PixelSize = resolution.Value;
 
-                    // Override the active view for this export.
                     var previousActiveView = doc.ActiveView;
                     if (!targetView.Id.Equals(previousActiveView?.Id))
                         uiDoc.ActiveView = targetView;

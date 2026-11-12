@@ -73,7 +73,6 @@ namespace RevitCliBridge.Handlers.Mechanical
                 tx.ConfigureFailureHandling();
                 var duct = Duct.Create(doc, systemType.Id, ductType.Id, new ElementId(p.LevelId), start, end);
 
-                // Apply size based on shape.
                 var shape = ductType.Shape;
                 if (shape == ConnectorProfileType.Round && p.DiameterMm > 0)
                 {

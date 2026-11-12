@@ -61,12 +61,9 @@ namespace RevitCliBridge
                 {
                     EnsureWriter();
                     _writer?.WriteLine(logLine);
-                    // Do NOT auto-flush per line — rely on the 4KB buffer.
-                    // Flush happens on daily rollover or Shutdown().
                 }
                 catch
                 {
-                    // Swallow logging failures — never crash the bridge for logs.
                 }
             }
         }
@@ -88,7 +85,6 @@ namespace RevitCliBridge
 
         private static void AppendValue(StringBuilder sb, object value)
         {
-            // Quote strings containing spaces; leave numbers/bools bare.
             if (value is string s)
             {
                 if (s.Contains(" ") || s.Contains("\""))
@@ -113,13 +109,11 @@ namespace RevitCliBridge
             string targetFile = Path.Combine(LogDirectory, today);
 
             if (_writer != null && _currentLogFile == targetFile)
-                return; // still on the same day's file
+                return;
 
-            // Day rollover (or first open): flush old writer, open new one.
             _writer?.Flush();
             _writer?.Dispose();
 
-            // append=true so restarts don't clobber prior logs
             _writer = new StreamWriter(targetFile, append: true, Encoding.UTF8)
             {
                 AutoFlush = false

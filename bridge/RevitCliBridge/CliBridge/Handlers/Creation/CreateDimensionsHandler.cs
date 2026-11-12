@@ -58,8 +58,6 @@ namespace RevitCliBridge.Handlers.Creation
             double? endY = HandlerUtilities.GetDoubleOrNull(parameters, "line_end_y");
             bool explicitLine = startX.HasValue && startY.HasValue && endX.HasValue && endY.HasValue;
 
-            // Closest point pair between the first and last grid curves so the
-            // dimension line spans across all intermediate grids (model coords, feet).
             var curve1 = grids.First().Curve;
             var curve2 = grids.Last().Curve;
             XYZ bestA = curve1.Evaluate(0.5, true);
@@ -88,8 +86,6 @@ namespace RevitCliBridge.Handlers.Creation
             }
             else
             {
-                // A->B is perpendicular to two parallel grids; offset shifts the
-                // dimension line along the grid direction.
                 var shift = XYZ.Zero;
                 if (Math.Abs(offsetMm) > 1e-9)
                 {
@@ -115,7 +111,6 @@ namespace RevitCliBridge.Handlers.Creation
                 }
                 catch (ArgumentException)
                 {
-                    // Dispose rolls back the uncommitted transaction.
                     return CommandResponse.Error(cmd.TaskId,
                         "The grid references could not be used for a dimension in this view. Use a plan view where all grids are visible and parallel.").ToJson();
                 }

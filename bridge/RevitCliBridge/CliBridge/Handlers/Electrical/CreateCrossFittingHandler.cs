@@ -42,7 +42,6 @@ namespace RevitCliBridge.Handlers.Electrical
             var p = TryBind<CrossParams>(cmd, out var error);
             if (p is null) return error!;
 
-            // Distinct-element check
             if (p.MainElementId1 == p.MainElementId2 || p.MainElementId1 == p.BranchElementId1 ||
                 p.MainElementId1 == p.BranchElementId2 || p.MainElementId2 == p.BranchElementId1 ||
                 p.MainElementId2 == p.BranchElementId2 || p.BranchElementId1 == p.BranchElementId2)
@@ -55,7 +54,6 @@ namespace RevitCliBridge.Handlers.Electrical
             if (main1 is null || main2 is null || branch1 is null || branch2 is null)
                 return CommandResponse.Error(cmd.TaskId, "One or more element IDs do not refer to a cable tray.").ToJson();
 
-            // Compute the intersection point: the meeting point of the two main halves.
             var main1Curve = (main1.Location as LocationCurve)?.Curve;
             var main2Curve = (main2.Location as LocationCurve)?.Curve;
             var branch1Curve = (branch1.Location as LocationCurve)?.Curve;
@@ -63,12 +61,10 @@ namespace RevitCliBridge.Handlers.Electrical
             if (main1Curve is null || main2Curve is null || branch1Curve is null || branch2Curve is null)
                 return CommandResponse.Error(cmd.TaskId, "One or more cable trays have no location curve.").ToJson();
 
-            // The two main halves should share an endpoint (the split point).
             var m1End = main1Curve.GetEndPoint(1);
             var m2Start = main2Curve.GetEndPoint(0);
             var m1Start = main1Curve.GetEndPoint(0);
             var m2End = main2Curve.GetEndPoint(1);
-            // Try both orientations — main1's end == main2's start, or main1's start == main2's end.
             XYZ? junction = null;
             if (m1End.DistanceTo(m2Start) < MepCurveGeometry.MinSegmentLengthFeet * 2)
                 junction = m1End;
@@ -82,7 +78,6 @@ namespace RevitCliBridge.Handlers.Electrical
             if (junction is null)
                 return CommandResponse.Error(cmd.TaskId, "The two main halves do not share a common endpoint. Pre-split the main at the intersection before calling this command.").ToJson();
 
-            // Resolve the 4 connectors closest to the junction.
             var c1 = MepCurveGeometry.FindClosestConnector(main1, junction);
             var c2 = MepCurveGeometry.FindClosestConnector(main2, junction);
             var c3 = MepCurveGeometry.FindClosestConnector(branch1, junction);
@@ -90,11 +85,9 @@ namespace RevitCliBridge.Handlers.Electrical
             if (c1 is null || c2 is null || c3 is null || c4 is null)
                 return CommandResponse.Error(cmd.TaskId, "Could not resolve all four connectors at the junction point.").ToJson();
 
-            // Domain check — all four must match.
             if (c1.Domain != c2.Domain || c1.Domain != c3.Domain || c1.Domain != c4.Domain)
                 return CommandResponse.Error(cmd.TaskId, "All four connectors must share the same domain.").ToJson();
 
-            // Perpendicularity check for both branches.
             var mainDir = main1Curve.GetEndPoint(1).Subtract(main1Curve.GetEndPoint(0)).Normalize();
             string? perpError = ValidatePerpendicular(mainDir, branch1Curve, "branch 1");
             if (perpError is not null)

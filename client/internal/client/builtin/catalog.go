@@ -72,7 +72,6 @@ func (h CatalogHandler) Handle(ctx context.Context, args []string, send abstract
 		return 0
 	}
 
-	// Compact text output grouped by category.
 	fmt.Printf("Bridge version: %s\n", catalog.CatalogVersion)
 	fmt.Printf("Commands (%d):\n", catalog.CommandCount)
 

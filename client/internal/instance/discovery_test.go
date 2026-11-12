@@ -63,7 +63,6 @@ func TestMatchInstanceFile_RejectsNonMatching(t *testing.T) {
 	}
 }
 
-// itoa is a local helper to avoid strconv import noise in test cases.
 func itoa(n int) string {
 	if n == 0 {
 		return "0"

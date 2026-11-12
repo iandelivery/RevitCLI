@@ -45,8 +45,6 @@ func (ExecuteRawHandler) Handle(ctx context.Context, args []string, send abstrac
 		return 1
 	}
 
-	// The bridge schema names this parameter "language" (short flag -l);
-	// --lang is kept as a legacy alias for the previously documented form.
 	lang := "csharp"
 	if l, ok := abstractions.FindArg(args, "--language", "-l", "--lang"); ok && l != "" {
 		lang = l

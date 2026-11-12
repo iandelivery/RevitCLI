@@ -31,7 +31,6 @@ namespace RevitCliBridge
         {
             try
             {
-                // Verify signature before loading the assembly.
                 var (isSigned, publisher) = CheckSignature(dllPath);
 
                 if (!isSigned)
@@ -49,7 +48,6 @@ namespace RevitCliBridge
                 }
                 else
                 {
-                    // Signed: check publisher against whitelist if configured.
                     if (trustedPublishers is not null && trustedPublishers.Length > 0)
                     {
                         bool trusted = trustedPublishers.Any(tp =>
@@ -79,7 +77,6 @@ namespace RevitCliBridge
                     var cmd = (IBridgeCommand)Activator.CreateInstance(handlerType);
                     CommandRouter.Register($"{cmd.CommandName}@{cmd.Version}", cmd);
 
-                    // Also register bare name for default version.
                     if (cmd.Version == CommandNameResolver.DefaultVersion)
                     {
                         CommandRouter.Register(cmd.CommandName, cmd);
@@ -107,13 +104,9 @@ namespace RevitCliBridge
         {
             try
             {
-                // X509Certificate.CreateFromSignedFile throws if the file has
-                // no Authenticode signature.
                 var cert = X509Certificate.CreateFromSignedFile(dllPath);
                 var subject = cert.Subject ?? string.Empty;
 
-                // Extract CN= value from the subject string.
-                // Subject format: "CN=Publisher Name, O=Org, ..."
                 string? cn = null;
                 var parts = subject.Split(',');
                 foreach (var part in parts)

@@ -13,7 +13,6 @@ import (
 )
 
 func TestEnrichInstancesAndDisplay(t *testing.T) {
-	// Healthy bridge: two documents open, first one active.
 	healthy := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/api/documents" {
 			http.NotFound(w, r)
@@ -29,17 +28,15 @@ func TestEnrichInstancesAndDisplay(t *testing.T) {
 		})
 	}))
 	defer healthy.Close()
-	healthyURL := healthy.URL // http://127.0.0.1:port
+	healthyURL := healthy.URL
 	healthyPort := portFromURL(t, healthyURL)
 
-	// Slow bridge: exceeds the per-query timeout.
 	slow := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		time.Sleep(documentsTimeout + 2*time.Second)
 	}))
 	defer slow.Close()
 	slowPort := portFromURL(t, slow.URL)
 
-	// Error bridge: returns 401.
 	unauthorized := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "unauthorized", http.StatusUnauthorized)
 	}))
@@ -80,7 +77,6 @@ func TestEnrichInstancesAndDisplay(t *testing.T) {
 	if got := documentDisplay(slowInst); got != "- (unreachable)" {
 		t.Fatalf("slow display = %q, want %q", got, "- (unreachable)")
 	}
-	// Registry data survives the failed enrichment.
 	if slowInst.Version != 2019 {
 		t.Fatalf("slow instance Version = %d, want 2019", slowInst.Version)
 	}
@@ -139,7 +135,6 @@ func strPtr(s string) *string { return &s }
 
 func portFromURL(t *testing.T, rawURL string) int {
 	t.Helper()
-	// Strip scheme, take host:port, then the port segment.
 	trimmed := strings.TrimPrefix(strings.TrimPrefix(rawURL, "http://"), "https://")
 	parts := strings.Split(trimmed, ":")
 	if len(parts) < 2 {

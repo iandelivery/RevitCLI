@@ -36,9 +36,6 @@ namespace RevitCliBridge.Tests
         [InlineData("-5")]
         public void ResolveLinkSelector_NonPositiveInteger_TreatedAsName(string raw)
         {
-            // Element ids are positive; anything else that parses as an
-            // integer cannot be an instance id and falls through to the
-            // name path instead of silently matching nothing.
             var selector = LinkSelectorParser.ResolveLinkSelector(raw);
             Assert.NotNull(selector);
             Assert.Null(selector!.InstanceId);

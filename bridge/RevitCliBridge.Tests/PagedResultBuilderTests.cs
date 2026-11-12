@@ -7,8 +7,6 @@ namespace RevitCliBridge.Tests
 {
     public class PagedResultBuilderTests
     {
-        // ---------- GetPagingParams ----------
-
         [Fact]
         public void GetPagingParams_NullParameters_ReturnsDefaults()
         {
@@ -82,8 +80,6 @@ namespace RevitCliBridge.Tests
             Assert.Equal(PagedResultBuilder.DefaultLimit, limit);
         }
 
-        // ---------- ApplyPaging ----------
-
         [Fact]
         public void ApplyPaging_FewerThanLimit_ReturnsAll_NoHasMore()
         {
@@ -121,8 +117,6 @@ namespace RevitCliBridge.Tests
             Assert.Empty(items);
             Assert.False(hasMore);
         }
-
-        // ---------- Build ----------
 
         [Fact]
         public void Build_FirstPage_FullData_ReturnsCorrectPage()
@@ -198,8 +192,6 @@ namespace RevitCliBridge.Tests
             Assert.Empty(result.Items);
         }
 
-        // ---------- Edge cases: numeric type coercion ----------
-
         [Fact]
         public void GetPagingParams_LongValue_ConvertedToInt()
         {
@@ -211,7 +203,6 @@ namespace RevitCliBridge.Tests
         [Fact]
         public void GetPagingParams_DoubleValue_TruncatedToInt()
         {
-            // Doubles are cast to int via the switch expression in GetIntOrNull.
             var param = new Dictionary<string, object> { ["limit"] = 50.5 };
             var (limit, _) = PagedResultBuilder.GetPagingParams(param);
             Assert.Equal(50, limit);
@@ -228,13 +219,10 @@ namespace RevitCliBridge.Tests
         [Fact]
         public void GetPagingParams_BoolValue_FallsBackToDefault()
         {
-            // bool is not int/long/double/string → returns null → default.
             var param = new Dictionary<string, object> { ["limit"] = true };
             var (limit, _) = PagedResultBuilder.GetPagingParams(param);
             Assert.Equal(PagedResultBuilder.DefaultLimit, limit);
         }
-
-        // ---------- Edge cases: boundary values ----------
 
         [Fact]
         public void GetPagingParams_LimitAtMax_PreservedExactly()
@@ -255,7 +243,6 @@ namespace RevitCliBridge.Tests
         [Fact]
         public void GetPagingParams_LimitOne_PreservedExactly()
         {
-            // Smallest valid limit — boundary check.
             var param = new Dictionary<string, object> { ["limit"] = 1 };
             var (limit, _) = PagedResultBuilder.GetPagingParams(param);
             Assert.Equal(1, limit);
@@ -268,8 +255,6 @@ namespace RevitCliBridge.Tests
             var (_, offset) = PagedResultBuilder.GetPagingParams(param);
             Assert.Equal(0, offset);
         }
-
-        // ---------- Edge cases: ApplyPaging boundary ----------
 
         [Fact]
         public void ApplyPaging_CountExactlyOneMoreThanLimit_TruncatesAndSetsHasMore()
@@ -288,8 +273,6 @@ namespace RevitCliBridge.Tests
             Assert.Equal(3, items.Count);
             Assert.False(hasMore);
         }
-
-        // ---------- Edge cases: Build integration ----------
 
         [Fact]
         public void Build_OffsetEqualsDataLength_ReturnsEmpty_NoHasMore()
@@ -313,8 +296,6 @@ namespace RevitCliBridge.Tests
         [Fact]
         public void Build_PreservesOffsetAndLimitInResult()
         {
-            // The returned PagedResult echoes the requested limit/offset
-            // even when the actual data is smaller.
             var source = Enumerable.Range(1, 3);
             var result = PagedResultBuilder.Build(source, limit: 10, offset: 20);
             Assert.Equal(10, result.Limit);

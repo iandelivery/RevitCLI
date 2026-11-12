@@ -56,7 +56,6 @@ func (h LlmsHandler) Handle(ctx context.Context, args []string, send abstraction
 		return 1
 	}
 
-	// Check if --save flag is provided.
 	savePath, hasSave := abstractions.FindArg(args, "--save")
 	if hasSave && savePath != "" {
 		if err := os.WriteFile(savePath, body, 0o644); err != nil {
@@ -67,7 +66,6 @@ func (h LlmsHandler) Handle(ctx context.Context, args []string, send abstraction
 		return 0
 	}
 
-	// Print to stdout.
 	fmt.Println(string(body))
 	return 0
 }

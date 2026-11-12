@@ -50,7 +50,6 @@ namespace RevitCliBridge.Handlers.Electrical
             if (collinearError is not null)
                 return CommandResponse.Error(cmd.TaskId, collinearError).ToJson();
 
-            // Size check: cross-sections must differ for a transition.
             var tray1 = (CableTray)c1!.Owner;
             var tray2 = (CableTray)c2!.Owner;
             var (w1, h1) = CableTrayUtils.Default.GetSize(tray1);

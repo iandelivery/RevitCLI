@@ -45,7 +45,6 @@ func (d *DynamicCommand) Metadata() abstractions.CommandMetadata {
 func (d *DynamicCommand) Handle(ctx context.Context, args []string, send abstractions.SendCommandFunc) int {
 	params := d.parseArgs(args)
 
-	// Validate required parameters.
 	var missing []string
 	for _, p := range d.def.Parameters {
 		if p.Required {
@@ -62,7 +61,6 @@ func (d *DynamicCommand) Handle(ctx context.Context, args []string, send abstrac
 		return 1
 	}
 
-	// Inject dry_run flag if present.
 	if abstractions.HasFlag(args, "--dry-run") {
 		params["dry_run"] = true
 	}
@@ -77,9 +75,6 @@ func (d *DynamicCommand) parseArgs(args []string) map[string]interface{} {
 
 	for _, p := range d.def.Parameters {
 		flags := []string{"--" + p.Name}
-		// Also accept the dash variant (--min-x for --min_x) — the
-		// documented CLI convention uses dashes while parameter names
-		// use underscores.
 		if dashed := strings.ReplaceAll(p.Name, "_", "-"); dashed != p.Name {
 			flags = append(flags, "--"+dashed)
 		}
@@ -91,9 +86,6 @@ func (d *DynamicCommand) parseArgs(args []string) map[string]interface{} {
 		if ok {
 			result[p.Name] = coerce(val, p.Type)
 		} else if p.Type == "bool" && abstractions.HasFlag(args, flags...) {
-			// Bare boolean flag: "doc_close --all" means --all true. An
-			// explicit value still wins ("--all false" is handled by
-			// FindArg above).
 			result[p.Name] = true
 		} else if p.Default != nil {
 			result[p.Name] = p.Default
@@ -125,9 +117,6 @@ func (d *DynamicCommand) buildUsage() string {
 	return strings.Join(parts, " ")
 }
 
-// coerce converts a string CLI value to the type declared in the schema.
-// Returns an error string if parsing fails for array elements.
-// Mirrors C# DynamicCommand.Coerce.
 func coerce(value, typ string) interface{} {
 	switch typ {
 	case "int":

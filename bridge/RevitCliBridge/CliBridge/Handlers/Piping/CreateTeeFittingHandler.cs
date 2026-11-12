@@ -57,7 +57,6 @@ namespace RevitCliBridge.Handlers.Piping
             if (intersection is null)
                 return CommandResponse.Error(cmd.TaskId, "Branch pipe does not intersect the main pipe.").ToJson();
 
-            // Resolve connectors nearest the intersection.
             var mainConnector = MepCurveGeometry.FindClosestConnector(main, intersection);
             Connector? branchConnector;
             if (p.BranchConnectorIndex.HasValue)
@@ -78,11 +77,9 @@ namespace RevitCliBridge.Handlers.Piping
             if (mainConnector is null || branchConnector is null)
                 return CommandResponse.Error(cmd.TaskId, "Could not resolve connectors at the intersection point.").ToJson();
 
-            // Domain check
             if (mainConnector.Domain != branchConnector.Domain)
                 return CommandResponse.Error(cmd.TaskId, "Main and branch connectors are in different domains.").ToJson();
 
-            // Perpendicularity check (~1° tolerance — Revit throws otherwise).
             var mainDir = mainCurve.GetEndPoint(1).Subtract(mainCurve.GetEndPoint(0)).Normalize();
             var branchDir = branchCurve.GetEndPoint(1).Subtract(branchCurve.GetEndPoint(0)).Normalize();
             double curveDot = Math.Abs(mainDir.DotProduct(branchDir));
