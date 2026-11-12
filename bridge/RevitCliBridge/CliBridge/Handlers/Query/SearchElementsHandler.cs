@@ -21,7 +21,7 @@ namespace RevitCliBridge.Handlers.Query
             new CommandParamSchema { Name = "category", Type = "string", Required = true, Description = "BuiltInCategory enum value (e.g. 'OST_Walls')" },
             new CommandParamSchema { Name = "param_name", Type = "string", Required = true, Description = "Parameter name to search on" },
             new CommandParamSchema { Name = "param_value", Type = "string", Required = false, Description = "Parameter value to compare (not required for 'empty' operator)" },
-            new CommandParamSchema { Name = "param_operator", Type = "string", Required = false, Description = "Comparison operator", EnumValues = new[] { "eq", "neq", "contains", "gt", "lt", "empty", "notempty" }, Default = "eq" },
+            new CommandParamSchema { Name = "param_operator", Type = "string", Required = false, Description = "Comparison operator. Numeric parameters (Integer, Double, ElementId) compare numerically when param_value parses as a number; text parameters compare as case-insensitive text.", EnumValues = new[] { "eq", "neq", "contains", "gt", "lt", "empty", "notempty" }, Default = "eq" },
             new CommandParamSchema { Name = "link", Type = "string", Required = false, Description = "Linked document to query: RevitLinkInstance id or exact link name (see get_links). Default: the host document." }
         };
 
@@ -109,49 +109,42 @@ namespace RevitCliBridge.Handlers.Query
             if (parameter is null)
                 return op == "empty";
 
-            string? currentValue = parameter.AsValueString();
+            var storage = parameter.StorageType;
+            string? textValue = storage == StorageType.String ? parameter.AsString() : parameter.AsValueString();
+            double? numericValue = null;
+            if (storage == StorageType.Integer)
+                numericValue = parameter.AsInteger();
+            else if (storage == StorageType.Double)
+                numericValue = parameter.AsDouble();
+            else if (storage == StorageType.ElementId)
+                numericValue = parameter.AsElementId().IntegerValue;
 
             switch (op.ToLower())
             {
                 case "eq":
-                    return string.Equals(currentValue, paramValue, StringComparison.OrdinalIgnoreCase);
+                    return ParamMatcher.EqualsTarget(textValue, numericValue, paramValue);
 
                 case "neq":
-                    return !string.Equals(currentValue, paramValue, StringComparison.OrdinalIgnoreCase);
+                    return !ParamMatcher.EqualsTarget(textValue, numericValue, paramValue);
 
                 case "contains":
-                    return currentValue is not null && currentValue.IndexOf(paramValue ?? "", StringComparison.OrdinalIgnoreCase) >= 0;
+                    return textValue is not null && textValue.IndexOf(paramValue ?? "", StringComparison.OrdinalIgnoreCase) >= 0;
 
                 case "gt":
-                    return TryCompareNumeric(currentValue, paramValue, out int cmpGt) && cmpGt > 0;
+                    return ParamMatcher.Compare(textValue, numericValue, paramValue) > 0;
 
                 case "lt":
-                    return TryCompareNumeric(currentValue, paramValue, out int cmpLt) && cmpLt < 0;
+                    return ParamMatcher.Compare(textValue, numericValue, paramValue) < 0;
 
                 case "empty":
-                    return string.IsNullOrEmpty(currentValue);
+                    return string.IsNullOrEmpty(textValue);
 
                 case "notempty":
-                    return !string.IsNullOrEmpty(currentValue);
+                    return !string.IsNullOrEmpty(textValue);
 
                 default:
-                    return string.Equals(currentValue, paramValue, StringComparison.OrdinalIgnoreCase);
+                    return ParamMatcher.EqualsTarget(textValue, numericValue, paramValue);
             }
-        }
-
-        private bool TryCompareNumeric(string? left, string? right, out int comparison)
-        {
-            comparison = 0;
-            if (left is null || right is null) return false;
-
-            if (double.TryParse(left, out double lVal) && double.TryParse(right, out double rVal))
-            {
-                comparison = lVal.CompareTo(rVal);
-                return true;
-            }
-
-            comparison = string.Compare(left, right, StringComparison.OrdinalIgnoreCase);
-            return true;
         }
     }
 }
