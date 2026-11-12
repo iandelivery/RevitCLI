@@ -142,7 +142,7 @@ Server-side config is read from `.config/cli_bridge_setting.json`. The client al
 | `commands [--refresh]` | List all commands (with local cache) |
 | `schema <name>` | Show command parameter details |
 | `raw -j <json>` | Send raw JSON command |
-| `execute_raw --code <code>` | Execute C# or Python code on the bridge |
+| `execute_raw --code <code>` | Execute C# code on the bridge |
 | `configure <setup\|teardown\|check\|port>` | Manage bridge installation and configuration |
 | `skill <install\|show\|update\|uninstall>` | Install and manage the AI agent skill (SKILL.md) |
 

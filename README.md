@@ -289,7 +289,7 @@ revit-cli.exe llms
 
 ### Raw Execution Mode
 
-The `execute_raw` command (which runs arbitrary C# or Python code against the Revit API) is **disabled by default** for security. The `raw-mode` command lets you toggle this at runtime without editing config files or restarting Revit:
+The `execute_raw` command (which runs arbitrary C# code against the Revit API) is **enabled by default**. The `raw-mode` command lets you toggle this at runtime without editing config files or restarting Revit:
 
 ```bash
 # Check current state

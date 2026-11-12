@@ -676,7 +676,7 @@ namespace RevitCliBridge
                     Features = new ServerFeatures
                     {
                         DryRun = true,
-                        ExecuteRaw = false
+                        ExecuteRaw = CliBridgeConfigLoader.Config.AllowRawExecution
                     }
                 },
                 Commands = new List<CommandDef>(CommandSchemaCache.GetDefs())

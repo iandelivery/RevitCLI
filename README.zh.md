@@ -277,7 +277,7 @@ revit-cli.exe llms
 
 ### 原始执行模式
 
-`execute_raw` 命令（用于在 Revit API 上执行任意 C# 或 Python 代码）出于安全考虑**默认禁用**。`raw-mode` 命令允许你在运行时切换该设置，而无需修改配置文件或重启 Revit：
+`execute_raw` 命令（用于在 Revit API 上执行任意 C# 代码）**默认启用**。`raw-mode` 命令允许你在运行时切换该设置，而无需修改配置文件或重启 Revit：
 
 ```bash
 # 查看当前状态

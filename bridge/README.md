@@ -69,7 +69,7 @@ Edit `.config\cli_bridge_setting.json`:
 | `auto_port` | `true` | Dynamically allocate port based on Revit version |
 | `timeout_seconds` | `180` | Command execution timeout |
 | `max_command_queue_size` | `100` | Maximum pending commands |
-| `allow_raw_execution` | `false` | Allow `execute_raw` command (C#/Python code execution) |
+| `allow_raw_execution` | `true` | Allow `execute_raw` command (C# code execution) |
 | `api_key` | `null` | Bearer token for `/api/*` endpoints. Auto-generated on first startup or by `configure setup`. `null`/empty disables auth (legacy mode). |
 
 ### Authentication

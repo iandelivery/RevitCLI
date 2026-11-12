@@ -35,7 +35,7 @@ Consequences:
 - `doc`, `app`, `UIApplication`, `Document`, and the common Autodesk namespaces are already in scope
 - The method must `return` a value (string serialization is done by the bridge)
 
-Python (`--lang python`) runs through an equivalent host with the same constraints on encoding and transactions.
+Only C# is supported; `language: python` is rejected by the bridge.
 
 ## Transactions
 
