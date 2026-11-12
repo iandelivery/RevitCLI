@@ -33,5 +33,16 @@ namespace RevitCliBridge.Handlers
 
             return new LinkSelector { Name = trimmed };
         }
+
+        /// <summary>
+        /// Human-readable form of a selector for error messages, e.g.
+        /// "id 184324" or "name 'Structural Model.rvt'".
+        /// </summary>
+        public static string Describe(LinkSelector selector)
+        {
+            return selector.InstanceId.HasValue
+                ? $"id {selector.InstanceId.Value}"
+                : $"name '{selector.Name}'";
+        }
     }
 }

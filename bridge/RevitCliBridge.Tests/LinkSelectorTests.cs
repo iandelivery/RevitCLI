@@ -61,5 +61,21 @@ namespace RevitCliBridge.Tests
             var selector = LinkSelectorParser.ResolveLinkSelector("  Structural Model.rvt\t");
             Assert.Equal("Structural Model.rvt", selector!.Name);
         }
+
+        [Fact]
+        public void Describe_InstanceId_ReturnsIdForm()
+        {
+            var selector = LinkSelectorParser.ResolveLinkSelector("184324");
+            Assert.NotNull(selector);
+            Assert.Equal("id 184324", LinkSelectorParser.Describe(selector!));
+        }
+
+        [Fact]
+        public void Describe_Name_ReturnsQuotedNameForm()
+        {
+            var selector = LinkSelectorParser.ResolveLinkSelector("Structural Model.rvt");
+            Assert.NotNull(selector);
+            Assert.Equal("name 'Structural Model.rvt'", LinkSelectorParser.Describe(selector!));
+        }
     }
 }
