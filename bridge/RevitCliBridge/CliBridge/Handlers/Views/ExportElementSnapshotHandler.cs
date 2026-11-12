@@ -84,7 +84,9 @@ namespace RevitCliBridge.Handlers.Views
             bool withSectionBox = true;
             if (parameters.TryGetValue("with_section_box", out var wsbObj))
             {
-                try { withSectionBox = Convert.ToBoolean(wsbObj); } catch { }
+                if (!ParamConverter.TryConvertBool(wsbObj, out withSectionBox))
+                    return CommandResponse.Error(cmd.TaskId,
+                        "Parameter 'with_section_box' must be a boolean.").ToJson();
             }
 
             var imageFileType = ParseImageFileType(fileTypeStr);

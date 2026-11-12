@@ -56,7 +56,9 @@ namespace RevitCliBridge.Handlers.Views
             bool activate = false;
             if (parameters.TryGetValue("activate", out var activateObj))
             {
-                try { activate = Convert.ToBoolean(activateObj); } catch { }
+                if (!ParamConverter.TryConvertBool(activateObj, out activate))
+                    return CommandResponse.Error(cmd.TaskId,
+                        "Parameter 'activate' must be a boolean.").ToJson();
             }
 
             View newView;
