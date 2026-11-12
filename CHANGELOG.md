@@ -6,6 +6,22 @@ commits (feat/fix only) — do not edit released sections. Historical releases
 before v1.12.0 live on the
 [GitHub Releases page](https://github.com/iandelivery/RevitCLI/releases).
 
+## v1.16.0 (2026-11-12)
+
+### What's Changed
+#### Features
+- [feat(bridge): query elements in linked documents](https://github.com/iandelivery/RevitCLI/commit/d5eb6f6)
+- [feat(client): show live open documents in list command](https://github.com/iandelivery/RevitCLI/commit/c4e6a6c)
+- [feat(bridge): add GET /api/documents endpoint](https://github.com/iandelivery/RevitCLI/commit/27d2bd2)
+
+#### Bug Fixes
+- [fix(bridge): name the selector when no placed link matches](https://github.com/iandelivery/RevitCLI/commit/0cbbb42)
+- [fix(bridge): recover linked docs GetLinkDocument misses on Revit 2019](https://github.com/iandelivery/RevitCLI/commit/652a4e4)
+- [fix(build): preserve deployed api_key during -Deploy](https://github.com/iandelivery/RevitCLI/commit/f34ebec)
+- [fix(client): treat bare bool flags on dynamic commands as true](https://github.com/iandelivery/RevitCLI/commit/d38e290)
+
+**Full Changelog**: https://github.com/iandelivery/RevitCLI/compare/v1.15.0...v1.16.0
+
 ## v1.15.0 (2026-11-10)
 
 ### What's Changed
