@@ -24,10 +24,13 @@ namespace RevitCliBridge.Handlers
         /// </summary>
         public static LinkSelector? ResolveLinkSelector(string? raw)
         {
-            if (string.IsNullOrWhiteSpace(raw))
+            if (raw is null)
                 return null;
 
             var trimmed = raw.Trim();
+            if (trimmed.Length == 0)
+                return null;
+
             if (int.TryParse(trimmed, out int id) && id > 0)
                 return new LinkSelector { InstanceId = id };
 
