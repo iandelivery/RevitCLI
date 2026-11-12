@@ -249,7 +249,7 @@ no instances         → error: start Revit and enable the bridge
 | `health` | HTTP | GET `/api/health` | Health check |
 | `task` | HTTP | GET `/api/task/{id}` | Task status query |
 | `raw` | Bridge | SSE | Send raw JSON command |
-| `execute_raw` | Bridge | SSE | Execute C#/Python code |
+| `execute_raw` | Bridge | SSE | Execute C# code |
 | `raw-mode` | HTTP | GET/POST `/api/raw-mode` | Query/toggle raw execution |
 | `list` | Local | File system | List running instances |
 | `commands` | HTTP | GET `/api/commands` | Browse command schemas |

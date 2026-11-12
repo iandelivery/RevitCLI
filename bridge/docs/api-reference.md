@@ -130,7 +130,7 @@ indicates each handler's version.
 | `auto_port` | `bool` | `true` | Allocate port by Revit version |
 | `timeout_seconds` | `int` | `180` | Command timeout (min 1) |
 | `max_command_queue_size` | `int` | `100` | Max pending commands (min 1) |
-| `allow_raw_execution` | `bool` | `false` | Allow `execute_raw` |
+| `allow_raw_execution` | `bool` | `true` | Allow `execute_raw` |
 | `api_key` | `string?` | `""` | API key; empty disables auth |
 | `allow_unsigned_plugins` | `bool` | `false` | Load unsigned plugin DLLs (dev only) |
 | `trusted_publishers` | `string[]?` | `[]` | Trusted cert subject CNs; empty = accept any valid signature |

@@ -225,8 +225,8 @@ func registerBuiltinCmds(root *cobra.Command) {
 	))
 
 	root.AddCommand(newBuiltinCmd(
-		"execute_raw --code <code> | --file <path> [--lang csharp|python]",
-		"Execute C# or Python code on the bridge",
+		"execute_raw --code <code> | --file <path> [--lang csharp]",
+		"Execute C# code on the bridge",
 		[]string{
 			`revit-cli execute_raw --lang csharp --code "return doc.Title;"`,
 			`revit-cli execute_raw --file script.cs --lang csharp`,

@@ -39,9 +39,9 @@ namespace RevitCliBridge.Tests
         }
 
         [Fact]
-        public void Constructor_AllowRawExecution_DefaultsToFalse()
+        public void Constructor_AllowRawExecution_DefaultsToTrue()
         {
-            Assert.False(new CliBridgeConfig().AllowRawExecution);
+            Assert.True(new CliBridgeConfig().AllowRawExecution);
         }
 
         [Fact]

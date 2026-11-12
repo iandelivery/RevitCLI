@@ -16,12 +16,12 @@ type ExecuteRawHandler struct{}
 func (ExecuteRawHandler) Metadata() abstractions.CommandMetadata {
 	return abstractions.CommandMetadata{
 		Name:        "execute_raw",
-		Description: "Execute C# or Python code on the bridge",
-		Usage:       "execute_raw --code <code> | --file <path> [--language csharp|python]",
+		Description: "Execute C# code on the bridge",
+		Usage:       "execute_raw --code <code> | --file <path> [--language csharp]",
 		Category:    abstractions.CategoryRaw,
 		Examples: []string{
 			`revit-cli.exe execute_raw --language csharp --code "return doc.Title;"`,
-			`revit-cli.exe execute_raw --file script.cs -l python`,
+			`revit-cli.exe execute_raw --file script.cs`,
 		},
 	}
 }

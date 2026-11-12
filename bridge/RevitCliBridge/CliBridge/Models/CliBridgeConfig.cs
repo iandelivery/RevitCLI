@@ -98,7 +98,7 @@ namespace RevitCliBridge.Models
             Port = 5000;
             TimeoutSeconds = 180;
             MaxCommandQueueSize = 100;
-            AllowRawExecution = false;
+            AllowRawExecution = true;
             AutoPort = true;
             MaxRequestBodySizeBytes = 10L * 1024 * 1024;
         }
