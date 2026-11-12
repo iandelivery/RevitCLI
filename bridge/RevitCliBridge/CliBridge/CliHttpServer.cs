@@ -22,15 +22,12 @@ namespace RevitCliBridge
         private CancellationTokenSource _cancellationTokenSource;
         private Task? _serverTask;
         private volatile bool _isRunning;
+        private SseExecuteHandler? _sseHandler;
 
         private static readonly SemaphoreSlim _concurrencyLimiter = new SemaphoreSlim(10, 10);
 
         private int _revitVersion;
         private int _processId;
-
-        private static List<CommandDef>? _cachedCommandDefs;
-        private static string? _cachedSchemaEtag;
-        private static readonly object _schemaCacheLock = new object();
 
         public int Port => _port;
         public bool IsRunning => _isRunning;
@@ -58,6 +55,7 @@ namespace RevitCliBridge
             if (_isRunning) return;
 
             _cancellationTokenSource = new CancellationTokenSource();
+            _sseHandler = new SseExecuteHandler(_cancellationTokenSource.Token);
 
             _listener.Start();
             _isRunning = true;
@@ -152,7 +150,7 @@ namespace RevitCliBridge
                     ("method", request.HttpMethod),
                     ("path", path));
 
-                if (IsAuthRequired(path))
+                if (AuthPolicy.IsAuthRequired(path))
                 {
                     var authHeader = request.Headers["Authorization"];
                     if (!CliBridgeConfigLoader.ValidateToken(authHeader))
@@ -161,7 +159,7 @@ namespace RevitCliBridge
                             ("request_id", requestId), ("path", path));
                         response.StatusCode = 401;
                         response.AddHeader("WWW-Authenticate", "Bearer");
-                        await WriteJsonResponseAsync(response, new
+                        await HttpIo.WriteJsonResponseAsync(response, new
                         {
                             error = "Unauthorized. Provide 'Authorization: Bearer <api_key>' header.",
                             auth_enabled = CliBridgeConfigLoader.IsAuthEnabled
@@ -176,7 +174,7 @@ namespace RevitCliBridge
 
                     if (isSseRequested)
                     {
-                        await HandleSseExecuteRequestAsync(request, response, requestId);
+                        await _sseHandler!.HandleAsync(request, response, requestId);
                         responseHandled = true;
                         return;
                     }
@@ -244,7 +242,7 @@ namespace RevitCliBridge
                 else
                 {
                     response.StatusCode = 404;
-                    await WriteJsonResponseAsync(response, new { error = "Not found" });
+                    await HttpIo.WriteJsonResponseAsync(response, new { error = "Not found" });
                 }
             }
             catch (Exception ex)
@@ -256,7 +254,7 @@ namespace RevitCliBridge
                     try
                     {
                         context.Response.StatusCode = 500;
-                        await WriteJsonResponseAsync(context.Response, new { error = ex.Message });
+                        await HttpIo.WriteJsonResponseAsync(context.Response, new { error = ex.Message });
                     }
                     catch { }
                 }
@@ -270,53 +268,9 @@ namespace RevitCliBridge
             }
         }
 
-        private static long MaxRequestBodySize =>
-            CliBridgeConfigLoader.Config.MaxRequestBodySizeBytes;
-
-        /// <summary>
-        /// Paths that remain accessible without authentication so clients
-        /// can discover and probe the bridge before presenting credentials.
-        /// </summary>
-        private static readonly HashSet<string> PublicPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-        {
-            "/api/health",
-            "/api/identity",
-            "/api/auth/status"
-        };
-
-        /// <summary>
-        /// Returns true if the given path requires Bearer token authentication.
-        /// Public paths (health, identity, auth status) are always open.
-        /// Non-/api paths (e.g. static files) do not require auth either.
-        /// </summary>
-        private static bool IsAuthRequired(string path)
-        {
-            if (!CliBridgeConfigLoader.IsAuthEnabled)
-                return false;
-            if (PublicPaths.Contains(path))
-                return false;
-            return path.StartsWith("/api/", StringComparison.OrdinalIgnoreCase);
-        }
-
-        private async Task<string> ReadRequestBodyAsync(HttpListenerRequest request, HttpListenerResponse response)
-        {
-            long maxBytes = MaxRequestBodySize;
-            if (request.ContentLength64 > maxBytes)
-            {
-                response.StatusCode = 413;
-                await WriteJsonResponseAsync(response, new { error = "Request body too large." });
-                return string.Empty;
-            }
-
-            using (var reader = new StreamReader(request.InputStream, request.ContentEncoding))
-            {
-                return await reader.ReadToEndAsync();
-            }
-        }
-
         private async Task HandleExecuteRequestAsync(HttpListenerRequest request, HttpListenerResponse response, string requestId)
         {
-            string body = await ReadRequestBodyAsync(request, response);
+            string body = await HttpIo.ReadRequestBodyAsync(request, response);
             if (string.IsNullOrEmpty(body) && response.StatusCode == 413) return;
 
             CliLogger.Info($"Received CLI request: {body}");
@@ -328,7 +282,7 @@ namespace RevitCliBridge
                 if (input is null || string.IsNullOrEmpty(input.Command))
                 {
                     response.StatusCode = 400;
-                    await WriteJsonResponseAsync(response,
+                    await HttpIo.WriteJsonResponseAsync(response,
                         CommandResponse.Error("unknown", "Invalid request: missing 'command' field."));
                     return;
                 }
@@ -336,7 +290,7 @@ namespace RevitCliBridge
             catch (Exception ex)
             {
                 response.StatusCode = 400;
-                await WriteJsonResponseAsync(response,
+                await HttpIo.WriteJsonResponseAsync(response,
                     CommandResponse.Error("unknown", $"Invalid JSON: {ex.Message}"));
                 return;
             }
@@ -361,7 +315,7 @@ namespace RevitCliBridge
             if (TaskRegistry.CommandQueue.Count >= config.MaxCommandQueueSize)
             {
                 response.StatusCode = 429;
-                await WriteJsonResponseAsync(response,
+                await HttpIo.WriteJsonResponseAsync(response,
                     CommandResponse.Error(input.TaskId, $"Command queue is full ({config.MaxCommandQueueSize}). Try again later."));
                 return;
             }
@@ -381,7 +335,7 @@ namespace RevitCliBridge
                     status = "pending",
                     message = "Task submitted. Poll GET /api/task/{task_id} for status."
                 };
-                await WriteJsonResponseAsync(response, acceptResult);
+                await HttpIo.WriteJsonResponseAsync(response, acceptResult);
             }
             else
             {
@@ -393,156 +347,16 @@ namespace RevitCliBridge
                     var finalTask = TaskRegistry.GetTask(input.TaskId);
                     if (finalTask != null && finalTask.Status == CliTaskStatus.Failed)
                         response.StatusCode = 500;
-                    await WriteJsonResponseAsync(response, taskInfo.Tcs.Task.Result);
+                    await HttpIo.WriteJsonResponseAsync(response, taskInfo.Tcs.Task.Result);
                 }
                 else
                 {
                     TaskRegistry.SetFailed(input.TaskId,
                         CommandResponse.Error(input.TaskId, "Revit API execution timed out.").ToJson());
-                    await WriteJsonResponseAsync(response,
+                    await HttpIo.WriteJsonResponseAsync(response,
                         CommandResponse.Error(input.TaskId, "Revit API execution timed out.").ToJson());
                 }
             }
-        }
-
-        /// <summary>
-        /// Handle SSE mode execute request.
-        /// Client triggers this mode by Accept: text/event-stream header.
-        /// Server keeps the connection open and pushes real-time events until the task completes.
-        /// </summary>
-        private async Task HandleSseExecuteRequestAsync(HttpListenerRequest request, HttpListenerResponse response, string requestId)
-        {
-            string body = await ReadRequestBodyAsync(request, response);
-            if (string.IsNullOrEmpty(body) && response.StatusCode == 413) return;
-
-            CliLogger.Info($"Received SSE CLI request: {body}");
-
-            RevitCommandInput? input;
-            try
-            {
-                input = JsonConvert.DeserializeObject<RevitCommandInput>(body);
-                if (input is null || string.IsNullOrEmpty(input.Command))
-                {
-                    response.StatusCode = 400;
-                    await WriteJsonResponseAsync(response,
-                        CommandResponse.Error("unknown", "Invalid request: missing 'command' field."));
-                    return;
-                }
-            }
-            catch (Exception ex)
-            {
-                response.StatusCode = 400;
-                await WriteJsonResponseAsync(response,
-                    CommandResponse.Error("unknown", $"Invalid JSON: {ex.Message}"));
-                return;
-            }
-
-            if (string.IsNullOrEmpty(input.TaskId))
-                input.TaskId = Guid.NewGuid().ToString();
-
-            response.ContentType = "text/event-stream";
-            response.Headers.Add("Cache-Control", "no-cache");
-            response.Headers.Add("Connection", "keep-alive");
-            response.Headers.Add("X-Accel-Buffering", "no");
-            response.StatusCode = 200;
-
-            var taskInfo = TaskRegistry.CreateTask(input.TaskId, input.Command);
-
-            var sseCts = CancellationTokenSource.CreateLinkedTokenSource(_cancellationTokenSource.Token);
-            bool clientDisconnected = false;
-
-            taskInfo.OnSseEvent += async (eventName, dataJson) =>
-            {
-                if (clientDisconnected) return;
-                try
-                {
-                    await WriteSseEventAsync(response.OutputStream, eventName, dataJson);
-                }
-                catch (Exception)
-                {
-                    clientDisconnected = true;
-                    sseCts.Cancel();
-                }
-            };
-
-            try
-            {
-                await WriteSseEventAsync(response.OutputStream, "accepted",
-                    JsonConvert.SerializeObject(new { task_id = input.TaskId, status = "pending", command = input.Command }));
-            }
-            catch (Exception)
-            {
-                clientDisconnected = true;
-                taskInfo.ClearSseSubscribers();
-                return;
-            }
-
-            var queuedCommand = new QueuedCommand
-            {
-                TaskId = input.TaskId,
-                Command = input.Command,
-                Parameters = input.Parameters,
-                DryRun = input.DryRun,
-                RequestId = requestId
-            };
-            TaskRegistry.CommandQueue.Enqueue(queuedCommand);
-            TaskRegistry.RevitEvent?.Raise();
-
-            var heartbeatCts = CancellationTokenSource.CreateLinkedTokenSource(sseCts.Token);
-            var heartbeatTask = Task.Run(async () =>
-            {
-                try
-                {
-                    while (!heartbeatCts.IsCancellationRequested)
-                    {
-                        await Task.Delay(15000, heartbeatCts.Token);
-                        if (clientDisconnected) return;
-                        try
-                        {
-                            await WriteSseEventAsync(response.OutputStream, "heartbeat", "{}");
-                        }
-                        catch
-                        {
-                            heartbeatCts.Cancel();
-                        }
-                    }
-                }
-                catch (OperationCanceledException) { }
-            }, heartbeatCts.Token);
-
-            int timeoutSeconds = input.TimeoutSeconds ?? CliBridgeConfigLoader.Config.TimeoutSeconds;
-            var timeoutTask = Task.Delay(TimeSpan.FromSeconds(timeoutSeconds), sseCts.Token);
-
-            var completedTask = await Task.WhenAny(taskInfo.Tcs.Task, timeoutTask);
-
-            if (completedTask == timeoutTask)
-            {
-                TaskRegistry.SetFailed(input.TaskId,
-                    CommandResponse.Error(input.TaskId, "Revit API execution timed out").ToJson());
-            }
-
-            if (!clientDisconnected)
-            {
-                try
-                {
-                    var finalTask = TaskRegistry.GetTask(input.TaskId);
-                    if (finalTask != null)
-                    {
-                        var finalEvent = finalTask.Status == CliTaskStatus.Completed ? "completed" : "failed";
-                        var finalData = finalTask.ResultJson ?? "{}";
-                        await WriteSseEventAsync(response.OutputStream, finalEvent, finalData);
-                    }
-                }
-                catch { }
-            }
-
-            heartbeatCts.Cancel();
-            try { await heartbeatTask; } catch { }
-
-            taskInfo.ClearSseSubscribers();
-
-            try { heartbeatCts.Dispose(); } catch { }
-            try { sseCts.Dispose(); } catch { }
         }
 
         private async Task HandleCliTaskStatusRequestAsync(string taskId, HttpListenerResponse response)
@@ -551,7 +365,7 @@ namespace RevitCliBridge
             if (task == null)
             {
                 response.StatusCode = 404;
-                await WriteJsonResponseAsync(response, new { error = $"Task '{taskId}' not found." });
+                await HttpIo.WriteJsonResponseAsync(response, new { error = $"Task '{taskId}' not found." });
                 return;
             }
 
@@ -584,7 +398,7 @@ namespace RevitCliBridge
                 }
             }
 
-            await WriteJsonResponseAsync(response, result);
+            await HttpIo.WriteJsonResponseAsync(response, result);
         }
 
         private async Task HandleTaskListRequestAsync(HttpListenerResponse response)
@@ -602,7 +416,7 @@ namespace RevitCliBridge
                 })
                 .ToList();
 
-            await WriteJsonResponseAsync(response, new { tasks = tasks, count = tasks.Count });
+            await HttpIo.WriteJsonResponseAsync(response, new { tasks = tasks, count = tasks.Count });
         }
 
         private async Task HandleStatusRequestAsync(HttpListenerResponse response)
@@ -615,7 +429,7 @@ namespace RevitCliBridge
                 running_tasks = TaskRegistry.Tasks.Count(t => t.Value.Status == CliTaskStatus.Running),
                 queue_size = TaskRegistry.CommandQueue.Count
             };
-            await WriteJsonResponseAsync(response, status);
+            await HttpIo.WriteJsonResponseAsync(response, status);
         }
 
         /// <summary>
@@ -624,13 +438,13 @@ namespace RevitCliBridge
         /// </summary>
         private async Task HandleMetricsRequestAsync(HttpListenerResponse response)
         {
-            await WriteJsonResponseAsync(response, MetricsCollector.GetSnapshot());
+            await HttpIo.WriteJsonResponseAsync(response, MetricsCollector.GetSnapshot());
         }
 
         private async Task HandleHealthCheckAsync(HttpListenerResponse response)
         {
             var health = new { status = "ok", timestamp = DateTime.Now.ToString("o") };
-            await WriteJsonResponseAsync(response, health);
+            await HttpIo.WriteJsonResponseAsync(response, health);
         }
 
         /// <summary>
@@ -647,7 +461,7 @@ namespace RevitCliBridge
                 hostname = "localhost",
                 commands_count = CommandRouter.GetAllHandlers().Count()
             };
-            await WriteJsonResponseAsync(response, identity);
+            await HttpIo.WriteJsonResponseAsync(response, identity);
         }
 
         /// <summary>
@@ -659,7 +473,7 @@ namespace RevitCliBridge
             {
                 allow_raw_execution = CliBridgeConfigLoader.Config.AllowRawExecution
             };
-            await WriteJsonResponseAsync(response, result);
+            await HttpIo.WriteJsonResponseAsync(response, result);
         }
 
         /// <summary>
@@ -668,7 +482,7 @@ namespace RevitCliBridge
         /// </summary>
         private async Task HandleRawModeSetAsync(HttpListenerRequest request, HttpListenerResponse response)
         {
-            string body = await ReadRequestBodyAsync(request, response);
+            string body = await HttpIo.ReadRequestBodyAsync(request, response);
             if (string.IsNullOrEmpty(body) && response.StatusCode == 413) return;
 
             try
@@ -677,7 +491,7 @@ namespace RevitCliBridge
                 if (payload == null || !payload.TryGetValue("enabled", out var enabledObj))
                 {
                     response.StatusCode = 400;
-                    await WriteJsonResponseAsync(response, new { error = "Request body must contain 'enabled' field." });
+                    await HttpIo.WriteJsonResponseAsync(response, new { error = "Request body must contain 'enabled' field." });
                     return;
                 }
 
@@ -689,14 +503,14 @@ namespace RevitCliBridge
                 else
                 {
                     response.StatusCode = 400;
-                    await WriteJsonResponseAsync(response, new { error = "'enabled' must be a boolean (true/false)." });
+                    await HttpIo.WriteJsonResponseAsync(response, new { error = "'enabled' must be a boolean (true/false)." });
                     return;
                 }
 
                 CliBridgeConfigLoader.SetAllowRawExecution(enabled);
                 CliLogger.Info($"Raw execution mode changed: allow_raw_execution = {enabled}");
 
-                await WriteJsonResponseAsync(response, new
+                await HttpIo.WriteJsonResponseAsync(response, new
                 {
                     allow_raw_execution = enabled,
                     message = enabled
@@ -707,7 +521,7 @@ namespace RevitCliBridge
             catch (Exception ex)
             {
                 response.StatusCode = 400;
-                await WriteJsonResponseAsync(response, new { error = $"Invalid request: {ex.Message}" });
+                await HttpIo.WriteJsonResponseAsync(response, new { error = $"Invalid request: {ex.Message}" });
             }
         }
 
@@ -718,7 +532,7 @@ namespace RevitCliBridge
         /// </summary>
         private async Task HandleAuthStatusRequestAsync(HttpListenerResponse response)
         {
-            await WriteJsonResponseAsync(response, new
+            await HttpIo.WriteJsonResponseAsync(response, new
             {
                 auth_enabled = CliBridgeConfigLoader.IsAuthEnabled,
                 scheme = "Bearer",
@@ -770,7 +584,7 @@ namespace RevitCliBridge
             {
                 CliLogger.Error($"Error generating llms.txt: {ex.Message}");
                 response.StatusCode = 500;
-                await WriteJsonResponseAsync(response, new { error = $"Failed to generate llms.txt: {ex.Message}" });
+                await HttpIo.WriteJsonResponseAsync(response, new { error = $"Failed to generate llms.txt: {ex.Message}" });
             }
         }
 
@@ -819,7 +633,7 @@ namespace RevitCliBridge
                 }
 
                 response.StatusCode = 200;
-                await WriteJsonResponseAsync(response, new
+                await HttpIo.WriteJsonResponseAsync(response, new
                 {
                     documents,
                     active_path = activePath
@@ -829,19 +643,19 @@ namespace RevitCliBridge
             {
                 CliLogger.Error($"Error listing documents: {ex.Message}");
                 response.StatusCode = 500;
-                await WriteJsonResponseAsync(response, new { error = $"Failed to list documents: {ex.Message}" });
+                await HttpIo.WriteJsonResponseAsync(response, new { error = $"Failed to list documents: {ex.Message}" });
             }
         }
 
         /// <summary>
         /// GET /api/commands — returns schema for all registered commands.
         /// Supports ETag/If-None-Match for efficient re-fetching. The schema
-        /// and ETag are cached statically and only rebuilt when handlers are
-        /// registered or unregistered (see <see cref="InvalidateSchemaCache"/>).
+        /// and ETag are cached in <see cref="CommandSchemaCache"/> and only
+        /// rebuilt when handlers are registered or unregistered.
         /// </summary>
         private async Task HandleCommandsSchemaAsync(HttpListenerRequest request, HttpListenerResponse response)
         {
-            var etag = GetOrBuildSchemaEtag();
+            var etag = CommandSchemaCache.GetEtag();
 
             var ifNoneMatch = request.Headers["If-None-Match"];
             if (ifNoneMatch != null && ifNoneMatch.Trim('"') == etag)
@@ -852,95 +666,12 @@ namespace RevitCliBridge
             }
 
             response.Headers["ETag"] = $"\"{etag}\"";
-            var schema = BuildCommandSchemaFromCache();
-            await WriteJsonResponseAsync(response, schema);
-        }
-
-        /// <summary>
-        /// Returns the cached ETag for the command schema, building the cache
-        /// on first access. Thread-safe.
-        /// </summary>
-        private static string GetOrBuildSchemaEtag()
-        {
-            lock (_schemaCacheLock)
-            {
-                if (_cachedSchemaEtag != null) return _cachedSchemaEtag;
-                GetOrBuildCommandDefs();
-                return _cachedSchemaEtag!;
-            }
-        }
-
-        /// <summary>
-        /// Returns the cached command definitions, building them on first access.
-        /// The ETag is computed once as a version-stamped content hash:
-        /// "{bridgeVersion}:{commandCount}:{contentHash}". Thread-safe.
-        /// </summary>
-        private static List<CommandDef> GetOrBuildCommandDefs()
-        {
-            lock (_schemaCacheLock)
-            {
-                if (_cachedCommandDefs != null) return _cachedCommandDefs;
-
-                var defs = new List<CommandDef>();
-                foreach (var handler in CommandRouter.GetAllHandlers())
-                {
-                    defs.Add(BuildCommandDef(handler));
-                }
-
-                var json = JsonConvert.SerializeObject(defs, Formatting.None);
-                var hash = ComputeEtag(json);
-                _cachedSchemaEtag = $"{BridgeVersionString}:{defs.Count}:{hash}";
-
-                _cachedCommandDefs = defs;
-                return defs;
-            }
-        }
-
-        /// <summary>
-        /// Invalidates the cached command schema. Called when handlers are
-        /// registered at runtime (e.g. plugin loading). During initial handler
-        /// discovery the cache is not yet built, so invalidation is a no-op.
-        /// </summary>
-        public static void InvalidateSchemaCache()
-        {
-            lock (_schemaCacheLock)
-            {
-                _cachedCommandDefs = null;
-                _cachedSchemaEtag = null;
-            }
-        }
-
-        /// <summary>
-        /// Bridge version derived from the assembly FileVersion (Nice3point
-        /// style, e.g. "2022.1.5"). Used as part of the version-stamped ETag
-        /// so clients detect upgrades even when the content hash happens to
-        /// collide.
-        /// </summary>
-        private static string BridgeVersionString
-        {
-            get
-            {
-                var v = typeof(CliHttpServer).Assembly
-                    .GetCustomAttribute<AssemblyFileVersionAttribute>()?.Version;
-                if (string.IsNullOrEmpty(v)) return "0.0.0";
-                var parts = v!.Split('.');
-                return parts.Length >= 3 ? $"{parts[0]}.{parts[1]}.{parts[2]}" : v!;
-            }
-        }
-
-        /// <summary>
-        /// Builds a full CommandSchema response from the cached command defs,
-        /// populating instance-specific ServerInfo (port, features, version).
-        /// </summary>
-        private CommandSchema BuildCommandSchemaFromCache()
-        {
-            var defs = GetOrBuildCommandDefs();
-            return new CommandSchema
+            var schema = new CommandSchema
             {
                 Version = "2.0.0",
                 ServerInfo = new ServerInfo
                 {
-                    BridgeVersion = BridgeVersionString,
+                    BridgeVersion = CommandSchemaCache.BridgeVersion,
                     Port = _port,
                     Features = new ServerFeatures
                     {
@@ -948,17 +679,18 @@ namespace RevitCliBridge
                         ExecuteRaw = false
                     }
                 },
-                Commands = new List<CommandDef>(defs)
+                Commands = new List<CommandDef>(CommandSchemaCache.GetDefs())
             };
+            await HttpIo.WriteJsonResponseAsync(response, schema);
         }
 
-        private static string ComputeEtag(string content)
+        /// <summary>
+        /// Drops the cached command schema. Called when handlers are
+        /// registered at runtime (e.g. plugin loading).
+        /// </summary>
+        public static void InvalidateSchemaCache()
         {
-            using (var sha = System.Security.Cryptography.SHA256.Create())
-            {
-                var hash = sha.ComputeHash(Encoding.UTF8.GetBytes(content));
-                return Convert.ToBase64String(hash).TrimEnd('=').Replace('+', '-').Replace('/', '_');
-            }
+            CommandSchemaCache.Invalidate();
         }
 
         /// <summary>
@@ -972,12 +704,12 @@ namespace RevitCliBridge
             if (handler == null)
             {
                 response.StatusCode = 404;
-                await WriteJsonResponseAsync(response, new { error = $"Command '{commandName}' not found." });
+                await HttpIo.WriteJsonResponseAsync(response, new { error = $"Command '{commandName}' not found." });
                 return;
             }
 
-            var commandDef = BuildCommandDef(handler);
-            var etag = ComputeCommandEtag(commandDef);
+            var commandDef = CommandSchemaCache.BuildDef(handler);
+            var etag = CommandSchemaCache.ComputeCommandEtag(commandDef);
 
             var ifNoneMatch = request.Headers["If-None-Match"];
             if (ifNoneMatch != null && ifNoneMatch.Trim('"') == etag)
@@ -988,19 +720,7 @@ namespace RevitCliBridge
             }
 
             response.Headers["ETag"] = $"\"{etag}\"";
-            await WriteJsonResponseAsync(response, commandDef);
-        }
-
-        /// <summary>
-        /// Computes a version-stamped ETag for a single command definition.
-        /// Format: "{bridgeVersion}:{contentHash}" — stable across requests
-        /// for the same command content, changes on bridge upgrade.
-        /// </summary>
-        private static string ComputeCommandEtag(CommandDef commandDef)
-        {
-            var json = JsonConvert.SerializeObject(commandDef, Formatting.None);
-            var hash = ComputeEtag(json);
-            return $"{BridgeVersionString}:{hash}";
+            await HttpIo.WriteJsonResponseAsync(response, commandDef);
         }
 
         /// <summary>
@@ -1012,7 +732,7 @@ namespace RevitCliBridge
         /// </summary>
         private async Task HandleCatalogRequestAsync(HttpListenerRequest request, HttpListenerResponse response)
         {
-            var etag = GetOrBuildSchemaEtag();
+            var etag = CommandSchemaCache.GetEtag();
 
             var ifNoneMatch = request.Headers["If-None-Match"];
             if (ifNoneMatch != null && ifNoneMatch.Trim('"') == etag)
@@ -1022,10 +742,10 @@ namespace RevitCliBridge
                 return;
             }
 
-            var defs = GetOrBuildCommandDefs();
+            var defs = CommandSchemaCache.GetDefs();
             var catalog = new CommandCatalog
             {
-                CatalogVersion = BridgeVersionString,
+                CatalogVersion = CommandSchemaCache.BridgeVersion,
                 CommandCount = defs.Count,
                 Commands = defs.Select(d => new CatalogEntry
                 {
@@ -1036,59 +756,7 @@ namespace RevitCliBridge
             };
 
             response.Headers["ETag"] = $"\"{etag}\"";
-            await WriteJsonResponseAsync(response, catalog);
-        }
-
-        private static CommandDef BuildCommandDef(IBridgeCommand handler)
-        {
-            return new CommandDef
-            {
-                Name = handler.CommandName,
-                Version = handler.Version,
-                Description = handler.Description,
-                Category = handler.Category,
-                Aliases = handler.Aliases.Length > 0 ? handler.Aliases : null,
-                SupportsDryRun = handler.SupportsDryRun,
-                Parameters = handler.Parameters.Length > 0 ? handler.Parameters : null,
-                Examples = handler.Examples.Length > 0 ? handler.Examples : null
-            };
-        }
-
-        private static async Task WriteJsonResponseAsync(HttpListenerResponse response, object data, string contentType = "application/json")
-        {
-            string json = JsonConvert.SerializeObject(data, Formatting.Indented);
-            byte[] buffer = Encoding.UTF8.GetBytes(json);
-
-            response.ContentType = contentType;
-            response.ContentLength64 = buffer.Length;
-            if (response.StatusCode == 0)
-                response.StatusCode = 200;
-
-            await response.OutputStream.WriteAsync(buffer, 0, buffer.Length);
-        }
-
-        private static async Task WriteJsonResponseAsync(HttpListenerResponse response, string json, string contentType = "application/json")
-        {
-            byte[] buffer = Encoding.UTF8.GetBytes(json);
-
-            response.ContentType = contentType;
-            response.ContentLength64 = buffer.Length;
-            if (response.StatusCode == 0)
-                response.StatusCode = 200;
-
-            await response.OutputStream.WriteAsync(buffer, 0, buffer.Length);
-        }
-
-        /// <summary>
-        /// Write event frame to SSE stream.
-        /// Format: "event: {name}\ndata: {json}\n\n"
-        /// </summary>
-        private static async Task WriteSseEventAsync(Stream outputStream, string eventName, string dataJson)
-        {
-            var frame = $"event: {eventName}\ndata: {dataJson}\n\n";
-            var buffer = Encoding.UTF8.GetBytes(frame);
-            await outputStream.WriteAsync(buffer, 0, buffer.Length);
-            await outputStream.FlushAsync();
+            await HttpIo.WriteJsonResponseAsync(response, catalog);
         }
 
         public void Dispose()
