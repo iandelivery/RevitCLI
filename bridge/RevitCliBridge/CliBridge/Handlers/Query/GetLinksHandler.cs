@@ -78,7 +78,7 @@ namespace RevitCliBridge.Handlers.Query
                     .OfClass(typeof(RevitLinkInstance))
                     .Cast<RevitLinkInstance>())
                 {
-                    var parentDoc = parent.GetLinkDocument();
+                    var parentDoc = HandlerUtilities.GetLinkDocumentSafe(doc, parent);
                     if (parentDoc is null) continue;
 
                     nested.AddRange(new FilteredElementCollector(parentDoc)
@@ -127,7 +127,7 @@ namespace RevitCliBridge.Handlers.Query
                 Id = instance.Id.IntegerValue,
                 Name = instance.Name,
                 TypeId = instance.GetTypeId().IntegerValue,
-                Loaded = instance.GetLinkDocument() is not null,
+                Loaded = HandlerUtilities.GetLinkDocumentSafe(instance.Document, instance) is not null,
                 Path = path,
                 IsNested = isNested,
                 ParentLink = parentName,

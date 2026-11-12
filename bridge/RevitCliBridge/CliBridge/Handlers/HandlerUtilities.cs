@@ -86,6 +86,42 @@ namespace RevitCliBridge.Handlers
         }
 
         /// <summary>
+        /// Returns the linked document of a RevitLinkInstance, falling back
+        /// to a lookup in Application.Documents by the link type's external
+        /// file path. Revit 2019 can leave GetLinkDocument() null even while
+        /// the linked document is open and queryable (observed for
+        /// API-created link types, persisting across save/reopen); the path
+        /// match recovers those cases. Returns null when the link is
+        /// genuinely not loaded (no open document carries its path).
+        /// </summary>
+        public static Document? GetLinkDocumentSafe(Document hostDoc, RevitLinkInstance instance)
+        {
+            var linkDoc = instance.GetLinkDocument();
+            if (linkDoc is not null)
+                return linkDoc;
+
+            var type = hostDoc.GetElement(instance.GetTypeId()) as RevitLinkType;
+            var absPath = type?.GetExternalFileReference()?.GetAbsolutePath();
+            if (absPath is null)
+                return null;
+
+            var expected = NormalizePath(ModelPathUtils.ConvertModelPathToUserVisiblePath(absPath));
+            foreach (Document d in hostDoc.Application.Documents)
+            {
+                if (!d.IsLinked || string.IsNullOrEmpty(d.PathName))
+                    continue;
+                if (string.Equals(NormalizePath(d.PathName), expected, StringComparison.Ordinal))
+                    return d;
+            }
+            return null;
+        }
+
+        private static string NormalizePath(string path)
+        {
+            return path.Replace('/', '\\').Trim().TrimEnd('\\').ToLowerInvariant();
+        }
+
+        /// <summary>
         /// Resolves the target document for a query: the host document when
         /// no `link` parameter is present, otherwise the linked document of
         /// the named or id-addressed RevitLinkInstance. Returns null with
@@ -112,17 +148,13 @@ namespace RevitCliBridge.Handlers
                     string.Equals(l.Name, selector.Name, StringComparison.OrdinalIgnoreCase));
 
             if (match is null)
-                return null;
-
-            var linkDoc = match.GetLinkDocument();
-            if (linkDoc is null)
             {
-                linkLabel = $"{match.Name} (id {match.Id.IntegerValue})";
+                linkLabel = $"no placed link matches {LinkSelectorParser.Describe(selector)}";
                 return null;
             }
 
             linkLabel = $"{match.Name} (id {match.Id.IntegerValue})";
-            return linkDoc;
+            return GetLinkDocumentSafe(hostDoc, match);
         }
     }
 }

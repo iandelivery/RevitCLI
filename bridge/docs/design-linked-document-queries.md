@@ -85,7 +85,17 @@ Lists every placed link in the active document.
 }
 ```
 
-`loaded` is `GetLinkDocument() != null`. `origin` is the translation part
+`loaded` is computed by `HandlerUtilities.GetLinkDocumentSafe`:
+`GetLinkDocument()`, with a fallback that matches the linked `Document` in
+`Application.Documents` by the link type's external file path when
+`GetLinkDocument()` returns null. Live verification on Revit 2019 showed
+`GetLinkDocument()` staying null while the linked document is open and
+queryable (reproduced for API-created link types via `RevitLinkType.Create`
+and persisting across save/reopen), so a bare `GetLinkDocument()` check
+misreports loaded links. The fallback only runs when `GetLinkDocument()` is
+null and returns null again when no open linked document carries the path,
+so genuinely unloaded links still report `loaded: false`.
+`origin` is the translation part
 of `GetTotalTransform()`. Optional `--include-nested` adds nested links,
 which are `RevitLinkInstance`s collected from each link's own document with
 `IsNestedLink == true`.
@@ -103,9 +113,15 @@ public static Document? TryResolveTargetDocument(
 
 No `link` parameter: return the host document, `linkLabel = null`. With
 `link`: parse the value as an integer and look up the instance id, or
-treat it as an exact instance name. Return `GetLinkDocument()` with
+treat it as an exact instance name. Return
+`HandlerUtilities.GetLinkDocumentSafe(hostDoc, instance)` with
 `linkLabel = "{name} (id {id})"`. Unloaded link: return `null` and let
-the caller answer with a `CommandResponse.Error` naming the link. The
+the caller answer with a `CommandResponse.Error` naming the link. A
+selector that matches no placed link sets
+`linkLabel = "no placed link matches id {id}"` (or
+`"no placed link matches name '{name}'"`, from
+`LinkSelectorParser.Describe`) so the error distinguishes a missing link
+from an unloaded one. The
 old `ResolveLinkDocuments` is deleted.
 
 Two naming rules protect against wrong-link results:
