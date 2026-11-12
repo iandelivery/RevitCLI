@@ -145,8 +145,11 @@ namespace RevitCliBridge.Tests
             };
             var json = JObject.Parse(JsonConvert.SerializeObject(s));
             Assert.Equal("2.1.0", json["version"]);
-            Assert.NotNull(json["commands"]);
-            Assert.Equal("ping", json["commands"][0]["name"]);
+            var commands = json["commands"];
+            Assert.NotNull(commands);
+            var first = commands[0];
+            Assert.NotNull(first);
+            Assert.Equal("ping", first["name"]);
             Assert.Null(json["server_info"]);
         }
 
@@ -218,10 +221,16 @@ namespace RevitCliBridge.Tests
             var json = JObject.Parse(JsonConvert.SerializeObject(c));
             Assert.Equal("1.0", json["catalog_version"]);
             Assert.Equal(2, json["command_count"]);
-            Assert.Equal("ping", json["commands"][0]["name"]);
-            Assert.Equal("General", json["commands"][0]["category"]);
-            Assert.Equal("Health check", json["commands"][0]["summary"]);
-            Assert.Null(json["commands"][1]["summary"]);
+            var commands = json["commands"];
+            Assert.NotNull(commands);
+            var first = commands[0];
+            Assert.NotNull(first);
+            Assert.Equal("ping", first["name"]);
+            Assert.Equal("General", first["category"]);
+            Assert.Equal("Health check", first["summary"]);
+            var second = commands[1];
+            Assert.NotNull(second);
+            Assert.Null(second["summary"]);
         }
 
         [Fact]

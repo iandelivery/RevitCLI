@@ -95,7 +95,7 @@ namespace RevitCliBridge.Tests
         }
 
         [Fact]
-        public void SetCompleted_TransitionsAndStampsAndCompletesTcs()
+        public async Task SetCompleted_TransitionsAndStampsAndCompletesTcs()
         {
             var task = NewTask();
             var json = "{\"status\":\"ok\"}";
@@ -106,7 +106,7 @@ namespace RevitCliBridge.Tests
             Assert.Equal(json, task.ResultJson);
             Assert.NotNull(task.CompletedAt);
             Assert.True(task.Tcs.Task.IsCompleted);
-            Assert.Equal(json, task.Tcs.Task.Result);
+            Assert.Equal(json, await task.Tcs.Task);
         }
 
         [Fact]
@@ -128,7 +128,7 @@ namespace RevitCliBridge.Tests
         }
 
         [Fact]
-        public void SetFailed_TransitionsToFailedAndCompletesTcs()
+        public async Task SetFailed_TransitionsToFailedAndCompletesTcs()
         {
             var task = NewTask();
             var errorJson = "{\"error\":\"boom\"}";
@@ -139,7 +139,7 @@ namespace RevitCliBridge.Tests
             Assert.Equal(errorJson, task.ResultJson);
             Assert.NotNull(task.CompletedAt);
             Assert.True(task.Tcs.Task.IsCompleted);
-            Assert.Equal(errorJson, task.Tcs.Task.Result);
+            Assert.Equal(errorJson, await task.Tcs.Task);
         }
 
         [Fact]

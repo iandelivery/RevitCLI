@@ -211,7 +211,7 @@ namespace RevitCliBridge.Tests
 
             var third = JObject.Parse(events[2].json);
             Assert.Equal("completed", third["status"]!.ToString());
-            Assert.Equal(true, third["result"]!["ok"]!.Value<bool>());
+            Assert.True(third["result"]!["ok"]!.Value<bool>());
 
             Assert.Equal(CliTaskStatus.Completed, task.Status);
         }
