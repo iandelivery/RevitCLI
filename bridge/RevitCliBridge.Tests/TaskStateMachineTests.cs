@@ -45,7 +45,6 @@ namespace RevitCliBridge.Tests
         [Fact]
         public void SetRunning_NoOpOnNullTask()
         {
-            // Should not throw.
             TaskStateMachine.SetRunning(null);
         }
 
@@ -164,14 +163,11 @@ namespace RevitCliBridge.Tests
         [Fact]
         public async Task DoubleCompletion_DoesNotThrow()
         {
-            // TrySetResult should guard against InvalidOperationException.
             var task = NewTask();
 
             TaskStateMachine.SetCompleted(task, "{\"first\":true}");
-            // Second completion is a no-op on the TCS but still updates fields.
             TaskStateMachine.SetCompleted(task, "{\"second\":true}");
 
-            // The first result wins (TrySetResult returns false on second call).
             Assert.Equal("{\"second\":true}", task.ResultJson);
             Assert.Equal("{\"first\":true}", await task.Tcs.Task);
         }
@@ -179,42 +175,27 @@ namespace RevitCliBridge.Tests
         [Fact]
         public void SafeParseJson_FallsBackToRawStringOnInvalidJson()
         {
-            // SetCompleted broadcasts a "completed" event whose result is
-            // SafeParseJson(resultJson). If resultJson is not valid JSON,
-            // the broadcast should still succeed (falling back to raw string),
-            // not throw.
             var task = NewTask();
-            // Invalid JSON should not break the broadcast.
             TaskStateMachine.SetCompleted(task, "not json at all");
 
             Assert.Equal(CliTaskStatus.Completed, task.Status);
         }
 
-        // ---------- Edge cases: state transition ordering ----------
-
         [Fact]
         public void SetRunning_Twice_SecondCallIsIdempotentForStatus()
         {
-            // No exception is thrown and the task remains Running. This
-            // mirrors the production guarantee that re-entering the executor
-            // loop does not corrupt task state.
             var task = NewTask();
             TaskStateMachine.SetRunning(task);
 
             TaskStateMachine.SetRunning(task);
 
             Assert.Equal(CliTaskStatus.Running, task.Status);
-            // Re-stamping StartedAt is allowed by the state machine — the
-            // contract is just "must be non-null after SetRunning".
             Assert.NotNull(task.StartedAt);
         }
 
         [Fact]
         public void SetProgress_BeforeSetRunning_StillUpdatesProgress()
         {
-            // No state precondition — SetProgress updates fields regardless
-            // of prior status. Production code normally calls SetRunning
-            // first, but the state machine doesn't enforce the ordering.
             var task = NewTask();
 
             TaskStateMachine.SetProgress(task, 25, "early");
@@ -227,9 +208,6 @@ namespace RevitCliBridge.Tests
         [Fact]
         public void SetProgress_NegativeProgress_IsStoredWithoutClamping()
         {
-            // No clamping in the state machine — contract is "store what
-            // caller gives". Clamping, if ever added, must be intentional
-            // and would update this test.
             var task = NewTask();
             TaskStateMachine.SetRunning(task);
 
@@ -252,10 +230,6 @@ namespace RevitCliBridge.Tests
         [Fact]
         public void SetCompleted_OverwritesPreviousFailedState()
         {
-            // A task that was marked Failed may be re-marked Completed by
-            // a recovery path. The state machine allows this; the TCS
-            // already has the failed result, so TrySetResult returns false
-            // and the Failed result remains as the awaitable value.
             var task = NewTask();
             TaskStateMachine.SetFailed(task, "{\"err\":true}");
 
@@ -268,7 +242,6 @@ namespace RevitCliBridge.Tests
         [Fact]
         public async Task SetCompleted_AfterSetFailed_TcsKeepsFirstResult()
         {
-            // TrySetResult is one-shot: the first completion wins.
             var task = NewTask();
             TaskStateMachine.SetFailed(task, "first");
 
@@ -304,11 +277,6 @@ namespace RevitCliBridge.Tests
         [Fact]
         public void SetCompleted_BroadcastsParsedJson_WhenInputIsValidJson()
         {
-            // SafeParseJson should produce a JObject in the broadcast payload
-            // when the input is valid JSON. We can't inspect the parsed
-            // object directly (it's an anonymous-typed payload), but the
-            // serialized broadcast JSON should contain the nested fields
-            // rather than a quoted string.
             var task = NewTask();
             string? seenJson = null;
             task.OnSseEvent += (_, json) => seenJson = json;
@@ -316,7 +284,6 @@ namespace RevitCliBridge.Tests
             TaskStateMachine.SetCompleted(task, "{\"count\":3,\"name\":\"wall\"}");
 
             Assert.NotNull(seenJson);
-            // The broadcast payload nests the parsed object under "result".
             Assert.Contains("\"result\":", seenJson!);
             Assert.Contains("\"count\":3", seenJson!);
             Assert.Contains("\"name\":\"wall\"", seenJson!);
@@ -381,10 +348,6 @@ namespace RevitCliBridge.Tests
         [Fact]
         public void SetProgress_BroadcastMessageIsNull_WhenNullPassed()
         {
-            // The state machine passes the (possibly null) message straight
-            // to the broadcast payload, and the ProgressMessage field on
-            // the task is NOT overwritten when null is passed (the
-            // `if (message is not null)` guard skips the assignment).
             var task = NewTask();
             TaskStateMachine.SetRunning(task);
             string? seenJson = null;
@@ -393,9 +356,6 @@ namespace RevitCliBridge.Tests
             TaskStateMachine.SetProgress(task, 50, null);
 
             Assert.Contains("\"progress\":50", seenJson);
-            // SetRunning broadcasts "Execution started" inline but does NOT
-            // update task.ProgressMessage, so it stays null. SetProgress with
-            // a null message must preserve this null (not overwrite).
             Assert.Null(task.ProgressMessage);
         }
     }

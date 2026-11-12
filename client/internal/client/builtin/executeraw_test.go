@@ -12,8 +12,6 @@ type capturedExecuteRaw struct {
 	parameters interface{}
 }
 
-// stubSend captures the command and parameters a builtin handler forwards to
-// the bridge and returns a fixed exit code.
 func stubSend(t *testing.T) (abstractions.SendCommandFunc, *capturedExecuteRaw) {
 	t.Helper()
 	captured := &capturedExecuteRaw{}
@@ -80,8 +78,6 @@ func TestExecuteRawShortFlagsAndLanguageParam(t *testing.T) {
 			if params["code"] != tt.wantCode {
 				t.Fatalf("code = %v, want %q", params["code"], tt.wantCode)
 			}
-			// The bridge schema names the parameter "language"; the legacy
-			// "lang" key was silently ignored by the bridge before the fix.
 			if params["language"] != tt.wantLanguage {
 				t.Fatalf("language = %v, want %q", params["language"], tt.wantLanguage)
 			}

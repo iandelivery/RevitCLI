@@ -17,5 +17,4 @@ namespace RevitCliBridge
     /// Backward-compatible alias. Existing code referencing TaskStatus
     /// within the RevitCliBridge namespace will resolve to CliTaskStatus.
     /// </summary>
-    // Do not add a using alias — just update all references directly.
 }

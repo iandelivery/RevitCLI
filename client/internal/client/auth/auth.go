@@ -12,7 +12,6 @@ import (
 	"sync"
 )
 
-// apiKeyEntry holds the in-memory cached key for a server.
 type apiKeyEntry struct {
 	key string
 }
@@ -23,12 +22,9 @@ var (
 	cacheDir = defaultCacheDir()
 )
 
-// defaultCacheDir returns the default cache directory location.
-// Uses the same directory as the schema cache: <userCacheDir>/revit-cli.
 func defaultCacheDir() string {
 	dir, err := os.UserCacheDir()
 	if err != nil || dir == "" {
-		// Fall back to a temp-based path if the platform doesn't define one.
 		dir = filepath.Join(os.TempDir(), "revit-cli")
 	}
 	return filepath.Join(dir, "revit-cli")
@@ -41,14 +37,11 @@ func SetCacheDir(dir string) {
 	cacheDir = dir
 }
 
-// apiKeyPath returns the path to the API key file for a given server URL.
 func apiKeyPath(baseURL string) string {
 	key := serverKey(baseURL)
 	return filepath.Join(cacheDir, "servers", "apikey_"+key+".txt")
 }
 
-// serverKey derives a filesystem-safe key from a server URL, mirroring
-// the scheme used by discovery.computeServerKey.
 func serverKey(serverURL string) string {
 	if serverURL == "" {
 		return "default"
@@ -78,7 +71,6 @@ func GetAPIKey(baseURL string) string {
 	}
 	mu.RUnlock()
 
-	// Cache miss — try disk.
 	data, err := os.ReadFile(apiKeyPath(baseURL))
 	if err != nil {
 		return ""

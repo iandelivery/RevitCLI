@@ -22,7 +22,6 @@ namespace RevitCliBridge
         /// </summary>
         public static int GetBasePort(int revitVersion)
         {
-            // Revit 2019 → 5011, 2020 → 5021, etc.
             return 5000 + (revitVersion - 2018) * 10 + 1;
         }
 
@@ -48,14 +47,12 @@ namespace RevitCliBridge
                 CliLogger.Info($"Port {candidatePort} is in use, trying next...");
             }
 
-            // Fallback: try the configured port.
             if (IsPortAvailable(fallbackPort))
             {
                 CliLogger.Info($"Version range exhausted, using configured port {fallbackPort}");
                 return fallbackPort;
             }
 
-            // Last resort: find any available port from the OS.
             try
             {
                 var listener = new TcpListener(IPAddress.Loopback, 0);

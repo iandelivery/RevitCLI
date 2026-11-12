@@ -66,7 +66,6 @@ namespace RevitCliBridge.Handlers.Structural
             {
                 tx.ConfigureFailureHandling();
 
-                // Type change
                 if (p.SymbolId.HasValue && p.SymbolId.Value > 0 && p.SymbolId.Value != column.GetTypeId().IntegerValue)
                 {
                     var newSymbol = StructuralUtils.Default.ResolveSymbol(doc, p.SymbolId, BuiltInCategory.OST_StructuralColumns);
@@ -76,7 +75,6 @@ namespace RevitCliBridge.Handlers.Structural
                     column.ChangeTypeId(newSymbol.Id);
                 }
 
-                // Location change — omitted components keep the current value.
                 if (p.X.HasValue || p.Y.HasValue || p.Z.HasValue)
                 {
                     var locPoint = column.Location as LocationPoint;
@@ -90,7 +88,6 @@ namespace RevitCliBridge.Handlers.Structural
                         (p.Z ?? old.Z.FeetToMillimeter()).MillimeterToFeet());
                 }
 
-                // Constraint changes — base/top levels and their offsets.
                 if (p.BaseLevelId.HasValue && p.BaseLevelId.Value > 0)
                 {
                     var prm = column.get_Parameter(BuiltInParameter.FAMILY_BASE_LEVEL_PARAM);

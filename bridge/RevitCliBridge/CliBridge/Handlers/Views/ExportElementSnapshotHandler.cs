@@ -38,7 +38,6 @@ namespace RevitCliBridge.Handlers.Views
             if (uiDoc is null)
                 return CommandResponse.Error(cmd.TaskId, "No active UI document.").ToJson();
 
-            // Resolve target elements: explicit IDs or the current selection.
             var elementIds = HandlerUtilities.GetIntArrayOrNull(parameters, "element_ids");
             var targetIds = new List<ElementId>();
 
@@ -61,7 +60,6 @@ namespace RevitCliBridge.Handlers.Views
                     return CommandResponse.Error(cmd.TaskId, "No element_ids provided and the current selection is empty.").ToJson();
             }
 
-            // Resolve target view.
             Autodesk.Revit.DB.View targetView;
             int? viewId = HandlerUtilities.GetIntOrNull(parameters, "view_id");
             if (viewId.HasValue)
@@ -79,7 +77,6 @@ namespace RevitCliBridge.Handlers.Views
                     return CommandResponse.Error(cmd.TaskId, "No active view.").ToJson();
             }
 
-            // Export options.
             string fileTypeStr = HandlerUtilities.GetStringOrNull(parameters, "file_type") ?? "png";
             string dpiStr = HandlerUtilities.GetStringOrNull(parameters, "dpi") ?? "300";
             int? resolution = HandlerUtilities.GetIntOrNull(parameters, "resolution") ?? 2000;
@@ -105,7 +102,6 @@ namespace RevitCliBridge.Handlers.Views
             if (!Directory.Exists(directory))
                 Directory.CreateDirectory(directory);
 
-            // Section box applies only to non-perspective 3D views.
             var view3D = targetView as View3D;
             bool useSectionBox = withSectionBox && view3D is { IsPerspective: false };
             BoundingBoxXYZ? oldBox = null;
@@ -115,8 +111,6 @@ namespace RevitCliBridge.Handlers.Views
             if (targetView is ViewSheet)
                 return CommandResponse.Error(cmd.TaskId, "Snapshot export is not supported on sheet views.").ToJson();
 
-            // Compute the section box bounds up front (read-only) so a failure
-            // here does not leave any view state behind.
             if (useSectionBox)
             {
                 var bounds = SectionBoxUtilities.ComputeElementsBounds(
@@ -126,10 +120,6 @@ namespace RevitCliBridge.Handlers.Views
                 appliedBounds = bounds;
             }
 
-            // ExportImage renders from the view's committed visibility state
-            // only; temporary hide/isolate is ignored by the print pipeline.
-            // So we commit a permanent hide of every other element in the
-            // view, export, then restore everything in a second transaction.
             var targetIdSet = new HashSet<ElementId>(targetIds);
             var others = new FilteredElementCollector(doc, targetView.Id)
                 .ToElementIds()
@@ -143,9 +133,6 @@ namespace RevitCliBridge.Handlers.Views
 
             try
             {
-                // Bulk hide in one committed transaction. Revit can defer the
-                // "cannot be hidden" validation to Commit, so the commit itself
-                // must be inside the try; on failure the transaction rolls back.
                 bool bulkOk = false;
                 using (var t = new Transaction(doc, "CLI Element Snapshot - Isolate"))
                 {
@@ -172,14 +159,11 @@ namespace RevitCliBridge.Handlers.Views
                     }
                     catch
                     {
-                        // Transaction rolls back; fall back below.
                     }
                 }
 
                 if (!bulkOk)
                 {
-                    // Per-element fallback: hide each element in its own
-                    // committed transaction and skip the ones Revit refuses.
                     foreach (var id in others)
                     {
                         using (var t = new Transaction(doc, "CLI Element Snapshot - Isolate One"))
@@ -192,7 +176,7 @@ namespace RevitCliBridge.Handlers.Views
                                 t.Commit();
                                 hiddenIds.Add(id);
                             }
-                            catch { /* rolls back on dispose */ }
+                            catch { }
                         }
                     }
 
@@ -217,15 +201,12 @@ namespace RevitCliBridge.Handlers.Views
                     }
                 }
 
-                // ExportImage renders the current active view, so switch if needed.
                 if (previousActiveView is null || !previousActiveView.Id.Equals(targetView.Id))
                 {
                     uiDoc.ActiveView = targetView;
                     switchedView = true;
                 }
 
-                // ExportImage can create a temporary view inside the document,
-                // so it must run within an open transaction (same as export_view).
                 using (var tExport = new Transaction(doc, "CLI Element Snapshot - Export"))
                 {
                     tExport.Start();
@@ -258,7 +239,6 @@ namespace RevitCliBridge.Handlers.Views
             }
             finally
             {
-                // Always restore the committed view state, even on failure.
                 try
                 {
                     if (hiddenIds.Count > 0)
@@ -274,7 +254,7 @@ namespace RevitCliBridge.Handlers.Views
                                 t.Commit();
                                 restored = true;
                             }
-                            catch { /* rolls back; fall back below */ }
+                            catch { }
                         }
 
                         if (!restored)
@@ -290,7 +270,7 @@ namespace RevitCliBridge.Handlers.Views
                                         targetView.UnhideElements(new[] { id });
                                         t.Commit();
                                     }
-                                    catch { /* rolls back on dispose */ }
+                                    catch { }
                                 }
                             }
                         }
@@ -310,7 +290,7 @@ namespace RevitCliBridge.Handlers.Views
                         }
                     }
                 }
-                catch { /* best-effort restore */ }
+                catch { }
 
                 if (switchedView && previousActiveView is not null)
                     uiDoc.ActiveView = previousActiveView;

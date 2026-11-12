@@ -23,12 +23,10 @@ namespace RevitCliBridge
         {
             var sb = new StringBuilder();
 
-            // Header
             sb.AppendLine("# Revit CLI Bridge - API Reference");
             sb.AppendLine($"# Instance: Revit {revitVersion} | Port: {port} | PID: {pid}");
             sb.AppendLine();
 
-            // 1. Built-in categories
             sb.AppendLine("## BuiltIn Categories");
             sb.AppendLine("# Format: BIC_NAME -> CategoryType");
             try
@@ -54,25 +52,21 @@ namespace RevitCliBridge
             }
             sb.AppendLine();
 
-            // 2. Common BuiltIn Parameters
             sb.AppendLine("## Common BuiltIn Parameters");
             sb.AppendLine("# Format: PARAMETER_NAME -> DataType (Group)");
             AppendCommonParameters(sb);
             sb.AppendLine();
 
-            // 3. Element class hierarchy (static reference)
             sb.AppendLine("## Element Hierarchy");
             sb.AppendLine("# Key classes for use with execute_raw");
             AppendElementHierarchy(sb);
             sb.AppendLine();
 
-            // 4. Filter classes (static reference)
             sb.AppendLine("## Element Filters");
             sb.AppendLine("# For use with filtered element collectors");
             AppendFilterClasses(sb);
             sb.AppendLine();
 
-            // 5. Dynamic: loaded families (requires active document)
             sb.AppendLine("## Dynamic: Loaded Families");
             try
             {
@@ -90,7 +84,7 @@ namespace RevitCliBridge
                     foreach (var group in familyGroups)
                     {
                         sb.AppendLine($"[{group.Key}]");
-                        foreach (var family in group.Take(20)) // Limit per category
+                        foreach (var family in group.Take(20))
                         {
                             sb.AppendLine($"  {family.Name} ({family.GetFamilySymbolIds().Count} types)");
                         }
@@ -109,14 +103,12 @@ namespace RevitCliBridge
             }
             sb.AppendLine();
 
-            // 6. Dynamic: project parameters (requires active document)
             sb.AppendLine("## Dynamic: Project Parameters");
             try
             {
                 var doc = uiApp.ActiveUIDocument?.Document;
                 if (doc != null)
                 {
-                    // Shared parameters via BindingMap
                     var bindingMap = doc.ParameterBindings;
                     var bindingIter = bindingMap.ForwardIterator();
                     while (bindingIter.MoveNext())
@@ -147,7 +139,6 @@ namespace RevitCliBridge
             }
             sb.AppendLine();
 
-            // 7. Available commands
             sb.AppendLine("## Registered Commands");
             sb.AppendLine("# Commands available via the bridge");
             foreach (var handler in CommandRouter.GetAllHandlers())
@@ -156,7 +147,6 @@ namespace RevitCliBridge
             }
             sb.AppendLine();
 
-            // 8. Usage hint
             sb.AppendLine("## Usage");
             sb.AppendLine("Use the `raw` or `execute_raw` commands to invoke uncovered Revit API elements:");
             sb.AppendLine("  revit-cli.exe raw -j '{\"command\":\"execute_raw\",\"parameters\":{\"code\":\"return doc.Title;\",\"language\":\"csharp\"}}'");

@@ -20,8 +20,6 @@ namespace RevitCliBridge.Tests
         {
             var cmd = new QueuedCommand();
 
-            // Must not throw even though no bridge wired a reporter
-            // (unit tests, standalone execution).
             cmd.ReportProgress(50, "halfway");
         }
 
@@ -86,7 +84,6 @@ namespace RevitCliBridge.Tests
 
             var json = JsonConvert.SerializeObject(cmd);
 
-            // The delegate must never leak into request/response payloads.
             Assert.DoesNotContain("ProgressReporter", json);
             Assert.Contains("\"task_id\":\"task-1\"", json);
         }

@@ -58,7 +58,6 @@ namespace RevitCliBridge.Handlers.Electrical
             if (intersection is null)
                 return CommandResponse.Error(cmd.TaskId, "Branch cable tray does not intersect the main cable tray.").ToJson();
 
-            // Resolve connectors nearest the intersection.
             var mainConnector = MepCurveGeometry.FindClosestConnector(main, intersection);
             Connector? branchConnector;
             if (p.BranchConnectorIndex.HasValue)
@@ -79,18 +78,10 @@ namespace RevitCliBridge.Handlers.Electrical
             if (mainConnector is null || branchConnector is null)
                 return CommandResponse.Error(cmd.TaskId, "Could not resolve connectors at the intersection point.").ToJson();
 
-            // Domain check
             if (mainConnector.Domain != branchConnector.Domain)
                 return CommandResponse.Error(cmd.TaskId, "Main and branch connectors are in different domains.").ToJson();
 
-            // Perpendicularity check (~1° tolerance — Revit throws otherwise).
             double angle = MepCurveGeometry.AngleBetweenDegrees(mainConnector, branchConnector);
-            // For a tee, the branch is roughly perpendicular to the main. The
-            // connector angle returned by AngleBetweenDegrees is the angle
-            // between outward directions. For a 90° intersection, the two
-            // connectors at the intersection point in roughly opposite
-            // directions along the same perpendicular axis → angle ≈ 180°.
-            // We instead compute the angle between the main and branch curves.
             var mainDir = mainCurve.GetEndPoint(1).Subtract(mainCurve.GetEndPoint(0)).Normalize();
             var branchDir = branchCurve.GetEndPoint(1).Subtract(branchCurve.GetEndPoint(0)).Normalize();
             double curveDot = Math.Abs(mainDir.DotProduct(branchDir));
@@ -103,10 +94,6 @@ namespace RevitCliBridge.Handlers.Electrical
             try
             {
                 tx.ConfigureFailureHandling();
-                // Auto-split trick: pass the same main connector twice. Revit
-                // internally breaks the main into two segments and creates the
-                // tee. This avoids manual delete+recreate and keeps the
-                // operation atomic.
                 var fitting = doc.Create.NewTeeFitting(mainConnector, mainConnector, branchConnector);
                 tx.Commit();
 

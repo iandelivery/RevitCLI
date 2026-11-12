@@ -92,8 +92,6 @@ namespace RevitCliBridge.Handlers.Structural
                             "The created beam does not support the End Level Offset parameter.").ToJson();
                 }
 
-                // Snapshot before commit: in dry-run mode the rollback deletes
-                // the new element, so its data must be captured up front.
                 var result = StructuralUtils.Default.SnapshotBeam(beam, doc);
 
                 tx.Commit();

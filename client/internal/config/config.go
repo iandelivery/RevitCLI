@@ -68,7 +68,6 @@ func Load(path string) CliBridgeConfig {
 		return Default()
 	}
 
-	// Fill zero values with defaults
 	if cfg.Port == 0 {
 		cfg.Port = 5000
 	}
@@ -79,7 +78,6 @@ func Load(path string) CliBridgeConfig {
 		cfg.MaxCommandQueueSize = 100
 	}
 
-	// Validate config values
 	if err := cfg.Validate(); err != nil {
 		log.Printf("[config] validation warning: %v", err)
 	}

@@ -70,9 +70,6 @@ namespace RevitCliBridge.Handlers.Query
 
             if (includeNested)
             {
-                // Nested links are RevitLinkInstance elements living in the
-                // parent link's own document. One level deep per loaded
-                // parent.
                 var nested = new List<LinkRow>();
                 foreach (var parent in new FilteredElementCollector(doc)
                     .OfClass(typeof(RevitLinkInstance))

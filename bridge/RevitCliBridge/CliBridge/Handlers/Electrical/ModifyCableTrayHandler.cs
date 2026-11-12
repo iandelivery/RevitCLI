@@ -62,7 +62,6 @@ namespace RevitCliBridge.Handlers.Electrical
             {
                 tx.ConfigureFailureHandling();
 
-                // Type change
                 if (p.TypeId.HasValue && p.TypeId.Value > 0 && p.TypeId.Value != tray.GetTypeId().IntegerValue)
                 {
                     var newType = doc.GetElement(new ElementId(p.TypeId.Value)) as CableTrayType;
@@ -71,7 +70,6 @@ namespace RevitCliBridge.Handlers.Electrical
                     tray.ChangeTypeId(newType.Id);
                 }
 
-                // Endpoint change — must update both together (LocationCurve is a single Line)
                 bool hasStart = p.StartX.HasValue || p.StartY.HasValue || p.StartZ.HasValue;
                 bool hasEnd = p.EndX.HasValue || p.EndY.HasValue || p.EndZ.HasValue;
                 if (hasStart || hasEnd)
@@ -103,7 +101,6 @@ namespace RevitCliBridge.Handlers.Electrical
                     }
                 }
 
-                // Width / height
                 if (p.WidthMm.HasValue && p.WidthMm.Value > 0)
                     tray.get_Parameter(BuiltInParameter.RBS_CABLETRAY_WIDTH_PARAM)?.Set(p.WidthMm.Value.MillimeterToFeet());
 

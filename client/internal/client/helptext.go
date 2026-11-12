@@ -7,7 +7,6 @@ import (
 	"revit-cli/internal/abstractions"
 )
 
-// argShortcuts mirrors C# HelpText.ArgShortcuts.
 var argShortcuts = []struct {
 	Short, Long, Description string
 }{
@@ -54,7 +53,6 @@ func Generate(registry *CommandRegistry, version, author string) string {
 	allCommands := registry.GetAllCommands()
 	seenCategories := make(map[abstractions.CommandCategory]bool)
 
-	// Print commands grouped by the standard category order.
 	for _, category := range abstractions.CategoryOrder {
 		var commands []abstractions.CliCommand
 		for _, cmd := range allCommands {
@@ -74,7 +72,6 @@ func Generate(registry *CommandRegistry, version, author string) string {
 		seenCategories[category] = true
 	}
 
-	// Print any remaining custom categories.
 	seenCmds := make(map[string]bool)
 	for _, cmd := range allCommands {
 		cat := cmd.Metadata().Category

@@ -105,8 +105,6 @@ namespace RevitCliBridge.Handlers.Mechanical
             };
         }
 
-        // Explicit interface implementations route the discipline-agnostic
-        // contract (MEPCurve / Element) onto the Duct-typed surface above.
         Element? IMepTypeResolver.ResolveType(Document doc, int? typeId) => ResolveType(doc, typeId);
 
         object IMepSnapshotter.Snapshot(MEPCurve element, Document doc) => Snapshot((Duct)element, doc);

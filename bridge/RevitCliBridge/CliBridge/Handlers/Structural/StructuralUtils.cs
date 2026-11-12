@@ -110,8 +110,6 @@ namespace RevitCliBridge.Handlers.Structural
                 end = new { x = p2.X.FeetToMillimeter(), y = p2.Y.FeetToMillimeter(), z = p2.Z.FeetToMillimeter() };
             }
 
-            // Structural framing does not report its level through LevelId —
-            // the reference level lives in INSTANCE_REFERENCE_LEVEL_PARAM.
             var refLevel = beam.get_Parameter(BuiltInParameter.INSTANCE_REFERENCE_LEVEL_PARAM)?.AsElementId();
             if (refLevel is null || refLevel == ElementId.InvalidElementId)
                 refLevel = beam.LevelId;

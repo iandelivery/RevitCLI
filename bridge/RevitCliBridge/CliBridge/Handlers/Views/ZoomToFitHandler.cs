@@ -38,9 +38,6 @@ namespace RevitCliBridge.Handlers.Views
 
             if (elementId is null && (elementIds is null || elementIds.Length == 0))
             {
-                // No element specified — zoom to fit the entire active view.
-                // ShowElements throws ArgumentException on an empty collection,
-                // so use UIView.ZoomToFit() instead.
                 var activeView = doc.ActiveView;
                 var uiView = uiDoc.GetOpenUIViews()
                     .FirstOrDefault(v => v.ViewId == activeView.Id);

@@ -63,7 +63,6 @@ namespace RevitCliBridge
                         var info = JsonConvert.DeserializeObject<InstanceInfo>(json);
                         if (info == null) continue;
 
-                        // Check if the PID is still alive.
                         if (!IsProcessAlive(info.Pid))
                         {
                             CliLogger.Info($"Cleaning stale registry file: {Path.GetFileName(file)} (PID {info.Pid} no longer exists)");
@@ -96,10 +95,9 @@ namespace RevitCliBridge
 
                 var json = JsonConvert.SerializeObject(info, Formatting.Indented);
 
-                // Atomic write: write to temp file, then rename.
                 var tmpFile = _currentRegistryFile + ".tmp";
                 File.WriteAllText(tmpFile, json);
-                File.Delete(_currentRegistryFile); // Delete existing (File.Move can't overwrite on all platforms)
+                File.Delete(_currentRegistryFile);
                 File.Move(tmpFile, _currentRegistryFile);
 
                 CliLogger.Info($"Instance registered: {_currentRegistryFile}");
@@ -168,7 +166,7 @@ namespace RevitCliBridge
             {
                 var process = Process.GetProcessById(pid);
                 bool alive = !process.HasExited;
-                process.Close(); // Release the process handle to avoid leaks.
+                process.Close();
                 return alive;
             }
             catch (ArgumentException)
@@ -192,12 +190,10 @@ namespace RevitCliBridge
         /// </summary>
         private static string ResolveInstancesDir()
         {
-            // 1. Explicit override.
             var envOverride = Environment.GetEnvironmentVariable("REVIT_CLI_DATA_DIR");
             if (!string.IsNullOrEmpty(envOverride))
                 return Path.Combine(envOverride, "instances");
 
-            // 2. Local AppData — best Windows practice for local app data.
             try
             {
                 var localAppData = Environment.GetEnvironmentVariable("LOCALAPPDATA");
@@ -208,9 +204,8 @@ namespace RevitCliBridge
                     return dir;
                 }
             }
-            catch { /* suppress and fallback */ }
+            catch { }
 
-            // 3. User profile dot-folder — standard CLI convention.
             try
             {
                 var userProfile = Environment.GetEnvironmentVariable("USERPROFILE");
@@ -221,9 +216,8 @@ namespace RevitCliBridge
                     return dir;
                 }
             }
-            catch { /* suppress and fallback */ }
+            catch { }
 
-            // 4. Legacy fallback — %AppData%\revit-cli\instances.
             return Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
                 "revit-cli", "instances");

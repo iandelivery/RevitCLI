@@ -8,15 +8,11 @@ import (
 	"testing"
 )
 
-// withTempCacheDir swaps the package cache dir to a temp dir for the
-// duration of a test, ensuring GetAPIKey/SetAPIKey don't pollute the
-// real user cache.
 func withTempCacheDir(t *testing.T) string {
 	t.Helper()
 	dir := t.TempDir()
 	SetCacheDir(dir)
 	t.Cleanup(func() {
-		// Reset to default by clearing cache entries.
 		for k := range cache {
 			delete(cache, k)
 		}
@@ -53,13 +49,11 @@ func TestSetAPIKey_EmptyKeyClearsAndDeletesFile(t *testing.T) {
 	if err := SetAPIKey(baseURL, "key-to-clear"); err != nil {
 		t.Fatalf("SetAPIKey failed: %v", err)
 	}
-	// Verify file exists.
 	path := filepath.Join(dir, "servers", "apikey_localhost_5042.txt")
 	if _, err := os.Stat(path); err != nil {
 		t.Fatalf("expected key file to exist: %v", err)
 	}
 
-	// Now clear it.
 	if err := SetAPIKey(baseURL, ""); err != nil {
 		t.Fatalf("SetAPIKey clear failed: %v", err)
 	}
@@ -116,7 +110,6 @@ func TestWithAuth_LeavesRequestUntouchedWhenNoKey(t *testing.T) {
 }
 
 func TestWithAuth_HandlesNilRequest(t *testing.T) {
-	// Should not panic on nil request.
 	if r := WithAuth(nil, "http://localhost:5041"); r != nil {
 		t.Fatalf("expected nil, got %v", r)
 	}

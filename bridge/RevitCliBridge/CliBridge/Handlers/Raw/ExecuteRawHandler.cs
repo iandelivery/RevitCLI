@@ -89,21 +89,17 @@ namespace RevitCliBridge.Handlers.Raw
 
         public override string[] Examples => new[]
         {
-            // C# examples
             "{ \"command\": \"execute_raw\", \"parameters\": { \"code\": \"return doc.Title;\" } }",
             "{ \"command\": \"execute_raw\", \"parameters\": { \"code\": \"return new FilteredElementCollector(doc).OfClass(typeof(Wall)).Count();\" } }",
             "{ \"command\": \"execute_raw\", \"parameters\": { \"code\": \"var walls = new FilteredElementCollector(doc).OfClass(typeof(Wall)).Cast<Wall>(); return walls.Select(w => new { id = w.Id.IntegerValue, name = w.Name }).ToList();\" } }",
             "{ \"command\": \"execute_raw\", \"parameters\": { \"code\": \"using (var t = new Transaction(doc, \\\"Delete\\\")) { t.Start(); doc.Delete(new ElementId(123)); t.Commit(); return \\\"deleted\\\"; }\" } }",
-            // Python examples
             "{ \"command\": \"execute_raw\", \"parameters\": { \"code\": \"print(doc.Title)\", \"language\": \"python\" } }",
             "{ \"command\": \"execute_raw\", \"parameters\": { \"code\": \"from Autodesk.Revit.DB import FilteredElementCollector, Wall\\ncount = FilteredElementCollector(doc).OfClass(Wall).GetElementCount()\\nprint(str(count) + ' walls found')\", \"language\": \"python\" } }",
-            // Dry-run
             "{ \"command\": \"execute_raw\", \"parameters\": { \"code\": \"return doc.Title;\" }, \"dry_run\": true }"
         };
 
         protected override string Execute(UIApplication app, QueuedCommand cmd)
         {
-            // Security gate: check if raw execution is enabled
             if (!IsRawExecutionEnabled())
             {
                 return CommandResponse.Error(cmd.TaskId,
@@ -130,7 +126,6 @@ namespace RevitCliBridge.Handlers.Raw
 
             try
             {
-                // In dry-run mode, just validate and report
                 if (cmd.DryRun)
                 {
                     return CommandResponse.Success(cmd.TaskId, new
@@ -142,7 +137,6 @@ namespace RevitCliBridge.Handlers.Raw
                     }).ToJson();
                 }
 
-                // Execute based on language
                 return language == "python"
                     ? ExecutePython(app, cmd, code)
                     : ExecuteCSharp(app, cmd, code);
@@ -162,7 +156,6 @@ namespace RevitCliBridge.Handlers.Raw
         {
             try
             {
-                // Wrap user code in a method signature for compilation
                 var scriptClass = BuildCSharpScriptClass(code);
                 var (assembly, compileErrors) = CompileCSharp(scriptClass);
 
@@ -176,7 +169,6 @@ namespace RevitCliBridge.Handlers.Raw
                 if (executeMethod == null)
                     return CommandResponse.Error(cmd.TaskId, "Script method 'Execute' not found.").ToJson();
 
-                // Invoke: Execute(UIApplication app, Document doc)
                 var doc = app.ActiveUIDocument?.Document;
                 if (doc is null)
                 {
@@ -211,7 +203,6 @@ namespace RevitCliBridge.Handlers.Raw
         {
             try
             {
-                // Try to load IronPython at runtime
                 var ironPythonDll = FindIronPythonAssembly();
                 if (ironPythonDll == null)
                 {
@@ -227,7 +218,6 @@ namespace RevitCliBridge.Handlers.Raw
                         "Failed to initialize IronPython engine.").ToJson();
                 }
 
-                // Set up scope with Revit variables
                 var uiDoc = app.ActiveUIDocument;
                 if (uiDoc is null)
                 {
@@ -238,7 +228,6 @@ namespace RevitCliBridge.Handlers.Raw
                 pythonEngine.SetVariable("doc", doc);
                 pythonEngine.SetVariable("uidoc", uiDoc);
 
-                // Execute the script
                 var output = new StringBuilder();
                 pythonEngine.RedirectOutput(output);
                 pythonEngine.Execute(code);
@@ -298,17 +287,15 @@ public static class ScriptHost
         {
             try
             {
-                // Use CodeDOM compiler available in .NET Framework
                 var compiler = new Microsoft.CSharp.CSharpCodeProvider();
                 var parameters = new System.CodeDom.Compiler.CompilerParameters
                 {
                     GenerateInMemory = true,
                     GenerateExecutable = false,
                     IncludeDebugInformation = false,
-                    CompilerOptions = "/nowarn:CS0162,CS0219"  // Suppress unreachable code & unused variable warnings
+                    CompilerOptions = "/nowarn:CS0162,CS0219"
                 };
 
-                // Add Revit API references
                 var revitDir = System.IO.Path.GetDirectoryName(
                     typeof(Autodesk.Revit.DB.Document).Assembly.Location);
 
@@ -348,14 +335,11 @@ public static class ScriptHost
         {
             var searchPaths = new List<string>();
 
-            // 1. Look in the same directory as the executing assembly
             var asmDir = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
             if (asmDir != null) searchPaths.Add(asmDir);
 
-            // 2. Look in a "python" subdirectory
             if (asmDir != null) searchPaths.Add(Path.Combine(asmDir, "python"));
 
-            // 3. Look in common Revit add-ins paths
             var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
             searchPaths.Add(Path.Combine(appData, "Autodesk", "Revit", "Addins"));
 
@@ -366,7 +350,6 @@ public static class ScriptHost
                 if (dll != null) return dll;
             }
 
-            // 4. Try GAC
             try
             {
                 Assembly.Load("IronPython, Version=2.7.0.0, Culture=neutral, PublicKeyToken=7f709c5b713576e1");
@@ -391,7 +374,6 @@ public static class ScriptHost
                 else
                     ironPythonAsm = Assembly.LoadFrom(dllPath);
 
-                // Also load IronPython.Modules if available
                 try
                 {
                     var modulesPath = Path.Combine(Path.GetDirectoryName(dllPath)!, "IronPython.Modules.dll");
@@ -460,7 +442,6 @@ public static class ScriptHost
 
             public void RedirectOutput(StringBuilder output)
             {
-                // Redirect IronPython stdout to our StringBuilder
                 var writerType = typeof(StreamWriter);
                 var memStream = new MemoryStream();
                 var writer = new StreamWriter(memStream) { AutoFlush = true };
@@ -470,7 +451,6 @@ public static class ScriptHost
                     var runtimeType = _engine.GetType().Assembly.GetType("IronPython.Runtime.PythonContext");
                     if (runtimeType != null)
                     {
-                        // Set sys.stdout redirect
                         SetVariable("__output_stream", writer);
                         try
                         {

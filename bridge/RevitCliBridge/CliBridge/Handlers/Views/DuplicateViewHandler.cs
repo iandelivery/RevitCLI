@@ -83,7 +83,6 @@ namespace RevitCliBridge.Handlers.Views
                 }
                 catch (Exception ex)
                 {
-                    // Dispose rolls back the uncommitted transaction.
                     return CommandResponse.Error(cmd.TaskId, $"Failed to duplicate view: {ex.Message}").ToJson();
                 }
 

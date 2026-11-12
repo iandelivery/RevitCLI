@@ -15,8 +15,6 @@ namespace RevitCliBridge.Tests
     /// </summary>
     public class SchemaDtoContractTests
     {
-        // ---------- CommandResponse (re-asserted as a DTO contract) ----------
-
         [Fact]
         public void CommandResponse_Defaults_AreEmptyStrings()
         {
@@ -27,8 +25,6 @@ namespace RevitCliBridge.Tests
             Assert.Null(r.Data);
             Assert.Null(r.ErrorDetails);
         }
-
-        // ---------- CommandParamSchema ----------
 
         [Fact]
         public void CommandParamSchema_Defaults_TypeIsString_RequiredFalse()
@@ -98,8 +94,6 @@ namespace RevitCliBridge.Tests
             Assert.DoesNotContain("\"deprecation_message\"", json);
         }
 
-        // ---------- CommandDef ----------
-
         [Fact]
         public void CommandDef_Defaults_HasEmptyNameAndSupportsDryRunFalse()
         {
@@ -131,8 +125,6 @@ namespace RevitCliBridge.Tests
             Assert.DoesNotContain("\"examples\"", json);
         }
 
-        // ---------- CommandSchema ----------
-
         [Fact]
         public void CommandSchema_DefaultVersion_IsTwoZeroZeroZero()
         {
@@ -155,11 +147,8 @@ namespace RevitCliBridge.Tests
             Assert.Equal("2.1.0", json["version"]);
             Assert.NotNull(json["commands"]);
             Assert.Equal("ping", json["commands"][0]["name"]);
-            // NullValueHandling.Ignore on ServerInfo — should be omitted.
             Assert.Null(json["server_info"]);
         }
-
-        // ---------- ServerInfo & ServerFeatures ----------
 
         [Fact]
         public void ServerInfo_Defaults_PortZero()
@@ -203,8 +192,6 @@ namespace RevitCliBridge.Tests
             Assert.DoesNotContain("\"output_formats\"", json);
         }
 
-        // ---------- CommandCatalog & CatalogEntry ----------
-
         [Fact]
         public void CommandCatalog_Defaults_HaveEmptyCommandList()
         {
@@ -234,7 +221,6 @@ namespace RevitCliBridge.Tests
             Assert.Equal("ping", json["commands"][0]["name"]);
             Assert.Equal("General", json["commands"][0]["category"]);
             Assert.Equal("Health check", json["commands"][0]["summary"]);
-            // CatalogEntry with null Summary — field should be omitted.
             Assert.Null(json["commands"][1]["summary"]);
         }
 
@@ -256,8 +242,6 @@ namespace RevitCliBridge.Tests
             Assert.DoesNotContain("\"category\"", json);
             Assert.DoesNotContain("\"summary\"", json);
         }
-
-        // ---------- QueuedCommand ----------
 
         [Fact]
         public void QueuedCommand_Defaults_AllEmptyOrFalse()

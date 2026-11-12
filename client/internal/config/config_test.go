@@ -101,7 +101,6 @@ func TestLoad_ParsesApiKey(t *testing.T) {
 func TestLoad_FillsZeroValuesWithDefaults(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "cli_bridge_setting.json")
-	// Port/timeout/queue all zero — Load should fill in defaults.
 	content := `{"enabled": true}`
 	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
 		t.Fatal(err)
@@ -127,7 +126,6 @@ func TestLoad_FallsBackToDefaultOnBadJSON(t *testing.T) {
 	}
 
 	cfg := Load(path)
-	// Should fall back to Default(), not panic.
 	if cfg.Port != 5000 {
 		t.Errorf("expected default Port=5000 after parse failure, got %d", cfg.Port)
 	}

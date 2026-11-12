@@ -74,7 +74,6 @@ namespace RevitCliBridge.Handlers.Query
             string? paramValue = HandlerUtilities.GetStringOrNull(parameters, "param_value");
             string? paramOperator = HandlerUtilities.GetStringOrNull(parameters, "param_operator") ?? "eq";
 
-            // Validate already checked these are non-null / valid enum.
             var bic = (BuiltInCategory)Enum.Parse(typeof(BuiltInCategory), category);
 
             var target = HandlerUtilities.TryResolveTargetDocument(doc, parameters, out var linkLabel);
@@ -89,7 +88,6 @@ namespace RevitCliBridge.Handlers.Query
                 .OfCategory(bic)
                 .WhereElementIsNotElementType();
 
-            // OrderBy(id) ensures stable pagination.
             return collector
                 .Where(e => MatchesParameter(e, paramName!, paramValue, paramOperator))
                 .Select(e => new

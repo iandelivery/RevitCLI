@@ -28,16 +28,12 @@ namespace RevitCliBridge.Tests
         [InlineData(2024, 5061)]
         public void GetBasePort_ExtendsForFutureVersions(int version, int expectedPort)
         {
-            // Future-proofing: the formula must keep working for versions
-            // beyond what's currently shipped, so the client and bridge
-            // stay in sync as Autodesk releases new Revit versions.
             Assert.Equal(expectedPort, PortAllocator.GetBasePort(version));
         }
 
         [Fact]
         public void GetBasePort_ProducesContiguousRanges()
         {
-            // Each version should reserve a 10-port range with no overlap.
             int port2019 = PortAllocator.GetBasePort(2019);
             int port2020 = PortAllocator.GetBasePort(2020);
             int port2021 = PortAllocator.GetBasePort(2021);
@@ -53,12 +49,8 @@ namespace RevitCliBridge.Tests
         [InlineData(2017)]
         public void GetBasePort_ProducesDecreasingPortsForOlderVersions(int version)
         {
-            // The formula is linear — older versions map below R2019.
-            // Sanity check the algebra rather than asserting a specific port.
             Assert.True(PortAllocator.GetBasePort(version) < PortAllocator.GetBasePort(2019));
         }
-
-        // ---------- AllocatePort workflow ----------
 
         /// <summary>
         /// Helper: try to bind a TcpListener on localhost at the given port
@@ -101,15 +93,10 @@ namespace RevitCliBridge.Tests
         [Fact]
         public void AllocatePort_ReturnsBindablePort()
         {
-            // The core contract: AllocatePort must return a port that the
-            // caller can subsequently bind. Use a far-future Revit version
-            // whose port range is unlikely to collide with anything.
             int farFutureVersion = 2099;
             int port = PortAllocator.AllocatePort(farFutureVersion, fallbackPort: 65500);
 
             Assert.InRange(port, 1, 65535);
-            // The port was available when AllocatePort checked it (IsPortAvailable
-            // opened and closed a listener). Verify we can re-open it.
             Assert.True(TryBind(port),
                 $"AllocatePort returned {port} but it cannot be re-bound immediately");
         }
@@ -117,8 +104,6 @@ namespace RevitCliBridge.Tests
         [Fact]
         public void AllocatePort_AvoidsPortHeldByAnotherProcess()
         {
-            // Bind the version's base port ourselves, then verify
-            // AllocatePort returns a different port.
             int farFutureVersion = 2098;
             int basePort = PortAllocator.GetBasePort(farFutureVersion);
 
@@ -132,15 +117,12 @@ namespace RevitCliBridge.Tests
         [Fact]
         public void AllocatePort_AllBasePortsHeld_FallsBackToConfiguredPort()
         {
-            // Hold all 10 ports in the version's range. AllocatePort must
-            // then return the configured fallback (if free).
             int farFutureVersion = 2097;
             int basePort = PortAllocator.GetBasePort(farFutureVersion);
-            int fallbackPort = 65501; // unlikely to be in the version range
+            int fallbackPort = 65501;
 
-            // Make sure the fallback is actually free first.
             if (!TryBind(fallbackPort))
-                return; // skip test if environment can't bind fallback
+                return;
 
             using var h1 = new PortHolder(basePort + 0);
             using var h2 = new PortHolder(basePort + 1);
@@ -160,10 +142,6 @@ namespace RevitCliBridge.Tests
         [Fact]
         public void AllocatePort_FallbackPortHeld_ReturnsEphemeralPort()
         {
-            // When both the version range and the fallback are taken,
-            // AllocatePort asks the OS for an ephemeral port. We can't
-            // predict which port, but it must be in the valid range and
-            // must be bindable.
             int farFutureVersion = 2096;
             int basePort = PortAllocator.GetBasePort(farFutureVersion);
             int fallbackPort = 65502;
@@ -183,8 +161,6 @@ namespace RevitCliBridge.Tests
             int allocated = PortAllocator.AllocatePort(farFutureVersion, fallbackPort);
 
             Assert.InRange(allocated, 1, 65535);
-            // Ephemeral ports returned by the OS are typically above 1024
-            // and well outside our base/fallback range.
             Assert.True(allocated < basePort || allocated > basePort + 9,
                 $"Ephemeral port {allocated} unexpectedly fell in the base range");
         }

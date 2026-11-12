@@ -63,7 +63,6 @@ namespace RevitCliBridge.Handlers.Electrical
             if (typeId.HasValue && typeId.Value > 0)
                 collector = collector.Where(ct => ct.GetTypeId().IntegerValue == typeId.Value);
 
-            // OrderBy(id) ensures stable pagination.
             return collector
                 .OrderBy(ct => ct.Id.IntegerValue)
                 .Select(ct => CableTrayUtils.Default.Snapshot(ct, doc))

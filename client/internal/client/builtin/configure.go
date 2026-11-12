@@ -44,7 +44,6 @@ func (ConfigureHandler) Metadata() abstractions.CommandMetadata {
 }
 
 func (ConfigureHandler) Handle(ctx context.Context, args []string, send abstractions.SendCommandFunc) int {
-	// Skip global flags (--url/--pid/--revit) before reading the sub-command.
 	sub, rest := abstractions.FirstPositional(args)
 	if sub == "" {
 		fmt.Fprintln(os.Stderr, "Error: sub-command required (setup, teardown, check, port)")
@@ -67,7 +66,6 @@ func (ConfigureHandler) Handle(ctx context.Context, args []string, send abstract
 	}
 }
 
-// configureSetup installs the bridge add-in for all detected Revit versions.
 func configureSetup(args []string) int {
 	if runtime.GOOS != "windows" {
 		fmt.Fprintln(os.Stderr, "configure setup is only supported on Windows (requires access to Revit add-ins directory).")
@@ -83,9 +81,6 @@ func configureSetup(args []string) int {
 		return 1
 	}
 
-	// Ensure every detected installation has an AddinsDir derived from
-	// APPDATA. The registry-detected entries only know the version, so
-	// the per-user addins folder is computed here.
 	appData := os.Getenv("APPDATA")
 	if appData == "" {
 		fmt.Fprintln(os.Stderr, "APPDATA environment variable not set.")
@@ -105,9 +100,6 @@ func configureSetup(args []string) int {
 
 	fmt.Println("\nInstalling Revit CLI Bridge...")
 
-	// Find the bridge distribution root.  For a bundled release this is
-	// the "bridge" directory containing Revit20XX/ subfolders; for a flat
-	// distribution it is the directory holding RevitCliBridge.dll.
 	bridgeRoot := findBridgeFiles()
 	if bridgeRoot == "" {
 		fmt.Fprintln(os.Stderr, "Error: Cannot find bridge files (RevitCliBridge.dll, .addin).")
@@ -117,7 +109,6 @@ func configureSetup(args []string) int {
 
 	skipped := 0
 	for _, inst := range installations {
-		// Resolve the version-specific bridge source directory.
 		srcDir := findBridgeFilesForVersion(bridgeRoot, inst.Version)
 		if srcDir == "" {
 			fmt.Printf("  [✗] Revit %d: no bridge files for this version in distribution\n", inst.Version)
@@ -132,9 +123,6 @@ func configureSetup(args []string) int {
 			continue
 		}
 
-		// Sync the generated API key into the client auth cache so
-		// subsequent CLI commands are authenticated automatically.
-		// The cache is keyed by the server's base URL (localhost:port).
 		baseURL := fmt.Sprintf("http://localhost:%d", portForVersion(inst.Version))
 		if syncErr := auth.SetAPIKey(baseURL, apiKey); syncErr != nil {
 			fmt.Printf("  [!] Revit %d: installed but failed to sync API key: %v\n", inst.Version, syncErr)
@@ -161,7 +149,6 @@ func configureSetup(args []string) int {
 	return 0
 }
 
-// configureTeardown removes the bridge add-in from all Revit versions.
 func configureTeardown(args []string) int {
 	if runtime.GOOS != "windows" {
 		fmt.Fprintln(os.Stderr, "configure teardown is only supported on Windows.")
@@ -175,8 +162,6 @@ func configureTeardown(args []string) int {
 		bridgeDir := filepath.Join(inst.AddinsDir, "RevitCliBridge")
 
 		removed := false
-		// Remove both the '@'-prefixed manifest and the legacy un-prefixed
-		// one so upgrades never leave two registrations behind.
 		for _, name := range bridgeAddinManifests {
 			addinPath := filepath.Join(inst.AddinsDir, name)
 			if fileExists(addinPath) {
@@ -199,12 +184,10 @@ func configureTeardown(args []string) int {
 	return 0
 }
 
-// configureCheck verifies the health of the bridge installation.
 func configureCheck(args []string) int {
 	fmt.Println("Checking Revit CLI Bridge installation...")
 	fmt.Println()
 
-	// 1. Check running instances.
 	instances := instance.Discover()
 	if len(instances) > 0 {
 		fmt.Printf("Running instances (%d):\n", len(instances))
@@ -214,7 +197,6 @@ func configureCheck(args []string) int {
 	}
 	fmt.Println()
 
-	// 2. Check installed add-ins (Windows only).
 	if runtime.GOOS == "windows" {
 		installations := detectRevitInstallations()
 		if len(installations) > 0 {
@@ -233,7 +215,6 @@ func configureCheck(args []string) int {
 		fmt.Println()
 	}
 
-	// 3. Check connectivity to running instances.
 	if len(instances) > 0 {
 		fmt.Println("Connectivity:")
 		for _, inst := range instances {
@@ -253,7 +234,6 @@ func configureCheck(args []string) int {
 		fmt.Println()
 	}
 
-	// 4. Print the resolved data directories.
 	fmt.Printf("Data directory:        %s\n", discovery.DataDir())
 	fmt.Printf("Schema cache:          %s\n", discovery.CacheDir())
 	fmt.Printf("Instance registry:     %s\n", discovery.InstancesDir())
@@ -261,7 +241,6 @@ func configureCheck(args []string) int {
 	return 0
 }
 
-// configurePort shows port assignments for detected Revit versions.
 func configurePort(args []string) int {
 	if abstractions.HasFlag(args, "--json") {
 		instances := instance.Discover()
@@ -307,14 +286,8 @@ func configurePort(args []string) int {
 	return 0
 }
 
-// --- Helper types and functions ---
-
-// supportedRevitVersions lists the Revit versions for which a bridge
-// build exists.  Only these versions are considered during detection,
-// setup, teardown, and port display.
 var supportedRevitVersions = []int{2019, 2020, 2021, 2022}
 
-// isSupportedVersion returns true if v is in supportedRevitVersions.
 func isSupportedVersion(v int) bool {
 	for _, sv := range supportedRevitVersions {
 		if sv == v {
@@ -330,9 +303,6 @@ type revitInstallation struct {
 	AddinsDir   string
 }
 
-// detectRevitInstallations scans the Windows registry and the addins
-// directory for installed Revit versions.  Returns installations sorted
-// by version.  Only supported versions are returned.
 func detectRevitInstallations() []revitInstallation {
 	if runtime.GOOS != "windows" {
 		return nil
@@ -341,8 +311,6 @@ func detectRevitInstallations() []revitInstallation {
 	var installations []revitInstallation
 	seen := map[int]bool{}
 
-	// 1. Primary source: Windows registry (HKLM\SOFTWARE\Autodesk\Revit\<version>)
-	//    This is the authoritative list of installed Revit products.
 	regPaths := []string{
 		`HKLM\SOFTWARE\Autodesk\Revit`,
 		`HKLM\SOFTWARE\WOW6432Node\Autodesk\Revit`,
@@ -351,9 +319,6 @@ func detectRevitInstallations() []revitInstallation {
 		collectRevitVersionsFromRegistry(regPath, &installations, seen)
 	}
 
-	// 2. Fallback: %APPDATA%\Autodesk\Revit\Addins\<version>
-	//    This catches installations where the registry hive is inaccessible
-	//    (e.g. limited user perms) but the addins directory exists.
 	appData := os.Getenv("APPDATA")
 	if appData != "" {
 		revitAddinsRoot := filepath.Join(appData, "Autodesk", "Revit", "Addins")
@@ -383,9 +348,6 @@ func detectRevitInstallations() []revitInstallation {
 	return installations
 }
 
-// collectRevitVersionsFromRegistry enumerates subkeys of a Revit registry
-// path and appends any version-numbered entries to the installations list.
-// Requires Windows; the caller's GOOS check guards the entry point.
 func collectRevitVersionsFromRegistry(regPath string, installations *[]revitInstallation, seen map[int]bool) {
 	cmd := exec.Command("reg", "query", regPath)
 	output, err := cmd.Output()
@@ -395,8 +357,6 @@ func collectRevitVersionsFromRegistry(regPath string, installations *[]revitInst
 
 	scanner := bufio.NewScanner(bytes.NewReader(output))
 	for scanner.Scan() {
-		// Each registry subkey is printed on its own line as "<full path>".
-		// The last path segment is the version number (e.g. "2022").
 		line := strings.TrimSpace(scanner.Text())
 		if line == "" {
 			continue
@@ -414,22 +374,11 @@ func collectRevitVersionsFromRegistry(regPath string, installations *[]revitInst
 	}
 }
 
-// portForVersion returns the base port for a given Revit version.
 func portForVersion(version int) int {
 	return 5000 + (version-2018)*10 + 1
 }
 
-// findBridgeFiles locates the bridge distribution root.  It supports two
-// layouts:
-//
-//  1. Flat layout — revit-cli.exe sits next to RevitCliBridge.dll
-//  2. Bundled layout — revit-cli.exe sits next to a "bridge" directory
-//     that contains version-specific subfolders named "Revit<year>"
-//     (e.g. bridge/Revit2022/RevitCliBridge.dll)
-//
-// The bundled layout is what release zip packages produce.
 func findBridgeFiles() string {
-	// Check BRIDGE_DIR env var first — points directly to a flat layout.
 	if dir := os.Getenv("BRIDGE_DIR"); dir != "" && fileExists(filepath.Join(dir, "RevitCliBridge.dll")) {
 		return dir
 	}
@@ -440,14 +389,10 @@ func findBridgeFiles() string {
 	}
 	exeDir := filepath.Dir(exePath)
 
-	// Flat layout: bridge DLL next to revit-cli.exe.
 	if fileExists(filepath.Join(exeDir, "RevitCliBridge.dll")) {
 		return exeDir
 	}
 
-	// Bundled layout: bridge/<something>/RevitCliBridge.dll.
-	// We return the bridge root (parent of the version subdirs) so callers
-	// can resolve version-specific subdirs themselves via findBridgeFilesForVersion.
 	bridgeRoot := filepath.Join(exeDir, "bridge")
 	if entries, err := os.ReadDir(bridgeRoot); err == nil {
 		for _, entry := range entries {
@@ -464,18 +409,12 @@ func findBridgeFiles() string {
 	return ""
 }
 
-// findBridgeFilesForVersion returns the directory containing bridge files
-// for a specific Revit version.  Used together with findBridgeFiles() to
-// resolve the bundled layout.  For a flat layout, the same directory is
-// returned for every version (acceptable for single-version distributions).
 func findBridgeFilesForVersion(root string, version int) string {
-	// Bundled layout: <root>/Revit<year>/
 	versioned := filepath.Join(root, fmt.Sprintf("Revit%d", version))
 	if fileExists(filepath.Join(versioned, "RevitCliBridge.dll")) {
 		return versioned
 	}
 
-	// Flat layout: DLLs are directly in the root.
 	if fileExists(filepath.Join(root, "RevitCliBridge.dll")) {
 		return root
 	}
@@ -483,19 +422,10 @@ func findBridgeFilesForVersion(root string, version int) string {
 	return ""
 }
 
-// bridgeAddinManifest is the manifest file name installed into the Revit
-// Addins folder. The '@' prefix sorts it before consumer add-in manifests
-// (Revit loads .addin files alphabetically), so the bridge is always loaded
-// first — required for programmatic registration via BridgeRegistration.
 const bridgeAddinManifest = "@RevitCliBridge.addin"
 
-// bridgeAddinManifests lists the manifest names the installer recognizes:
-// the current '@'-prefixed one plus the legacy un-prefixed name from older
-// distributions (kept so installs, checks, and teardowns handle upgrades).
 var bridgeAddinManifests = []string{bridgeAddinManifest, "RevitCliBridge.addin"}
 
-// addinManifestExists reports whether a bridge manifest (current or legacy)
-// is present in the given Revit Addins directory.
 func addinManifestExists(addinsDir string) bool {
 	for _, name := range bridgeAddinManifests {
 		if fileExists(filepath.Join(addinsDir, name)) {
@@ -505,19 +435,12 @@ func addinManifestExists(addinsDir string) bool {
 	return false
 }
 
-// installBridgeForVersion copies bridge files to the Revit addins directory.
-// Returns the generated API key on success so the caller can sync it into
-// the client auth cache.
 func installBridgeForVersion(bridgeDir string, inst revitInstallation) (string, error) {
 	targetAddinDir := filepath.Join(inst.AddinsDir, "RevitCliBridge")
 	if err := os.MkdirAll(targetAddinDir, 0o755); err != nil {
 		return "", fmt.Errorf("cannot create directory %s: %w", targetAddinDir, err)
 	}
 
-	// Copy all DLLs in the source bridge directory.  The bridge depends
-	// on transitive references (e.g. Newtonsoft.Json.dll) that vary by
-	// build, so enumerate the directory rather than relying on a
-	// hardcoded list of expected file names.
 	entries, err := os.ReadDir(bridgeDir)
 	if err != nil {
 		return "", fmt.Errorf("cannot read bridge source %s: %w", bridgeDir, err)
@@ -537,13 +460,6 @@ func installBridgeForVersion(bridgeDir string, inst revitInstallation) (string, 
 		}
 	}
 
-	// Copy the .addin manifest. The '@' prefix sorts it before consumer
-	// add-in manifests (Revit loads them alphabetically) so the bridge is
-	// loaded first — required for BridgeRegistration from third-party
-	// add-ins. Prefer the prefixed name from new distributions, fall back
-	// to the legacy un-prefixed one for older distributions, and remove
-	// any legacy manifest at the destination so upgrades never register
-	// the bridge twice.
 	addinDst := filepath.Join(inst.AddinsDir, bridgeAddinManifest)
 	addinSrc := ""
 	for _, name := range bridgeAddinManifests {
@@ -562,7 +478,6 @@ func installBridgeForVersion(bridgeDir string, inst revitInstallation) (string, 
 		os.Remove(legacy)
 	}
 
-	// Write version-specific config with auto_port.
 	configDir := filepath.Join(targetAddinDir, ".config")
 	if err := os.MkdirAll(configDir, 0o755); err != nil {
 		return "", fmt.Errorf("cannot create config dir: %w", err)
@@ -570,8 +485,6 @@ func installBridgeForVersion(bridgeDir string, inst revitInstallation) (string, 
 
 	configPath := filepath.Join(configDir, "cli_bridge_setting.json")
 
-	// Preserve an existing API key when re-running setup so already-running
-	// bridges do not reject the client after a bridge binary upgrade.
 	existingAPIKey := ""
 	if existingData, readErr := os.ReadFile(configPath); readErr == nil {
 		var existing map[string]interface{}
@@ -609,8 +522,6 @@ func installBridgeForVersion(bridgeDir string, inst revitInstallation) (string, 
 	return apiKey, nil
 }
 
-// generateAPIKey produces a 32-byte URL-safe Base64 random token.
-// Mirrors CliBridgeConfigLoader.GenerateApiKey() on the bridge side.
 func generateAPIKey() (string, error) {
 	b := make([]byte, 32)
 	if _, err := rand.Read(b); err != nil {

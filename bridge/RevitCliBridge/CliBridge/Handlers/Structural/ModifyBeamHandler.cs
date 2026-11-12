@@ -64,7 +64,6 @@ namespace RevitCliBridge.Handlers.Structural
             {
                 tx.ConfigureFailureHandling();
 
-                // Type change
                 if (p.SymbolId.HasValue && p.SymbolId.Value > 0 && p.SymbolId.Value != beam.GetTypeId().IntegerValue)
                 {
                     var newSymbol = StructuralUtils.Default.ResolveSymbol(doc, p.SymbolId, BuiltInCategory.OST_StructuralFraming);
@@ -74,7 +73,6 @@ namespace RevitCliBridge.Handlers.Structural
                     beam.ChangeTypeId(newSymbol.Id);
                 }
 
-                // Constraint changes — reference level and per-end level offsets.
                 if (p.ReferenceLevelId.HasValue && p.ReferenceLevelId.Value > 0)
                 {
                     var prm = beam.get_Parameter(BuiltInParameter.INSTANCE_REFERENCE_LEVEL_PARAM);
@@ -96,7 +94,6 @@ namespace RevitCliBridge.Handlers.Structural
                         return CommandResponse.Error(cmd.TaskId, "Beam does not support the End Level Offset parameter.").ToJson();
                 }
 
-                // Endpoint change — must update both together (LocationCurve is a single Line)
                 bool hasStart = p.StartX.HasValue || p.StartY.HasValue || p.StartZ.HasValue;
                 bool hasEnd = p.EndX.HasValue || p.EndY.HasValue || p.EndZ.HasValue;
                 if (hasStart || hasEnd)

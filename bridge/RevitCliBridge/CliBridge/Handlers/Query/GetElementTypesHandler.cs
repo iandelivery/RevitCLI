@@ -54,7 +54,6 @@ namespace RevitCliBridge.Handlers.Query
                 types = types.Where(e => e.Name.Contains(typeName));
             }
 
-            // OrderBy(id) ensures stable pagination.
             return types
                 .Select(e => new
                 {

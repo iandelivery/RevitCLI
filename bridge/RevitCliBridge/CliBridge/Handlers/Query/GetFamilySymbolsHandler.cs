@@ -52,7 +52,6 @@ namespace RevitCliBridge.Handlers.Query
                 symbols = symbols.Where(s => s.Family.Name.Contains(familyName));
             }
 
-            // OrderBy(id) ensures stable pagination.
             return symbols
                 .Select(s => new
                 {

@@ -73,10 +73,8 @@ namespace RevitCliBridge.Abstractions
             }
             catch (TargetInvocationException ex) when (ex.InnerException is not null)
             {
-                // Surface the bridge's own exception (e.g. registration
-                // errors) instead of the reflection wrapper.
                 ExceptionDispatchInfo.Capture(ex.InnerException).Throw();
-                throw; // unreachable
+                throw;
             }
         }
 

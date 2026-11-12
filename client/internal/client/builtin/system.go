@@ -14,8 +14,6 @@ import (
 	"revit-cli/internal/client/auth"
 )
 
-// httpGet performs an authenticated GET request and returns the
-// pretty-printed JSON body. Used by status/health/task/commands/schema built-ins.
 func httpGet(client *http.Client, baseURL, path string) (string, int, error) {
 	url := baseURL + path
 	req, err := http.NewRequest(http.MethodGet, url, nil)
@@ -35,7 +33,6 @@ func httpGet(client *http.Client, baseURL, path string) (string, int, error) {
 		return "", 1, err
 	}
 
-	// Try to pretty-print JSON; fall back to raw string.
 	var obj interface{}
 	if err := json.Unmarshal(body, &obj); err == nil {
 		pretty, err := json.MarshalIndent(obj, "", "  ")
@@ -57,8 +54,6 @@ func printErr(msg string) {
 	fmt.Fprintln(os.Stderr, msg)
 }
 
-// --- PingHandler ---
-
 // PingHandler tests the connection to Revit via the registered "ping" command.
 // Mirrors C# RevitCliClient.BuiltIn.PingHandler.
 type PingHandler struct{}
@@ -76,8 +71,6 @@ func (PingHandler) Metadata() abstractions.CommandMetadata {
 func (PingHandler) Handle(ctx context.Context, args []string, send abstractions.SendCommandFunc) int {
 	return send(ctx, "ping", nil)
 }
-
-// --- StatusHandler ---
 
 // StatusHandler queries the server status via GET /api/status.
 // Mirrors C# RevitCliClient.BuiltIn.StatusHandler.
@@ -106,8 +99,6 @@ func (h StatusHandler) Handle(ctx context.Context, args []string, send abstracti
 	return code
 }
 
-// --- HealthHandler ---
-
 // HealthHandler performs a health check via GET /api/health.
 // Mirrors C# RevitCliClient.BuiltIn.HealthHandler.
 type HealthHandler struct {
@@ -134,8 +125,6 @@ func (h HealthHandler) Handle(ctx context.Context, args []string, send abstracti
 	fmt.Println(out)
 	return code
 }
-
-// --- TaskHandler ---
 
 // TaskHandler queries task status. With a task ID, fetches a single task;
 // without one, lists recent tasks. Mirrors C# RevitCliClient.BuiltIn.TaskHandler.
@@ -169,7 +158,6 @@ func (h TaskHandler) Handle(ctx context.Context, args []string, send abstraction
 		fmt.Println(out)
 		return code
 	}
-	// No ID — list all tasks.
 	out, code, err := httpGet(h.Client, h.BaseURL, "/api/task")
 	if err != nil {
 		printErr(fmt.Sprintf("Cannot list tasks: %v", err))
@@ -178,8 +166,6 @@ func (h TaskHandler) Handle(ctx context.Context, args []string, send abstraction
 	fmt.Println(out)
 	return code
 }
-
-// --- RawHandler ---
 
 // RawHandler sends a raw JSON command payload to the bridge.
 // Mirrors C# RevitCliClient.BuiltIn.RawHandler.
@@ -216,8 +202,6 @@ func (RawHandler) Handle(ctx context.Context, args []string, send abstractions.S
 
 	parameters := payload["parameters"]
 
-	// Forward every other top-level field (dry_run, task_id, ...) so the
-	// bridge sees the full payload instead of only command + parameters.
 	extra := make(map[string]interface{})
 	for k, v := range payload {
 		if k != "command" && k != "parameters" {

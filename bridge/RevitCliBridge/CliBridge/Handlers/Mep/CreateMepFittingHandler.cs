@@ -68,7 +68,6 @@ namespace RevitCliBridge.Handlers.Mep
             if (p.ElementId1 == p.ElementId2)
                 return CommandResponse.Error(cmd.TaskId, "element_id_1 and element_id_2 must refer to distinct elements.").ToJson();
 
-            // Resolve both elements as MEPCurve of the requested class.
             var e1 = ResolveElement(doc, p.ElementId1, cls, out var label1);
             var e2 = ResolveElement(doc, p.ElementId2, cls, out var label2);
             if (e1 is null || e2 is null)

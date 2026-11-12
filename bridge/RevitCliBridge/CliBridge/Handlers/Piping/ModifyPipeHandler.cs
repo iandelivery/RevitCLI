@@ -57,7 +57,6 @@ namespace RevitCliBridge.Handlers.Piping
             {
                 tx.ConfigureFailureHandling();
 
-                // Type change
                 if (p.PipeTypeId.HasValue && p.PipeTypeId.Value > 0 && p.PipeTypeId.Value != pipe.PipeType?.Id.IntegerValue)
                 {
                     var newType = doc.GetElement(new ElementId(p.PipeTypeId.Value)) as PipeType;
@@ -66,7 +65,6 @@ namespace RevitCliBridge.Handlers.Piping
                     pipe.ChangeTypeId(newType.Id);
                 }
 
-                // Endpoint change — must update both together (LocationCurve is a single Line)
                 bool hasStart = p.StartX.HasValue || p.StartY.HasValue || p.StartZ.HasValue;
                 bool hasEnd = p.EndX.HasValue || p.EndY.HasValue || p.EndZ.HasValue;
                 if (hasStart || hasEnd)
@@ -98,7 +96,6 @@ namespace RevitCliBridge.Handlers.Piping
                     }
                 }
 
-                // Diameter (pipes are round).
                 if (p.DiameterMm.HasValue && p.DiameterMm.Value > 0)
                     pipe.get_Parameter(BuiltInParameter.RBS_PIPE_DIAMETER_PARAM)?.Set(p.DiameterMm.Value.MillimeterToFeet());
 

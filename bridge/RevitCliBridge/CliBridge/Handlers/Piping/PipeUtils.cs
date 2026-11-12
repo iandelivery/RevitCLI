@@ -94,8 +94,6 @@ namespace RevitCliBridge.Handlers.Piping
             };
         }
 
-        // Explicit interface implementations route the discipline-agnostic
-        // contract (MEPCurve / Element) onto the Pipe-typed surface above.
         Element? IMepTypeResolver.ResolveType(Document doc, int? typeId) => ResolveType(doc, typeId);
 
         object IMepSnapshotter.Snapshot(MEPCurve element, Document doc) => Snapshot((Pipe)element, doc);

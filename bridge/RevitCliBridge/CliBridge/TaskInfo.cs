@@ -83,7 +83,6 @@ namespace RevitCliBridge
         public void Broadcast(string eventName, object payload)
         {
             var json = JsonConvert.SerializeObject(payload);
-            // Capture to local to avoid race with ClearSseSubscribers.
             var handler = OnSseEvent;
             handler?.Invoke(eventName, json);
         }

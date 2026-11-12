@@ -31,16 +31,11 @@ func NewSchemaFetcher(baseURL string, client *http.Client) *SchemaFetcher {
 	}
 }
 
-// commandCacheEntry holds a cached command definition and its ETag.
 type commandCacheEntry struct {
 	def  *models.CommandDef
 	etag string
 }
 
-// commandCache provides in-process caching of individual command definitions
-// fetched via /api/commands/{name}. Keyed by baseURL+":"+commandName so
-// multiple server targets don't collide. Entries live for the process
-// lifetime — no TTL needed since bridge schemas do not change mid-process.
 var commandCache sync.Map
 
 // FetchCommand fetches a single command definition via /api/commands/{name}.
@@ -66,9 +61,6 @@ func (f *SchemaFetcher) FetchCommand(name string) *models.CommandDef {
 	}
 	defer resp.Body.Close()
 
-	// 404 means the command doesn't exist — return nil so the caller can
-	// try the full schema fallback (the user may have typed an alias that
-	// the server didn't resolve, or the command genuinely doesn't exist).
 	if resp.StatusCode == http.StatusNotFound {
 		return nil
 	}
@@ -114,7 +106,6 @@ func (f *SchemaFetcher) Fetch(forceRefresh bool) *models.CommandSchema {
 	}
 	auth.WithAuth(req, f.baseURL)
 
-	// Send ETag if we have one from a previous response or cache.
 	etag := f.lastEtag
 	if etag == "" {
 		etag = f.cache.LoadEtag()
@@ -130,7 +121,6 @@ func (f *SchemaFetcher) Fetch(forceRefresh bool) *models.CommandSchema {
 	defer resp.Body.Close()
 
 	if resp.StatusCode == http.StatusNotModified {
-		// Schema unchanged — return cached version and refresh TTL.
 		_ = f.cache.Touch()
 		if cached := f.cache.Load(); cached != nil {
 			return cached
@@ -148,7 +138,6 @@ func (f *SchemaFetcher) Fetch(forceRefresh bool) *models.CommandSchema {
 			return f.cache.LoadStale()
 		}
 
-		// Store ETag for future requests.
 		etagHeader := resp.Header.Get("ETag")
 		etagHeader = strings.Trim(etagHeader, `"`)
 		if etagHeader != "" {

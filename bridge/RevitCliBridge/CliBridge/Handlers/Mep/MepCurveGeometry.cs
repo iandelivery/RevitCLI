@@ -149,7 +149,6 @@ namespace RevitCliBridge.Handlers.Mep
         public static double AngleBetweenDegrees(Connector a, Connector b)
         {
             double dot = GetDirection(a).DotProduct(GetDirection(b));
-            // Clamp to [-1, 1] to avoid NaN from floating-point drift.
             dot = Math.Max(-1.0, Math.Min(1.0, dot));
             return Math.Acos(dot) * 180.0 / Math.PI;
         }

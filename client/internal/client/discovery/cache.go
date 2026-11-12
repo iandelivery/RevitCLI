@@ -25,7 +25,6 @@ type SchemaCache struct {
 	mu        sync.Mutex
 }
 
-// cacheTTL is the freshness window for cached schemas.
 const cacheTTL = 30 * time.Minute
 
 // NewSchemaCache creates a cache instance for a specific server URL.
@@ -114,7 +113,6 @@ func (c *SchemaCache) Save(schema *models.CommandSchema) {
 		return
 	}
 
-	// Atomic write: write to temp file, then rename.
 	tmpPath := c.cachePath + ".tmp"
 	if err := os.WriteFile(tmpPath, data, 0o644); err != nil {
 		log.Printf("[cache] cannot write temp cache: %v", err)
@@ -122,7 +120,6 @@ func (c *SchemaCache) Save(schema *models.CommandSchema) {
 	}
 	if err := os.Rename(tmpPath, c.cachePath); err != nil {
 		log.Printf("[cache] cannot rename temp cache: %v", err)
-		// Clean up temp file on failure.
 		os.Remove(tmpPath)
 	}
 }
@@ -182,12 +179,10 @@ func InstancesDir() string {
 //  3. %USERPROFILE%\.revit-cli (standard CLI dot-folder fallback)
 //  4. <executable directory>\.revit-cli (portable mode)
 func DataDir() string {
-	// 1. Explicit override.
 	if dir := os.Getenv("REVIT_CLI_DATA_DIR"); dir != "" {
 		return dir
 	}
 
-	// 2. Local AppData — best Windows practice for local app data.
 	if localAppData := os.Getenv("LOCALAPPDATA"); localAppData != "" {
 		dir := filepath.Join(localAppData, "revit-cli")
 		if tryCreateDir(dir) {
@@ -195,7 +190,6 @@ func DataDir() string {
 		}
 	}
 
-	// 3. User profile dot-folder — standard CLI convention.
 	if userProfile := os.Getenv("USERPROFILE"); userProfile != "" {
 		dir := filepath.Join(userProfile, ".revit-cli")
 		if tryCreateDir(dir) {
@@ -203,7 +197,6 @@ func DataDir() string {
 		}
 	}
 
-	// 4. Portable mode — next to the executable.
 	if exePath, err := os.Executable(); err == nil {
 		dir := filepath.Join(filepath.Dir(exePath), ".revit-cli")
 		if tryCreateDir(dir) {
@@ -215,38 +208,28 @@ func DataDir() string {
 	return ".revit-cli"
 }
 
-// cacheDir returns the cache root directory.
-// Kept for internal use by SchemaCache.
 func cacheDir() string {
 	return CacheDir()
 }
 
-// tryCreateDir attempts to create the directory and returns true on success.
 func tryCreateDir(dir string) bool {
 	err := os.MkdirAll(dir, 0o755)
 	return err == nil
 }
 
-// computeServerKey derives a filesystem-safe key from a server URL.
-// "http://localhost:5000" -> "localhost_5000"
-// empty -> "default"
 func computeServerKey(serverURL string) string {
 	if serverURL == "" {
 		return "default"
 	}
-	// Strip scheme.
 	s := serverURL
 	s = strings.TrimPrefix(s, "http://")
 	s = strings.TrimPrefix(s, "https://")
-	// Take host:port (assume no path).
 	hostPort := strings.SplitN(s, "/", 2)[0]
 	if hostPort == "" {
 		return "default"
 	}
-	// Replace unsafe filename characters.
 	hostPort = strings.ReplaceAll(hostPort, ".", "_")
 	hostPort = strings.ReplaceAll(hostPort, ":", "_")
-	// Handle IPv6 brackets: [::1]_5000 -> _1_5000
 	hostPort = strings.ReplaceAll(hostPort, "[", "")
 	hostPort = strings.ReplaceAll(hostPort, "]", "")
 	return hostPort

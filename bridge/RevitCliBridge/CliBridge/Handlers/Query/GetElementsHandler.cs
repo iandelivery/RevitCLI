@@ -32,11 +32,6 @@ namespace RevitCliBridge.Handlers.Query
 
         protected override string? Validate(Dictionary<string, object> parameters)
         {
-            // Handlers are singletons, so the host document cannot be stashed
-            // between Validate and QuerySource. Resolve here only to surface
-            // a bad or unloaded link as an error response; QuerySource
-            // resolves again per request (cheap: a few RVT_LINK_INSTANCE
-            // elements per document).
             return ValidateLinkOrNull(parameters);
         }
 
@@ -63,8 +58,6 @@ namespace RevitCliBridge.Handlers.Query
             if (target is null)
                 throw new InvalidOperationException($"Linked document not loaded or not found: {linkLabel}");
 
-            // The link instance id completes the LinkElementId tuple
-            // (link_id, element id) so callers can re-address any item.
             int? linkId = null;
             string? linkName = null;
             if (linkLabel is not null)
@@ -95,7 +88,6 @@ namespace RevitCliBridge.Handlers.Query
                 collector = collector.WhereElementIsNotElementType();
             }
 
-            // OrderBy(id) ensures stable pagination.
             return collector
                 .WhereElementIsNotElementType()
                 .Select(e => new

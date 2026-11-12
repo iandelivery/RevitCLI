@@ -159,9 +159,6 @@ namespace RevitCliBridge
                 }
                 else
                 {
-                    // Fallback (event creation failed at startup): the click may
-                    // still be inside a valid API context when opened from the
-                    // ribbon command, otherwise this will throw and be logged.
                     CliBridgeStateManager.Toggle();
                 }
             }

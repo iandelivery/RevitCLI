@@ -82,7 +82,6 @@ func TestFindArg_ReturnsFalseWhenMissing(t *testing.T) {
 }
 
 func TestFindArg_RejectsFlagLikeValue(t *testing.T) {
-	// --name --other should NOT consume "--other" as the value of --name.
 	args := []string{"--name", "--other", "value"}
 	_, ok := FindArg(args, "--name")
 	if ok {

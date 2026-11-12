@@ -38,7 +38,6 @@ namespace RevitCliBridge.Handlers.Electrical
                 .OrderBy(t => t.Id.IntegerValue)
                 .Select(t =>
                 {
-                    // Read default width/height from the type parameters when present.
                     double widthFt = t.get_Parameter(BuiltInParameter.RBS_CABLETRAY_WIDTH_PARAM)?.AsDouble() ?? 0.0;
                     double heightFt = t.get_Parameter(BuiltInParameter.RBS_CABLETRAY_HEIGHT_PARAM)?.AsDouble() ?? 0.0;
                     return (object)new

@@ -65,7 +65,6 @@ namespace RevitCliBridge.Tests
         [Fact]
         public void Constructor_AllowUnsignedPlugins_DefaultsToFalse()
         {
-            // Security default: unsigned plugin loading is OFF.
             Assert.False(new CliBridgeConfig().AllowUnsignedPlugins);
         }
 
@@ -111,14 +110,11 @@ namespace RevitCliBridge.Tests
             Assert.Equal("1", c.SchemaVersion);
         }
 
-        // ---------- JsonExtensions.ToJson (indented) ----------
-
         [Fact]
         public void JsonExtensions_ToJson_ReturnsIndentedJson()
         {
             var c = new CliBridgeConfig { Port = 5041 };
             var json = c.ToJson();
-            // Indented JSON contains newlines and 2-space indentation.
             Assert.Contains(Environment.NewLine, json);
             Assert.Contains("  \"", json);
             Assert.Contains("\"port\": 5041", json);

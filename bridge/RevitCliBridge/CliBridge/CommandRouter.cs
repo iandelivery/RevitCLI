@@ -28,7 +28,7 @@ namespace RevitCliBridge
             };
 
         private static bool _initialized;
-        private static bool _initializing; // Re-entrancy guard for GetTypes() → type init → CommandRouter
+        private static bool _initializing;
         private static readonly object _initLock = new();
 
         /// <summary>
@@ -43,12 +43,11 @@ namespace RevitCliBridge
             lock (_initLock)
             {
                 if (_initialized) return;
-                if (_initializing) return; // Re-entrant call during type discovery — break recursion
+                if (_initializing) return;
 
                 _initializing = true;
                 try
                 {
-                    // Auto-discover all IBridgeCommand implementations in the executing assembly
                     var handlerTypes = Assembly.GetExecutingAssembly()
                         .GetTypes()
                         .Where(t => typeof(IBridgeCommand).IsAssignableFrom(t)
@@ -60,21 +59,14 @@ namespace RevitCliBridge
                         try
                         {
                             var cmd = (IBridgeCommand)Activator.CreateInstance(handlerType);
-                            // Register under the versioned key "{name}@{version}"
-                            // so multiple versions can coexist. Unversioned
-                            // lookups fall back to the default version.
                             var versionedKey = $"{cmd.CommandName}@{cmd.Version}";
                             Register(versionedKey, cmd);
 
-                            // Also register the bare name as an alias pointing
-                            // to the default version, so legacy callers that
-                            // omit @version still resolve.
                             if (cmd.Version == CommandNameResolver.DefaultVersion)
                             {
                                 _handlers[cmd.CommandName] = cmd;
                             }
 
-                            // Auto-register aliases (also versioned).
                             foreach (var alias in cmd.Aliases)
                             {
                                 _handlers[$"{alias}@{cmd.Version}"] = cmd;
@@ -88,8 +80,6 @@ namespace RevitCliBridge
                     }
                     }
 
-                    // Register static aliases (legacy compatibility).
-                    // Map alias → "{targetName}@v1" (default version).
                     foreach (var alias in _aliases)
                     {
                         var versionedTarget = $"{alias.Value}@{CommandNameResolver.DefaultVersion}";
@@ -111,14 +101,8 @@ namespace RevitCliBridge
         public static void Register(string commandName, IBridgeCommand handler)
         {
             EnsureInitialized();
-            // During initialization, _handlers is already being populated by
-            // EnsureInitialized(), so this direct add is safe and avoids
-            // re-entrancy issues.
             _handlers[commandName] = handler;
 
-            // Invalidate the HTTP server's schema cache so subsequent schema
-            // requests reflect the newly registered handler. Skipped during
-            // initial discovery (cache is not built yet at that point).
             if (_initialized)
             {
                 CliHttpServer.InvalidateSchemaCache();
@@ -137,8 +121,6 @@ namespace RevitCliBridge
             var seenKeys = new HashSet<string>();
             foreach (var kvp in _handlers)
             {
-                // Deduplicate by CommandName+Version — alias and bare-name
-                // entries point to the same handler instance.
                 var dedupKey = $"{kvp.Value.CommandName}@{kvp.Value.Version}";
                 if (seenKeys.Add(dedupKey))
                     yield return kvp.Value;
@@ -159,7 +141,6 @@ namespace RevitCliBridge
         {
             EnsureInitialized();
 
-            // Resolve domain path notation (e.g. "elements.walls.create" → "create_wall")
             var resolvedCommand = ResolveCommandName(queuedCommand.Command);
             if (resolvedCommand != queuedCommand.Command)
             {
@@ -180,12 +161,6 @@ namespace RevitCliBridge
                     $"Unknown command: {queuedCommand.Command}").ToJson();
             }
 
-            // Wire the progress channel so any handler (built-in or plugin)
-            // can report via cmd.ReportProgress — routed to the same task
-            // state machine that drives SSE "progress" events. Wired after
-            // the domain-path rebuild above so the rebuilt instance carries
-            // the reporter. TaskRegistry.SetProgress no-ops for task IDs
-            // without a TaskInfo (e.g. batch sub-commands).
             queuedCommand.ProgressReporter =
                 (percent, message) => TaskRegistry.SetProgress(queuedCommand.TaskId, percent, message);
 
@@ -222,8 +197,6 @@ namespace RevitCliBridge
         /// </summary>
         private static string ResolveCommandName(string input)
         {
-            // Delegate to the pure-logic resolver so the routing rules can be
-            // unit-tested without loading the executing assembly.
             return CommandNameResolver.Resolve(input, _handlers.Keys);
         }
     }

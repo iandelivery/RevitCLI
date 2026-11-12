@@ -57,7 +57,6 @@ namespace RevitCliBridge
             task.ResultJson = resultJson;
             task.CompletedAt = DateTime.Now;
             task.Broadcast("completed", new { task_id = task.TaskId, status = "completed", result = SafeParseJson(resultJson) });
-            // Use TrySetResult to avoid InvalidOperationException if already set.
             task.Tcs.TrySetResult(resultJson);
         }
 
@@ -75,7 +74,6 @@ namespace RevitCliBridge
             task.ResultJson = errorJson;
             task.CompletedAt = DateTime.Now;
             task.Broadcast("failed", new { task_id = task.TaskId, status = "failed", result = SafeParseJson(errorJson) });
-            // Use TrySetResult to avoid InvalidOperationException if already set.
             task.Tcs.TrySetResult(errorJson);
         }
 

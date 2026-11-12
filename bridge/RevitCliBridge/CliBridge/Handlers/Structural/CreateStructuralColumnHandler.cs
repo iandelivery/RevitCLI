@@ -72,8 +72,6 @@ namespace RevitCliBridge.Handlers.Structural
                 var location = new XYZ(p.X.MillimeterToFeet(), p.Y.MillimeterToFeet(), p.Z.MillimeterToFeet());
                 var column = doc.Create.NewFamilyInstance(location, symbol, level, StructuralType.Column);
 
-                // Revit can anchor level-hosted columns at the level origin
-                // regardless of the input point — pin the requested location.
                 if (column.Location is LocationPoint lp)
                     lp.Point = location;
 
@@ -101,8 +99,6 @@ namespace RevitCliBridge.Handlers.Structural
                             "The created column does not support the Top Offset parameter.").ToJson();
                 }
 
-                // Snapshot before commit: in dry-run mode the rollback deletes
-                // the new element, so its data must be captured up front.
                 var result = StructuralUtils.Default.SnapshotColumn(column, doc);
 
                 tx.Commit();

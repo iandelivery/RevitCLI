@@ -44,11 +44,9 @@ func (h RawModeHandler) Handle(ctx context.Context, args []string, send abstract
 	}
 
 	if !enable && !disable {
-		// Query current state
 		return h.query()
 	}
 
-	// Toggle state
 	enabled := enable
 	return h.set(enabled)
 }
@@ -86,7 +84,6 @@ func (h RawModeHandler) set(enabled bool) int {
 		return 1
 	}
 
-	// Pretty-print JSON response
 	var obj interface{}
 	if err := json.Unmarshal(respBody, &obj); err == nil {
 		pretty, err := json.MarshalIndent(obj, "", "  ")

@@ -10,7 +10,6 @@ namespace RevitCliBridge.Tests
     /// </summary>
     public class ParameterBinderTests
     {
-        // Test POCO — mirrors the shape of a real handler's parameter set.
         class WallParams
         {
             [Param("start_x", Required = true)]
@@ -47,7 +46,7 @@ namespace RevitCliBridge.Tests
                 ["start_y"] = 200.0,
                 ["end_x"] = 300.0,
                 ["end_y"] = 400.0,
-                ["level_id"] = 3001L, // JSON deserializer yields long
+                ["level_id"] = 3001L,
             };
 
             var p = ParameterBinder.Bind<WallParams>(dict);
@@ -120,7 +119,6 @@ namespace RevitCliBridge.Tests
         [Fact]
         public void Bind_ConvertsIntArrayOfLongs()
         {
-            // JSON deserializer produces List<object> of long, not int[].
             var dict = new Dictionary<string, object>
             {
                 ["start_x"] = 0.0, ["start_y"] = 0.0, ["end_x"] = 1.0, ["end_y"] = 1.0,
@@ -139,27 +137,22 @@ namespace RevitCliBridge.Tests
             var dict = new Dictionary<string, object>
             {
                 ["start_x"] = 0.0,
-                // missing start_y, end_x, end_y, level_id
             };
 
             var ex = Assert.Throws<MissingParameterException>(() => ParameterBinder.Bind<WallParams>(dict));
-            // The first missing required parameter encountered should be reported.
             Assert.Equal("start_y", ex.ParameterName);
         }
 
         [Fact]
         public void Bind_DoesNotThrowWhenRequiredHasDefault()
         {
-            // "height" has Default=3000.0 — if we marked it Required=true
-            // (it's not in this POCO, but verify the default-applied-first rule
-            // by checking that a missing optional-with-default doesn't throw).
             var dict = new Dictionary<string, object>
             {
                 ["start_x"] = 0.0, ["start_y"] = 0.0, ["end_x"] = 1.0, ["end_y"] = 1.0,
                 ["level_id"] = 3,
             };
 
-            var p = ParameterBinder.Bind<WallParams>(dict); // should not throw
+            var p = ParameterBinder.Bind<WallParams>(dict);
             Assert.Equal(3000.0, p.Height);
         }
 
@@ -207,7 +200,6 @@ namespace RevitCliBridge.Tests
         [Fact]
         public void Bind_AcceptsLooseObjectParameter()
         {
-            // QueuedCommand.Parameters is typed as object?. but usually holds Dictionary.
             object dict = new Dictionary<string, object>
             {
                 ["start_x"] = 1.0, ["start_y"] = 2.0, ["end_x"] = 3.0, ["end_y"] = 4.0,
@@ -227,7 +219,7 @@ namespace RevitCliBridge.Tests
             {
                 ["start_x"] = 0.0, ["start_y"] = 0.0, ["end_x"] = 1.0, ["end_y"] = 1.0,
                 ["level_id"] = 3,
-                ["name"] = null!, // should be treated as absent, leaving Name=null
+                ["name"] = null!,
             };
 
             var p = ParameterBinder.Bind<WallParams>(dict);
@@ -235,7 +227,6 @@ namespace RevitCliBridge.Tests
             Assert.Null(p.Name);
         }
 
-        // POCO with no [Param] attributes — should bind to defaults without error.
         class EmptyParams
         {
             public int Unused { get; set; } = 42;
@@ -248,11 +239,9 @@ namespace RevitCliBridge.Tests
 
             var p = ParameterBinder.Bind<EmptyParams>(dict);
 
-            // No [Param] on Unused, so it's not touched.
             Assert.Equal(42, p.Unused);
         }
 
-        // POCO using snake_case auto-name (no explicit Name in [Param]).
         class AutoNameParams
         {
             [Param(Required = true)]
@@ -277,7 +266,6 @@ namespace RevitCliBridge.Tests
             Assert.Equal("Level 1", p.ViewName);
         }
 
-        // POCO with bool.
         class BoolParams
         {
             [Param("include_hidden")]
@@ -301,9 +289,6 @@ namespace RevitCliBridge.Tests
             Assert.False(p.DryRun);
         }
 
-        // ---------- Edge cases: nullable value types ----------
-
-        // Nullable value types are optional — absent param leaves default (null).
         class NullableParams
         {
             [Param("level_id")]
@@ -327,7 +312,6 @@ namespace RevitCliBridge.Tests
         [Fact]
         public void Bind_NullableInt_Present_ConvertsFromLong()
         {
-            // JSON deserializer yields long; binder must convert to int?.
             var dict = new Dictionary<string, object> { ["level_id"] = 42L };
             var p = ParameterBinder.Bind<NullableParams>(dict);
             Assert.Equal(42, p.LevelId);
@@ -348,8 +332,6 @@ namespace RevitCliBridge.Tests
             var p = ParameterBinder.Bind<NullableParams>(dict);
             Assert.True(p.Flag);
         }
-
-        // ---------- Edge cases: string → numeric/bool conversions ----------
 
         [Fact]
         public void Bind_StringValueForInt_ParsesSuccessfully()
@@ -400,8 +382,6 @@ namespace RevitCliBridge.Tests
             Assert.Equal(typeof(bool), ex.TargetType);
         }
 
-        // ---------- Edge cases: int[] variants ----------
-
         [Fact]
         public void Bind_IntArray_FromActualIntArray()
         {
@@ -431,7 +411,6 @@ namespace RevitCliBridge.Tests
         [Fact]
         public void Bind_IntArray_FromSingleInt_WrappedAsSingleElement()
         {
-            // Non-string IEnumerable of one element.
             var dict = new Dictionary<string, object>
             {
                 ["start_x"] = 0.0, ["start_y"] = 0.0, ["end_x"] = 1.0, ["end_y"] = 1.0,
@@ -473,8 +452,6 @@ namespace RevitCliBridge.Tests
         [Fact]
         public void Bind_IntArray_FromString_ThrowsTypeException()
         {
-            // A string is IEnumerable<char> but not int-convertible; the
-            // binder explicitly excludes string from array conversion.
             var dict = new Dictionary<string, object>
             {
                 ["start_x"] = 0.0, ["start_y"] = 0.0, ["end_x"] = 1.0, ["end_y"] = 1.0,
@@ -485,12 +462,8 @@ namespace RevitCliBridge.Tests
             Assert.Equal("tag_ids", ex.ParameterName);
         }
 
-        // ---------- Edge cases: Required + Default interaction ----------
-
         class RequiredWithDefaultParams
         {
-            // Required=true but Default=3000 — the default satisfies the
-            // required check, so a missing param does NOT throw.
             [Param("height", Required = true, Default = 3000.0)]
             public double Height { get; set; }
         }
@@ -503,13 +476,9 @@ namespace RevitCliBridge.Tests
             Assert.Equal(3000.0, p.Height);
         }
 
-        // ---------- Edge cases: Loose object (non-dictionary) inputs ----------
-
         [Fact]
         public void Bind_NonDictionaryObject_TreatedAsEmpty_NoErrorsForNoParams()
         {
-            // An arbitrary object (not IDictionary) yields no parameters,
-            // which is fine for POCOs with no required fields.
             var p = ParameterBinder.Bind<EmptyParams>("not a dictionary");
             Assert.Equal(42, p.Unused);
         }
@@ -517,8 +486,6 @@ namespace RevitCliBridge.Tests
         [Fact]
         public void Bind_NonDictionaryObjectWithRequiredParams_ThrowsMissing()
         {
-            // An arbitrary object is treated as empty, so required params
-            // in WallParams are missing.
             var ex = Assert.Throws<MissingParameterException>(
                 () => ParameterBinder.Bind<WallParams>("not a dict"));
             Assert.Equal("start_x", ex.ParameterName);

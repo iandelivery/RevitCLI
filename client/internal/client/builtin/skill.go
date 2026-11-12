@@ -37,7 +37,6 @@ func (SkillHandler) Metadata() abstractions.CommandMetadata {
 }
 
 func (SkillHandler) Handle(_ context.Context, args []string, _ abstractions.SendCommandFunc) int {
-	// Skip global flags (--url/--pid/--revit) before reading the sub-command.
 	sub, rest := abstractions.FirstPositional(args)
 	if sub == "" {
 		fmt.Fprintln(os.Stderr, "Error: sub-command required (install, show, update, uninstall)")
@@ -61,8 +60,6 @@ func (SkillHandler) Handle(_ context.Context, args []string, _ abstractions.Send
 	}
 }
 
-// printSkillUsage prints the flag reference. Agents read this to invoke
-// correctly without external docs.
 func printSkillUsage() {
 	fmt.Fprintln(os.Stderr, `
 Usage: revit-cli.exe skill <install|show|update|uninstall> [options]
@@ -85,7 +82,6 @@ Examples:
   revit-cli.exe skill uninstall --all`)
 }
 
-// skillOptions holds the shared flag set of skill sub-commands.
 type skillOptions struct {
 	agents string
 	target string
@@ -110,21 +106,15 @@ func parseSkillOptions(args []string) skillOptions {
 	}
 }
 
-// skillTarget is one resolved installation target with its outcome.
 type skillTarget struct {
 	Agent  string `json:"agent"`
 	Scope  string `json:"scope"`
 	Dir    string `json:"dir"`
-	Status string `json:"status"` // installed | already-installed | skipped | removed | deregistered | failed
+	Status string `json:"status"`
 	Error  string `json:"error,omitempty"`
-	// Detail carries the informational note for non-failure outcomes
-	// (e.g. why a deregistered location keeps its files). Kept separate
-	// from Error so JSON consumers never mistake success for failure.
 	Detail string `json:"detail,omitempty"`
 }
 
-// loadSkillSource resolves and rewrites the source SKILL.md. Shared by
-// install and update.
 func loadSkillSource() (srcDir, exePath, rewritten string, ok bool) {
 	srcDir = findSkillSourceDir()
 	if srcDir == "" {
@@ -148,13 +138,7 @@ func loadSkillSource() (srcDir, exePath, rewritten string, ok bool) {
 	return srcDir, exePath, rewritten, true
 }
 
-// installSkillDir writes the rewritten SKILL.md, supporting files, and a
-// fresh manifest into one target directory and records it in the index.
 func installSkillDir(srcDir, rewritten, exePath string, c skillCandidate) error {
-	// Self-reference guard: installing onto the source itself would
-	// overwrite SKILL.md with the rewritten copy (destroying the anchor
-	// sentence) and plant a manifest in the executable's own directory —
-	// which uninstall would then try to remove entirely.
 	if sameDir(srcDir, c.Dir) {
 		return fmt.Errorf("target %s is the skill source directory itself; choose a different --target", c.Dir)
 	}
@@ -180,11 +164,6 @@ func installSkillDir(srcDir, rewritten, exePath string, c skillCandidate) error 
 	return nil
 }
 
-// deregisterTarget handles a location that must never be deleted — the
-// running executable's own directory carrying a leftover "ghost"
-// manifest from a pre-guard install. Bookkeeping (manifest + index
-// record) is removed so the location leaves every listing, while all
-// files stay intact. Not a failure: the outcome is informational.
 func deregisterTarget(c skillCandidate) skillTarget {
 	t := skillTarget{Agent: c.Agent, Scope: string(c.Scope), Dir: c.Dir}
 	if err := deregisterSkillDir(c.Dir); err != nil {
@@ -197,8 +176,6 @@ func deregisterTarget(c skillCandidate) skillTarget {
 	return t
 }
 
-// skillCandidateStatus renders the detected/installed state of one
-// candidate for listings.
 func skillCandidateStatus(c skillCandidate) string {
 	switch {
 	case c.Manifest != nil:
@@ -216,9 +193,6 @@ func printSkillCandidates(w io.Writer, cands []skillCandidate) {
 	}
 }
 
-// promptSkillSelection shows a numbered candidate list and reads a
-// multi-select answer from stdin ("1,3", "all", Enter to cancel).
-// Re-prompts on invalid input; EOF cancels.
 func promptSkillSelection(cands []skillCandidate, title string) []skillCandidate {
 	fmt.Println(title)
 	for i, c := range cands {
@@ -234,7 +208,7 @@ func promptSkillSelection(cands []skillCandidate, title string) []skillCandidate
 	for {
 		line, err := reader.ReadString('\n')
 		if err != nil && line == "" {
-			return nil // EOF -> cancel
+			return nil
 		}
 		idx, ok := parseSelection(line, len(cands))
 		if !ok {
@@ -249,12 +223,10 @@ func promptSkillSelection(cands []skillCandidate, title string) []skillCandidate
 	}
 }
 
-// skillInstall installs the skill into agent skill directories.
 func skillInstall(args []string) int {
 	opts := parseSkillOptions(args)
 	explicit := opts.agents != "" || opts.target != "" || opts.all
 
-	// Resolve candidates according to the explicit flags.
 	var candidates []skillCandidate
 	switch {
 	case opts.target != "":
@@ -304,13 +276,10 @@ func skillInstall(args []string) int {
 		candidates = cs
 	}
 
-	// --list: print and exit without installing.
 	if opts.list {
 		return printSkillList(opts, candidates)
 	}
 
-	// No explicit target: interactive multi-select on TTY, self-describing
-	// error otherwise (agents retry with explicit flags).
 	if !explicit {
 		var detected []skillCandidate
 		for _, c := range candidates {
@@ -345,7 +314,6 @@ func skillInstall(args []string) int {
 		candidates = selected
 	}
 
-	// --all (with or without --global): everything detected.
 	if opts.all {
 		var keep []skillCandidate
 		for _, c := range candidates {
@@ -382,8 +350,6 @@ func skillInstall(args []string) int {
 				fmt.Printf("  [=] %-10s %s — already installed v%s (use --force to overwrite)\n", c.Agent, c.Dir, c.Manifest.Version)
 			}
 		case c.Manifest == nil && dirExists(c.Dir) && !isEmptyDir(c.Dir) && !opts.force:
-			// Directory exists without our manifest: user-maintained
-			// content. Never clobber it without an explicit --force.
 			t.Status = "skipped"
 			t.Error = "directory exists and is not managed by revit-cli (use --force to overwrite)"
 			if !opts.json {
@@ -421,7 +387,6 @@ func skillInstall(args []string) int {
 	return exitCode
 }
 
-// printSkillList implements --list: show candidates without installing.
 func printSkillList(opts skillOptions, candidates []skillCandidate) int {
 	if opts.json {
 		printSkillJSON(map[string]interface{}{
@@ -441,7 +406,6 @@ func printSkillList(opts skillOptions, candidates []skillCandidate) int {
 	return 0
 }
 
-// skillShow reports the source skill and every candidate/installed state.
 func skillShow(args []string) int {
 	opts := parseSkillOptions(args)
 	srcDir := findSkillSourceDir()
@@ -503,8 +467,6 @@ func skillShow(args []string) int {
 	return 0
 }
 
-// skillUpdate re-installs the skill from the current executable into
-// every location recorded by a manifest (batch, no interaction).
 func skillUpdate(args []string) int {
 	opts := parseSkillOptions(args)
 	installed := findInstalledSkills()
@@ -533,9 +495,6 @@ func skillUpdate(args []string) int {
 			old = c.Manifest.Version
 		}
 		if filepath.IsAbs(exePath) && sameDir(filepath.Dir(exePath), c.Dir) {
-			// Ghost manifest planted in the executable's own directory
-			// (pre-guard install): not an installable location, so stop
-			// tracking it instead of failing the whole update.
 			t = deregisterTarget(c)
 			if t.Status == "failed" {
 				exitCode = 1
@@ -579,8 +538,6 @@ func skillUpdate(args []string) int {
 	return exitCode
 }
 
-// skillUninstall removes installed skill locations. Mirrors install's
-// flags; only directories containing our manifest are ever deleted.
 func skillUninstall(args []string) int {
 	opts := parseSkillOptions(args)
 	explicit := opts.agents != "" || opts.target != "" || opts.all
@@ -667,11 +624,6 @@ func skillUninstall(args []string) int {
 			continue
 		}
 		if exePath, err := os.Executable(); err == nil && sameDir(filepath.Dir(exePath), c.Dir) {
-			// Self-reference guard: never remove the directory the
-			// running revit-cli.exe itself lives in, even if it holds a
-			// manifest planted by an older/other flow. Deregister
-			// instead via deregisterTarget (drop manifest + index
-			// record, keep all files).
 			t = deregisterTarget(c)
 			if t.Status == "failed" {
 				exitCode = 1
@@ -711,15 +663,11 @@ func skillUninstall(args []string) int {
 	return exitCode
 }
 
-// printSkillJSON emits the machine-readable output used by AI agents,
-// following the project's MarshalIndent convention.
 func printSkillJSON(v interface{}) {
 	b, _ := json.MarshalIndent(v, "", "  ")
 	fmt.Println(string(b))
 }
 
-// isEmptyDir reports whether dir contains no entries (missing dirs are
-// treated as empty).
 func isEmptyDir(dir string) bool {
 	entries, err := os.ReadDir(dir)
 	return err != nil || len(entries) == 0

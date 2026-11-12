@@ -49,7 +49,6 @@ namespace RevitCliBridge.Handlers.Piping
             if (collinearError is not null)
                 return CommandResponse.Error(cmd.TaskId, collinearError).ToJson();
 
-            // Size check: diameters must match for a union.
             var pipe1 = (Pipe)c1!.Owner;
             var pipe2 = (Pipe)c2!.Owner;
             double dia1 = PipeUtils.Default.GetDiameterMm(pipe1);

@@ -64,7 +64,6 @@ namespace RevitCliBridge.Handlers.Mechanical
             {
                 tx.ConfigureFailureHandling();
 
-                // Type change
                 if (p.DuctTypeId.HasValue && p.DuctTypeId.Value > 0 && p.DuctTypeId.Value != duct.DuctType?.Id.IntegerValue)
                 {
                     var newType = doc.GetElement(new ElementId(p.DuctTypeId.Value)) as DuctType;
@@ -73,7 +72,6 @@ namespace RevitCliBridge.Handlers.Mechanical
                     duct.ChangeTypeId(newType.Id);
                 }
 
-                // Endpoint change — must update both together (LocationCurve is a single Line)
                 bool hasStart = p.StartX.HasValue || p.StartY.HasValue || p.StartZ.HasValue;
                 bool hasEnd = p.EndX.HasValue || p.EndY.HasValue || p.EndZ.HasValue;
                 if (hasStart || hasEnd)
@@ -105,14 +103,12 @@ namespace RevitCliBridge.Handlers.Mechanical
                     }
                 }
 
-                // Size changes — shape-aware.
                 var shape = duct.DuctType?.Shape ?? ConnectorProfileType.Round;
                 if (shape == ConnectorProfileType.Round)
                 {
                     if (p.DiameterMm.HasValue && p.DiameterMm.Value > 0)
                         duct.get_Parameter(BuiltInParameter.RBS_CURVE_DIAMETER_PARAM)?.Set(p.DiameterMm.Value.MillimeterToFeet());
 
-                    // Reject width/height on round ducts.
                     if ((p.WidthMm.HasValue && p.WidthMm.Value > 0) || (p.HeightMm.HasValue && p.HeightMm.Value > 0))
                         return CommandResponse.Error(cmd.TaskId, "Cannot set width_mm/height_mm on a round duct; use diameter_mm instead.").ToJson();
                 }
@@ -123,7 +119,6 @@ namespace RevitCliBridge.Handlers.Mechanical
                     if (p.HeightMm.HasValue && p.HeightMm.Value > 0)
                         duct.get_Parameter(BuiltInParameter.RBS_CURVE_HEIGHT_PARAM)?.Set(p.HeightMm.Value.MillimeterToFeet());
 
-                    // Reject diameter on rectangular/oval ducts.
                     if (p.DiameterMm.HasValue && p.DiameterMm.Value > 0)
                         return CommandResponse.Error(cmd.TaskId, "Cannot set diameter_mm on a rectangular/oval duct; use width_mm/height_mm instead.").ToJson();
                 }

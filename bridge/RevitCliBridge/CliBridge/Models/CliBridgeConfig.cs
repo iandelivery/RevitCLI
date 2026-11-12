@@ -132,7 +132,6 @@ namespace RevitCliBridge.Models
 
                 lock (_lock)
                 {
-                    // Double-check after acquiring lock.
                     if (_config is not null)
                         return _config;
 
@@ -247,12 +246,11 @@ namespace RevitCliBridge.Models
         {
             var key = Config.ApiKey;
             if (string.IsNullOrEmpty(key))
-                return true; // Auth disabled
+                return true;
 
             if (string.IsNullOrEmpty(bearerToken))
                 return false;
 
-            // Strip "Bearer " prefix if present.
             var token = bearerToken!.Trim();
             if (token.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
                 token = token.Substring("Bearer ".Length).Trim();

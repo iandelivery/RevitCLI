@@ -9,8 +9,6 @@ namespace RevitCliBridge
     {
         public void Execute(UIApplication app)
         {
-            // Store the UIApplication reference for endpoints that need it
-            // (e.g. /api/llms.txt which accesses the active document).
             CliBridgeStateManager.SetUIApplication(app);
 
             while (TaskRegistry.CommandQueue.TryDequeue(out var queuedCommand))
@@ -21,11 +19,6 @@ namespace RevitCliBridge
                 try
                 {
                     resultJson = CommandRouter.Execute(app, queuedCommand);
-                    // Handlers report failures by returning an error response
-                    // (top-level status "error") without throwing. Only mark
-                    // the task Completed for success responses so the SSE
-                    // stream and task polling emit "failed" (clients rely on
-                    // this for non-zero exit codes).
                     if (IsErrorResult(resultJson))
                         TaskRegistry.SetFailed(queuedCommand.TaskId, resultJson);
                     else
@@ -41,7 +34,6 @@ namespace RevitCliBridge
                 }
             }
 
-            // Clean up old completed tasks to prevent unbounded memory growth.
             TaskRegistry.CleanupOldTasks();
         }
 

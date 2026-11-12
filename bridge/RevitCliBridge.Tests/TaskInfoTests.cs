@@ -16,8 +16,6 @@ namespace RevitCliBridge.Tests
     /// </summary>
     public class TaskInfoTests
     {
-        // ---------- Defaults ----------
-
         [Fact]
         public void NewInstance_StatusDefaultsToPending()
         {
@@ -62,8 +60,6 @@ namespace RevitCliBridge.Tests
             Assert.False(t.Tcs.Task.IsCompleted);
         }
 
-        // ---------- Property assignment ----------
-
         [Fact]
         public void TaskId_AndCommand_AreSettable()
         {
@@ -96,8 +92,6 @@ namespace RevitCliBridge.Tests
             Assert.Equal("{\"ok\":true}", t.ResultJson);
         }
 
-        // ---------- Tcs unblocking ----------
-
         [Fact]
         public async Task Tcs_TrySetResult_UnblocksAwaiter()
         {
@@ -115,8 +109,6 @@ namespace RevitCliBridge.Tests
             Assert.False(t.Tcs.TrySetResult("second"));
             Assert.Equal("first", await t.Tcs.Task);
         }
-
-        // ---------- Broadcast ----------
 
         [Fact]
         public void Broadcast_WithNoSubscribers_DoesNotThrow()
@@ -144,7 +136,6 @@ namespace RevitCliBridge.Tests
         [Fact]
         public void Broadcast_PayloadSerializedAsJson_NotToString()
         {
-            // Verifies Broadcast uses JsonConvert, not Object.ToString().
             var t = new TaskInfo();
             string? seenJson = null;
             t.OnSseEvent += (_, json) => seenJson = json;
@@ -170,18 +161,12 @@ namespace RevitCliBridge.Tests
         [Fact]
         public void Broadcast_SubscriberThrowing_PropagatesException()
         {
-            // Broadcast uses plain multicast invocation — no try/catch. An
-            // exception in a handler therefore propagates to the caller.
-            // Asserting this explicitly so any future try/catch wrapping is
-            // noticed and the test updated to match.
             var t = new TaskInfo();
             t.OnSseEvent += (_, _) => throw new InvalidOperationException("boom");
 
             Assert.Throws<InvalidOperationException>(() =>
                 t.Broadcast("progress", new { }));
         }
-
-        // ---------- ClearSseSubscribers ----------
 
         [Fact]
         public void ClearSseSubscribers_RemovesAllSubscribers()
@@ -216,14 +201,9 @@ namespace RevitCliBridge.Tests
             Assert.False(invoked);
         }
 
-        // ---------- Thread safety of lock-protected properties ----------
-
         [Fact]
         public async Task Status_ReadAndWriteFromMultipleThreads_IsConsistent()
         {
-            // Concurrent reads & writes must not corrupt the field —
-            // the lock guarantees atomic visibility. Verifies that a
-            // single writer + multiple readers all see the final value.
             var t = new TaskInfo();
             var cts = new CancellationTokenSource();
 
@@ -231,14 +211,14 @@ namespace RevitCliBridge.Tests
             {
                 while (!cts.IsCancellationRequested)
                 {
-                    var _ = t.Status; // spin-read
+                    var _ = t.Status;
                 }
             });
             var reader2 = Task.Run(() =>
             {
                 while (!cts.IsCancellationRequested)
                 {
-                    var _ = t.Status; // spin-read
+                    var _ = t.Status;
                 }
             });
 
