@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Text;
+using System.Threading;
 
 namespace RevitCliBridge
 {
@@ -9,13 +10,19 @@ namespace RevitCliBridge
     /// log files under %LOCALAPPDATA%/RevitCliBridge/Logs with a 4KB buffered
     /// StreamWriter (flushed on Shutdown or daily rollover). Log lines use a
     /// key=value structured format so they can be grep-filtered by field.
+    /// Multiple Revit processes share one daily file, so every append holds
+    /// a global named mutex and flushes immediately; without it, concurrent
+    /// bridges interleave buffered chunks and garble each other's lines
+    /// (observed 2026-11-12 with 2019 and 2022 bridges running side by side).
     /// </summary>
     public static class CliLogger
     {
+        private const string MutexName = "Global\\RevitCliBridge.Log";
         private static readonly object _lock = new object();
         private static string? _logDirectory;
         private static StreamWriter? _writer;
         private static string? _currentLogFile;
+        private static Mutex? _fileMutex;
         private static readonly StringBuilder _fieldBuffer = new StringBuilder(256);
 
         public static string LogDirectory
@@ -60,11 +67,34 @@ namespace RevitCliBridge
                 try
                 {
                     EnsureWriter();
-                    _writer?.WriteLine(logLine);
+                    bool held = false;
+                    try
+                    {
+                        _fileMutex ??= OpenFileMutex();
+                        held = _fileMutex?.WaitOne(TimeSpan.FromSeconds(5)) ?? false;
+                        _writer?.WriteLine(logLine);
+                        _writer?.Flush();
+                    }
+                    finally
+                    {
+                        if (held) _fileMutex?.ReleaseMutex();
+                    }
                 }
                 catch
                 {
                 }
+            }
+        }
+
+        private static Mutex? OpenFileMutex()
+        {
+            try
+            {
+                return new Mutex(false, MutexName);
+            }
+            catch
+            {
+                return null;
             }
         }
 
@@ -114,9 +144,10 @@ namespace RevitCliBridge
             _writer?.Flush();
             _writer?.Dispose();
 
-            _writer = new StreamWriter(targetFile, append: true, Encoding.UTF8)
+            var stream = new FileStream(targetFile, FileMode.Append, FileAccess.Write, FileShare.ReadWrite);
+            _writer = new StreamWriter(stream, Encoding.UTF8)
             {
-                AutoFlush = false
+                AutoFlush = true
             };
             _currentLogFile = targetFile;
         }
