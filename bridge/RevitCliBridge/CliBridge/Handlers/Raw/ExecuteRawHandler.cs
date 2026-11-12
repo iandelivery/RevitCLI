@@ -19,7 +19,7 @@ namespace RevitCliBridge.Handlers.Raw
     public class ExecuteRawHandler : BridgeCommandBase
     {
         public override string CommandName => "execute_raw";
-        public override string Description => "Execute raw C# or Python code (requires server-side enablement)";
+        public override string Description => "Execute raw C# code (requires server-side enablement)";
         public override string Category => "Raw";
         public override bool SupportsDryRun => true;
         public override string[] Aliases => new[] { "raw_exec", "eval" };
