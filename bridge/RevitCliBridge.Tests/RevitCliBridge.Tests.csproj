@@ -36,5 +36,6 @@
     <Compile Include="..\RevitCliBridge\CliBridge\TaskStateMachine.cs" Link="Linked\TaskStateMachine.cs" />
     <Compile Include="..\RevitCliBridge\CliBridge\LinkSelectorParser.cs" Link="Linked\LinkSelectorParser.cs" />
     <Compile Include="..\RevitCliBridge\CliBridge\ParamConverter.cs" Link="Linked\ParamConverter.cs" />
+    <Compile Include="..\RevitCliBridge\CliBridge\ParamMatcher.cs" Link="Linked\ParamMatcher.cs" />
   </ItemGroup>
 </Project>
