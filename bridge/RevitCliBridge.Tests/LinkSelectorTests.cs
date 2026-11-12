@@ -8,7 +8,7 @@ namespace RevitCliBridge.Tests
     /// from the main project). The Document walk in
     /// HandlerUtilities.TryResolveTargetDocument takes Revit types and is
     /// covered by live verification (see
-    /// bridge/docs/design-linked-document-queries.md).
+    /// docs/design/design-linked-document-queries.md).
     /// </summary>
     public class LinkSelectorTests
     {

@@ -13,7 +13,7 @@ links — sees the links as opaque `RevitLinkInstance` elements and nothing
 inside them.
 
 The gap is not a missing primitive. `HandlerUtilities.ResolveLinkDocuments`
-([HandlerUtilities.cs](../RevitCliBridge/CliBridge/Handlers/HandlerUtilities.cs:77))
+([HandlerUtilities.cs](../../bridge/RevitCliBridge/CliBridge/Handlers/HandlerUtilities.cs:77))
 already maps link-selection parameters to linked `Document` objects. It has
 zero callers, and its default branch returns every link's document even when
 the caller passed no link parameter, which is the wrong default for
@@ -138,7 +138,7 @@ Two constraints from the handler plumbing shape the calls:
 
 - Handlers are singletons. `CommandRouter.EnsureInitialized` creates one
   instance per handler and stores it in a `ConcurrentDictionary`
-  ([CommandRouter.cs](../RevitCliBridge/CliBridge/CommandRouter.cs:58)),
+  ([CommandRouter.cs](../../bridge/RevitCliBridge/CliBridge/CommandRouter.cs:58)),
   so link resolution must be stateless. Call the helper fresh inside each
   request; never cache the resolved document in a field.
 - `PaginatedQueryHandler.QuerySource` returns a sequence and cannot report
