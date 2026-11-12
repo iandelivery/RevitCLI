@@ -7,8 +7,7 @@ namespace RevitCliBridge.Tests
     /// Tests for the pure link-selector parsing (LinkSelectorParser, linked
     /// from the main project). The Document walk in
     /// HandlerUtilities.TryResolveTargetDocument takes Revit types and is
-    /// covered by live verification (see
-    /// bridge/docs/design-linked-document-queries.md).
+    /// covered by live verification.
     /// </summary>
     public class LinkSelectorTests
     {
