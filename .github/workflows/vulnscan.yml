@@ -1,0 +1,53 @@
+name: Vulnerability scan
+
+on:
+  pull_request: {}
+  schedule:
+    - cron: '0 3 * * 1'
+
+permissions:
+  contents: read
+
+env:
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
+  NUGET_XMLDOC_MODE: skip
+  GO_VERSION: '1.26.11'
+
+jobs:
+  go:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: client/go.sum
+
+      - name: Scan Go dependencies
+        working-directory: client
+        shell: pwsh
+        run: |
+          go install golang.org/x/vuln/cmd/govulncheck@v1.9.0
+          govulncheck ./...
+
+  nuget:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 6.0.x
+
+      - name: Scan NuGet dependencies
+        shell: pwsh
+        run: |
+          dotnet restore bridge/RevitCliBridge.sln
+          $out = dotnet list bridge/RevitCliBridge.sln package --vulnerable --include-transitive
+          $out
+          if ($out -match 'following vulnerable packages') { exit 1 }
