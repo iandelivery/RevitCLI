@@ -6,6 +6,22 @@ commits (feat/fix only) — do not edit released sections. Historical releases
 before v1.12.0 live on the
 [GitHub Releases page](https://github.com/iandelivery/RevitCLI/releases).
 
+## v1.17.0 (2026-11-13)
+
+### What's Changed
+#### Features
+- [feat(bridge): enable raw execution by default, drop Python mode](https://github.com/iandelivery/RevitCLI/commit/a7b3737)
+
+#### Bug Fixes
+- [fix(bridge): reference the bridge assembly in execute_raw compilation](https://github.com/iandelivery/RevitCLI/commit/335bb33)
+- [fix(bridge): drop Python mention from execute_raw description](https://github.com/iandelivery/RevitCLI/commit/ab4cb5b)
+- [fix(bridge): serialize shared log writes across bridge processes](https://github.com/iandelivery/RevitCLI/commit/4bec6ee)
+- [fix(bridge): compare search_elements parameters by storage type](https://github.com/iandelivery/RevitCLI/commit/539c0b7)
+- [fix(bridge): reject non-boolean values for strict bool parameters](https://github.com/iandelivery/RevitCLI/commit/b5b71e8)
+- [fix(bridge): clear all build warnings and enforce zero-warning builds](https://github.com/iandelivery/RevitCLI/commit/b5a6788)
+
+**Full Changelog**: https://github.com/iandelivery/RevitCLI/compare/v1.16.0...v1.17.0
+
 ## v1.16.0 (2026-11-12)
 
 ### What's Changed
