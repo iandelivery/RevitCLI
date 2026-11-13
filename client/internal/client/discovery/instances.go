@@ -175,14 +175,14 @@ func FormatInstancesTable(instances []InstanceInfo) string {
 
 	var sb strings.Builder
 	sb.WriteString("Running Revit Instances:\n\n")
-	sb.WriteString(fmt.Sprintf("  %-8s %-8s %-8s %s\n", "PID", "VERSION", "PORT", "DOCUMENT"))
+	fmt.Fprintf(&sb, "  %-8s %-8s %-8s %s\n", "PID", "VERSION", "PORT", "DOCUMENT")
 	sb.WriteString("  -------- -------- -------- ----------------\n")
 	for _, inst := range instances {
 		doc := inst.Document
 		if doc == "" {
 			doc = "-"
 		}
-		sb.WriteString(fmt.Sprintf("  %-8d %-8d %-8d %s\n", inst.Pid, inst.Version, inst.Port, doc))
+		fmt.Fprintf(&sb, "  %-8d %-8d %-8d %s\n", inst.Pid, inst.Version, inst.Port, doc)
 	}
 
 	sb.WriteString("\n")
@@ -190,7 +190,7 @@ func FormatInstancesTable(instances []InstanceInfo) string {
 		if inst.StartedAt != "" {
 			if t, err := time.Parse(time.RFC3339, inst.StartedAt); err == nil {
 				uptime := time.Since(t).Truncate(time.Minute)
-				sb.WriteString(fmt.Sprintf("  PID %d: uptime %s\n", inst.Pid, uptime))
+				fmt.Fprintf(&sb, "  PID %d: uptime %s\n", inst.Pid, uptime)
 			}
 		}
 	}

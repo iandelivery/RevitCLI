@@ -365,7 +365,7 @@ func newBuiltinCmd(use, short string, examples []string, needsURL bool,
 				httpClient = &http.Client{Timeout: 0}
 				send = makeSend(baseURL)
 			} else {
-				send = abstractions.SendCommandFunc(func(ctx context.Context, _ string, _ interface{}, _ ...map[string]interface{}) int {
+				send = abstractions.SendCommandFunc(func(_ context.Context, _ string, _ interface{}, _ ...map[string]interface{}) int {
 					fmt.Fprintln(os.Stderr, "Error: this command does not use the bridge connection.")
 					return 1
 				})

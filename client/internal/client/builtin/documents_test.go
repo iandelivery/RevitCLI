@@ -31,13 +31,13 @@ func TestEnrichInstancesAndDisplay(t *testing.T) {
 	healthyURL := healthy.URL
 	healthyPort := portFromURL(t, healthyURL)
 
-	slow := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	slow := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, _ *http.Request) {
 		time.Sleep(documentsTimeout + 2*time.Second)
 	}))
 	defer slow.Close()
 	slowPort := portFromURL(t, slow.URL)
 
-	unauthorized := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	unauthorized := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		http.Error(w, "unauthorized", http.StatusUnauthorized)
 	}))
 	defer unauthorized.Close()
