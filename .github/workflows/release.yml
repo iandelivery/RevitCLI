@@ -87,7 +87,7 @@ jobs:
           Set-Content -Path "$configDir/cli_bridge_setting.json" -Value $setting -Encoding UTF8
 
       - name: Upload bridge artifact (Revit ${{ matrix.revit-version }})
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: bridge-Revit${{ matrix.revit-version }}
           path: bridge/dist/Revit${{ matrix.revit-version }}/
@@ -125,7 +125,7 @@ jobs:
           & .\revit-cli.exe --version
 
       - name: Upload client artifact
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: client-windows
           path: client/revit-cli.exe
