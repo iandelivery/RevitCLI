@@ -285,12 +285,12 @@ func upsertSkillIndex(rec skillInstallRecord) {
 	for i := range recs {
 		if strings.EqualFold(recs[i].Dir, rec.Dir) {
 			recs[i] = rec
-			saveSkillIndex(recs)
+			_ = saveSkillIndex(recs)
 			return
 		}
 	}
 	recs = append(recs, rec)
-	saveSkillIndex(recs)
+	_ = saveSkillIndex(recs)
 }
 
 func removeSkillIndexDir(dir string) {
@@ -301,7 +301,7 @@ func removeSkillIndexDir(dir string) {
 			out = append(out, r)
 		}
 	}
-	saveSkillIndex(out)
+	_ = saveSkillIndex(out)
 }
 
 func deregisterSkillDir(dir string) error {

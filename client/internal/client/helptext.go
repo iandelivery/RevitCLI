@@ -36,15 +36,15 @@ var argShortcuts = []struct {
 func Generate(registry *CommandRegistry, version, author string) string {
 	var sb strings.Builder
 
-	sb.WriteString(fmt.Sprintf("Revit CLI Client (Go) v%s\n", version))
+	fmt.Fprintf(&sb, "Revit CLI Client (Go) v%s\n", version)
 	sb.WriteString("Command-line tool for AI agents to drive Autodesk Revit\n")
-	sb.WriteString(fmt.Sprintf("Developed by %s\n\n", author))
+	fmt.Fprintf(&sb, "Developed by %s\n\n", author)
 	sb.WriteString("Usage:\n")
 	sb.WriteString("  revit-cli.exe [--url <url>] <command> [arguments]\n\n")
 
 	sb.WriteString("Argument Shortcuts:\n")
 	for _, sc := range argShortcuts {
-		sb.WriteString(fmt.Sprintf("  %-4s %-26s %s\n", sc.Short, sc.Long, sc.Description))
+		fmt.Fprintf(&sb, "  %-4s %-26s %s\n", sc.Short, sc.Long, sc.Description)
 	}
 	sb.WriteString("\n")
 
@@ -63,10 +63,10 @@ func Generate(registry *CommandRegistry, version, author string) string {
 		if len(commands) == 0 {
 			continue
 		}
-		sb.WriteString(fmt.Sprintf("  [%s]\n", category.DisplayName()))
+		fmt.Fprintf(&sb, "  [%s]\n", category.DisplayName())
 		for _, cmd := range commands {
 			m := cmd.Metadata()
-			sb.WriteString(fmt.Sprintf("  %-24s %s\n", m.Name, m.Description))
+			fmt.Fprintf(&sb, "  %-24s %s\n", m.Name, m.Description)
 		}
 		sb.WriteString("\n")
 		seenCategories[category] = true
@@ -88,10 +88,10 @@ func Generate(registry *CommandRegistry, version, author string) string {
 				commands = append(commands, c)
 			}
 		}
-		sb.WriteString(fmt.Sprintf("  [%s]\n", cat.DisplayName()))
+		fmt.Fprintf(&sb, "  [%s]\n", cat.DisplayName())
 		for _, c := range commands {
 			m := c.Metadata()
-			sb.WriteString(fmt.Sprintf("  %-24s %s\n", m.Name, m.Description))
+			fmt.Fprintf(&sb, "  %-24s %s\n", m.Name, m.Description)
 		}
 		sb.WriteString("\n")
 	}
@@ -103,7 +103,7 @@ func Generate(registry *CommandRegistry, version, author string) string {
 	sb.WriteString("Usage Details:\n")
 	for _, cmd := range allCommands {
 		m := cmd.Metadata()
-		sb.WriteString(fmt.Sprintf("  %s\n    %s\n", m.Name, m.Usage))
+		fmt.Fprintf(&sb, "  %s\n    %s\n", m.Name, m.Usage)
 	}
 	sb.WriteString("\n")
 
@@ -114,7 +114,7 @@ func Generate(registry *CommandRegistry, version, author string) string {
 			continue
 		}
 		for _, ex := range m.Examples {
-			sb.WriteString(fmt.Sprintf("  %s\n", ex))
+			fmt.Fprintf(&sb, "  %s\n", ex)
 		}
 	}
 	sb.WriteString(`  revit-cli.exe raw -j "{\"command\":\"ping\"}"` + "\n\n")

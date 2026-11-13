@@ -66,7 +66,7 @@ func (ConfigureHandler) Handle(ctx context.Context, args []string, send abstract
 	}
 }
 
-func configureSetup(args []string) int {
+func configureSetup(_ []string) int {
 	if runtime.GOOS != "windows" {
 		fmt.Fprintln(os.Stderr, "configure setup is only supported on Windows (requires access to Revit add-ins directory).")
 		fmt.Fprintln(os.Stderr, "On this platform, you can configure client-side settings only.")
@@ -149,7 +149,7 @@ func configureSetup(args []string) int {
 	return 0
 }
 
-func configureTeardown(args []string) int {
+func configureTeardown(_ []string) int {
 	if runtime.GOOS != "windows" {
 		fmt.Fprintln(os.Stderr, "configure teardown is only supported on Windows.")
 		return 1
@@ -184,7 +184,7 @@ func configureTeardown(args []string) int {
 	return 0
 }
 
-func configureCheck(args []string) int {
+func configureCheck(_ []string) int {
 	fmt.Println("Checking Revit CLI Bridge installation...")
 	fmt.Println()
 

@@ -153,11 +153,7 @@ func matchInstanceFile(name string) bool {
 	if len(name) < 6 || name[:6] != "revit-" {
 		return false
 	}
-	ext := filepath.Ext(name)
-	if ext != ".json" {
-		return false
-	}
-	return true
+	return filepath.Ext(name) == ".json"
 }
 
 func isProcessAlive(pid int) bool {
