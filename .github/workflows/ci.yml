@@ -1,8 +1,7 @@
 name: CI
 
 on:
-  pull_request:
-    paths: [bridge/**, client/**]
+  pull_request: {}
   push:
     branches: [main]
     paths: [bridge/**, client/**]
@@ -16,7 +15,28 @@ env:
   GO_VERSION: '1.22'
 
 jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      bridge: ${{ steps.filter.outputs.bridge }}
+      client: ${{ steps.filter.outputs.client }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Detect changed areas
+        uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            bridge:
+              - 'bridge/**'
+            client:
+              - 'client/**'
+
   bridge:
+    needs: changes
+    if: needs.changes.outputs.bridge == 'true'
     runs-on: windows-latest
     steps:
       - name: Checkout
@@ -34,6 +54,8 @@ jobs:
         run: dotnet test bridge/RevitCliBridge.Tests/RevitCliBridge.Tests.csproj --no-build
 
   client:
+    needs: changes
+    if: needs.changes.outputs.client == 'true'
     runs-on: windows-latest
     steps:
       - name: Checkout
