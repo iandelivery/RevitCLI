@@ -81,12 +81,12 @@ func Discover() []InstanceInfo {
 }
 
 // ResolveURL determines the bridge URL using the following priority:
-// 1. Explicit --url flag (already resolved by caller)
-// 2. --pid <pid> — find instance with matching PID
-// 3. --revit <version> — find first instance of that version
-// 4. Auto-discover — if exactly one instance is alive, use it
-// 5. No instances — exit with actionable guidance (no port fallback:
-//    no bridge version ever listens on a fixed default port)
+//  1. Explicit --url flag (already resolved by caller)
+//  2. --pid <pid> — find instance with matching PID
+//  3. --revit <version> — find first instance of that version
+//  4. Auto-discover — if exactly one instance is alive, use it
+//  5. No instances — exit with actionable guidance (no port fallback:
+//     no bridge version ever listens on a fixed default port)
 func ResolveURL(explicitURL string, pidFlag int, revitFlag int) string {
 	if explicitURL != "" {
 		return explicitURL

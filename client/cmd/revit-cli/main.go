@@ -65,7 +65,7 @@ func newRootCmd() *cobra.Command {
 		DisableFlagParsing: true,
 		SilenceUsage:       true,
 		SilenceErrors:      true,
-		Args: cobra.ArbitraryArgs,
+		Args:               cobra.ArbitraryArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			for _, a := range args {
 				if a == "--help" || a == "-h" {

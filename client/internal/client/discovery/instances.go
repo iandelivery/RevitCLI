@@ -91,12 +91,12 @@ func FindInstancesByVersion(version int) []InstanceInfo {
 }
 
 // ResolveBaseURL determines the bridge URL using the following priority:
-// 1. explicitURL (from --url flag) — returned as-is if non-empty
-// 2. pid (from --pid flag) — look up instance by PID
-// 3. version (from --revit flag) — find first instance of that version
-// 4. auto-discover — if exactly one instance, use it; if multiple, return error
-// 5. no instances — error with actionable guidance (no port fallback:
-//    no bridge version ever listens on a fixed default port)
+//  1. explicitURL (from --url flag) — returned as-is if non-empty
+//  2. pid (from --pid flag) — look up instance by PID
+//  3. version (from --revit flag) — find first instance of that version
+//  4. auto-discover — if exactly one instance, use it; if multiple, return error
+//  5. no instances — error with actionable guidance (no port fallback:
+//     no bridge version ever listens on a fixed default port)
 func ResolveBaseURL(explicitURL string, pid int, version int) (string, error) {
 	if explicitURL != "" {
 		return explicitURL, nil
