@@ -116,7 +116,7 @@ CLI 客户端会把命令 schema（通过 `GET /api/commands` 获取）在本地
 | Windows | 10+ | Bridge 目标平台 `x64`；Go 构建使用 `GOOS=windows` |
 | PowerShell | 5.1+（推荐 PowerShell 7+） | 执行 `build.ps1` |
 | .NET SDK | 6.0.x 和 7.0.x | 编译覆盖所有 Revit 版本的 C# Bridge |
-| Go | 1.21 或更新（与 `go.mod` 一致） | 编译 `revit-cli.exe` |
+| Go | 1.26 或更新（与 `go.mod` 一致） | 编译 `revit-cli.exe` |
 | Git | 任意较新版本 | 通过 `git describe` 读取版本号 |
 
 构建前请先确认工具在 `PATH` 中可用：
