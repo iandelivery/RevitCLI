@@ -186,7 +186,8 @@ namespace RevitCliBridge.Handlers.Raw
 
         /// <summary>
         /// Build a compilable C# class wrapping the user's code snippet.
-        /// The user code can reference `app` (UIApplication) and `doc` (Document).
+        /// The user code can reference `app` (UIApplication), `doc` (Document),
+        /// and bridge helpers such as CliFailurePreprocessor.
         /// If the user code contains a `return` statement, the trailing
         /// `return null;` is omitted to avoid unreachable-code warnings/errors.
         /// </summary>
@@ -199,6 +200,7 @@ using Autodesk.Revit.UI;
 using Autodesk.Revit.DB.Structure;
 using System.Collections.Generic;
 using System.Linq;
+using RevitCliBridge.Handlers;
 
 public static class ScriptHost
 {{
@@ -240,6 +242,7 @@ public static class ScriptHost
                 parameters.ReferencedAssemblies.Add(typeof(Autodesk.Revit.DB.Document).Assembly.Location);
                 parameters.ReferencedAssemblies.Add(typeof(Autodesk.Revit.UI.UIApplication).Assembly.Location);
                 parameters.ReferencedAssemblies.Add(typeof(Newtonsoft.Json.JsonConvert).Assembly.Location);
+                parameters.ReferencedAssemblies.Add(typeof(CliFailurePreprocessor).Assembly.Location);
 
                 var result = compiler.CompileAssemblyFromSource(parameters, source);
 
