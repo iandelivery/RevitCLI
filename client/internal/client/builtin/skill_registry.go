@@ -18,6 +18,7 @@ const (
 	skillManifestName = ".revit-cli-skill.json"
 	skillEnvDir       = "REVIT_CLI_SKILL_DIR"
 	skillIndexName    = "skill-installs.json"
+	skillBinVersion   = "revit-cli.version"
 )
 
 const skillExeAnchor = "The `revit-cli.exe` binary is located in the same directory as this markdown file."
@@ -108,6 +109,63 @@ func rewriteSkillContent(content, exePath string) (string, bool) {
 		return strings.Replace(content, skillExeAnchor, replacement, 1), true
 	}
 	return content + "\n## Local Binary Path\n\n" + replacement + "\n", false
+}
+
+func binExePath() string {
+	return filepath.Join(discovery.DataDir(), "bin", "revit-cli.exe")
+}
+
+func binVersionPath() string {
+	return filepath.Join(discovery.DataDir(), "bin", skillBinVersion)
+}
+
+// ensureBinExe stages a machine-wide copy of the running executable under
+// <DataDir>\bin\revit-cli.exe so installed skills reference a stable path
+// that survives upgrades or moves of the original install directory.
+func ensureBinExe(srcExe string) (string, error) {
+	dst := binExePath()
+	if strings.EqualFold(filepath.Clean(srcExe), filepath.Clean(dst)) {
+		writeBinVersion()
+		return dst, nil
+	}
+	if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
+		return dst, err
+	}
+	tmp := dst + ".tmp"
+	if err := copyFile(srcExe, tmp); err != nil {
+		os.Remove(tmp)
+		return dst, fmt.Errorf("cannot copy %s to %s: %w", srcExe, dst, err)
+	}
+	if err := os.Rename(tmp, dst); err != nil {
+		os.Remove(tmp)
+		return dst, fmt.Errorf("cannot replace %s (close any running copy of it and retry): %w", dst, err)
+	}
+	writeBinVersion()
+	return dst, nil
+}
+
+func writeBinVersion() {
+	_ = os.WriteFile(binVersionPath(), []byte(ClientVersion), 0o644)
+}
+
+func readBinVersion() string {
+	b, err := os.ReadFile(binVersionPath())
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(b))
+}
+
+func removeBinCopy() error {
+	exeErr := os.Remove(binExePath())
+	verErr := os.Remove(binVersionPath())
+	if exeErr != nil && !os.IsNotExist(exeErr) {
+		return fmt.Errorf("cannot remove %s (a running revit-cli.exe may lock it): %w", binExePath(), exeErr)
+	}
+	if verErr != nil && !os.IsNotExist(verErr) {
+		return verErr
+	}
+	return nil
 }
 
 // SkillManifest is written into every installed skill directory and is

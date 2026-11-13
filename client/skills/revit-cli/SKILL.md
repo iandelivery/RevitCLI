@@ -26,7 +26,7 @@ revit-cli.exe skill install --list
 revit-cli.exe skill install --agent claude,codebuddy
 ```
 
-Installation copies this file (plus `references/`) into `<agent>/skills/revit-cli/`, rewriting the `revit-cli.exe` reference above to its absolute path on this machine.
+Installation copies this file (plus `references/`) into `<agent>/skills/revit-cli/` and stages a machine-wide copy of the binary at `%LOCALAPPDATA%\revit-cli\bin\revit-cli.exe`; the `revit-cli.exe` reference above is rewritten to that stable path, so installs keep working when the original install folder moves or is upgraded. `skill update` refreshes both the markdown installs and the staged binary copy.
 
 | Flag | Description |
 |------|-------------|

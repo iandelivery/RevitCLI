@@ -392,6 +392,97 @@ func TestFindInstalledSkillsExeDirGhost(t *testing.T) {
 	}
 }
 
+func TestEnsureBinExe(t *testing.T) {
+	t.Setenv("REVIT_CLI_DATA_DIR", t.TempDir())
+	oldVersion := ClientVersion
+	ClientVersion = "9.9.9"
+	defer func() { ClientVersion = oldVersion }()
+
+	src := filepath.Join(t.TempDir(), "revit-cli.exe")
+	if err := os.WriteFile(src, []byte("bin-v1"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	dst, err := ensureBinExe(src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !sameDir(dst, binExePath()) {
+		t.Errorf("ensureBinExe dst = %q, want %q", dst, binExePath())
+	}
+	if b, err := os.ReadFile(dst); err != nil || string(b) != "bin-v1" {
+		t.Errorf("bin copy = %q, %v; want staged content", b, err)
+	}
+	if v := readBinVersion(); v != "9.9.9" {
+		t.Errorf("version marker = %q, want 9.9.9", v)
+	}
+
+	if err := os.WriteFile(src, []byte("bin-v2-with-more-bytes"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ensureBinExe(src); err != nil {
+		t.Fatal(err)
+	}
+	if b, _ := os.ReadFile(dst); string(b) != "bin-v2-with-more-bytes" {
+		t.Errorf("bin copy not refreshed: %q", b)
+	}
+
+	same, err := ensureBinExe(dst)
+	if err != nil {
+		t.Fatalf("ensureBinExe on the staged binary itself = %v", err)
+	}
+	if !sameDir(same, dst) {
+		t.Errorf("running-from-bin path = %q, want %q", same, dst)
+	}
+	if fileExists(binExePath() + ".tmp") {
+		t.Error("temp file left behind")
+	}
+}
+
+func TestRemoveBinCopy(t *testing.T) {
+	t.Setenv("REVIT_CLI_DATA_DIR", t.TempDir())
+	src := filepath.Join(t.TempDir(), "revit-cli.exe")
+	if err := os.WriteFile(src, []byte("x"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ensureBinExe(src); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := removeBinCopy(); err != nil {
+		t.Fatalf("removeBinCopy = %v", err)
+	}
+	if fileExists(binExePath()) || fileExists(binVersionPath()) {
+		t.Error("bin files not removed")
+	}
+	if err := removeBinCopy(); err != nil {
+		t.Errorf("removing absent files = %v, want nil", err)
+	}
+}
+
+func TestBinVersionStaleDetection(t *testing.T) {
+	t.Setenv("REVIT_CLI_DATA_DIR", t.TempDir())
+	oldVersion := ClientVersion
+	ClientVersion = "1.0.0"
+	defer func() { ClientVersion = oldVersion }()
+
+	src := filepath.Join(t.TempDir(), "revit-cli.exe")
+	if err := os.WriteFile(src, []byte("x"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ensureBinExe(src); err != nil {
+		t.Fatal(err)
+	}
+	if v := readBinVersion(); v != ClientVersion {
+		t.Fatalf("marker = %q, want %q", v, ClientVersion)
+	}
+
+	ClientVersion = "2.0.0"
+	if v := readBinVersion(); v == ClientVersion {
+		t.Error("marker must stay at the staged version, not the running version")
+	}
+}
+
 func TestDeregisterTarget(t *testing.T) {
 	t.Setenv("REVIT_CLI_DATA_DIR", t.TempDir())
 	dir := t.TempDir()

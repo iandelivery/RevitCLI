@@ -115,12 +115,12 @@ type skillTarget struct {
 	Detail string `json:"detail,omitempty"`
 }
 
-func loadSkillSource() (srcDir, exePath, rewritten string, ok bool) {
+func loadSkillSource() (srcDir, exePath, binPath, rewritten string, ok bool) {
 	srcDir = findSkillSourceDir()
 	if srcDir == "" {
 		fmt.Fprintln(os.Stderr, "Error: cannot find SKILL.md.")
 		fmt.Fprintln(os.Stderr, "Expected next to revit-cli.exe, under <exe dir>\\skills\\revit-cli\\, or set REVIT_CLI_SKILL_DIR.")
-		return "", "", "", false
+		return "", "", "", "", false
 	}
 	exePath, err := os.Executable()
 	if err != nil || exePath == "" {
@@ -129,13 +129,18 @@ func loadSkillSource() (srcDir, exePath, rewritten string, ok bool) {
 	content, err := os.ReadFile(filepath.Join(srcDir, skillFileName))
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: cannot read %s: %v\n", filepath.Join(srcDir, skillFileName), err)
-		return "", "", "", false
+		return "", "", "", "", false
 	}
-	rewritten, anchored := rewriteSkillContent(string(content), exePath)
+	binPath, err = ensureBinExe(exePath)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: cannot stage the machine-wide binary copy: %v\n", err)
+		return "", "", "", "", false
+	}
+	rewritten, anchored := rewriteSkillContent(string(content), binPath)
 	if !anchored {
 		fmt.Println("  [WARN] SKILL.md lacks the exe path anchor; appended a Local Binary Path section.")
 	}
-	return srcDir, exePath, rewritten, true
+	return srcDir, exePath, binPath, rewritten, true
 }
 
 func installSkillDir(srcDir, rewritten, exePath string, c skillCandidate) error {
@@ -328,13 +333,14 @@ func skillInstall(args []string) int {
 		candidates = keep
 	}
 
-	srcDir, exePath, rewritten, ok := loadSkillSource()
+	srcDir, exePath, binPath, rewritten, ok := loadSkillSource()
 	if !ok {
 		return 1
 	}
 
 	if !opts.json {
 		fmt.Printf("Skill source: %s (v%s)\n", srcDir, ClientVersion)
+		fmt.Printf("Binary copy:  %s\n", binPath)
 		fmt.Println("Installing...")
 	}
 
@@ -378,6 +384,7 @@ func skillInstall(args []string) int {
 		printSkillJSON(map[string]interface{}{
 			"source":  srcDir,
 			"exe":     exePath,
+			"bin_exe": binPath,
 			"version": ClientVersion,
 			"targets": targets,
 		})
@@ -420,12 +427,14 @@ func skillShow(args []string) int {
 
 	if opts.json {
 		printSkillJSON(map[string]interface{}{
-			"source":    srcDir,
-			"exe":       exePath,
-			"version":   ClientVersion,
-			"project":   project,
-			"user":      user,
-			"installed": installed,
+			"source":      srcDir,
+			"exe":         exePath,
+			"version":     ClientVersion,
+			"bin_exe":     binExePath(),
+			"bin_version": readBinVersion(),
+			"project":     project,
+			"user":        user,
+			"installed":   installed,
 		})
 		return 0
 	}
@@ -438,6 +447,7 @@ func skillShow(args []string) int {
 	} else {
 		fmt.Println("  Source:       not found (set REVIT_CLI_SKILL_DIR)")
 	}
+	printSkillBinStatus()
 
 	fmt.Println("\nProject targets (cwd):")
 	if len(project) == 0 {
@@ -467,6 +477,23 @@ func skillShow(args []string) int {
 	return 0
 }
 
+func printSkillBinStatus() {
+	bin := binExePath()
+	if !fileExists(bin) {
+		fmt.Println("  Binary copy:  not staged (created by 'skill install')")
+		return
+	}
+	v := readBinVersion()
+	switch {
+	case v == "":
+		fmt.Printf("  Binary copy:  %s (version unknown — run 'revit-cli.exe skill update')\n", bin)
+	case v != ClientVersion:
+		fmt.Printf("  Binary copy:  %s (v%s — stale, run 'revit-cli.exe skill update')\n", bin, v)
+	default:
+		fmt.Printf("  Binary copy:  %s (v%s)\n", bin, v)
+	}
+}
+
 func skillUpdate(args []string) int {
 	opts := parseSkillOptions(args)
 	installed := findInstalledSkills()
@@ -476,13 +503,14 @@ func skillUpdate(args []string) int {
 		return 1
 	}
 
-	srcDir, exePath, rewritten, ok := loadSkillSource()
+	srcDir, exePath, binPath, rewritten, ok := loadSkillSource()
 	if !ok {
 		return 1
 	}
 
 	if !opts.json {
 		fmt.Printf("Skill source: %s (v%s)\n", srcDir, ClientVersion)
+		fmt.Printf("Binary copy:  %s\n", binPath)
 		fmt.Println("Updating...")
 	}
 
@@ -529,6 +557,7 @@ func skillUpdate(args []string) int {
 		printSkillJSON(map[string]interface{}{
 			"source":  srcDir,
 			"exe":     exePath,
+			"bin_exe": binPath,
 			"version": ClientVersion,
 			"targets": targets,
 		})
@@ -653,6 +682,16 @@ func skillUninstall(args []string) int {
 			}
 		}
 		results = append(results, t)
+	}
+
+	if len(findInstalledSkills()) == 0 {
+		if err := removeBinCopy(); err != nil {
+			if !opts.json {
+				fmt.Printf("  [!] binary copy left in place: %v\n", err)
+			}
+		} else if !opts.json {
+			fmt.Printf("  [✓] binary copy removed: %s\n", binExePath())
+		}
 	}
 
 	if opts.json {
