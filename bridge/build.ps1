@@ -156,6 +156,26 @@ if ($Clean -and (Test-Path $OutputDir)) {
 }
 
 # ---------------------------------------------------------------------------
+# 1.5 Derive the semantic version from the latest v* tag
+# ---------------------------------------------------------------------------
+# Mirrors the Release workflow: tag v1.17.1 -> Major=1 Minor=17 Patch=1, so a
+# local build stamps the same {RevitYear}.{Major}.{Minor}.{Patch} as the
+# released binaries instead of the stale csproj placeholder defaults. When no
+# tag is reachable (shallow clone, detached scratch), fall back to the csproj
+# defaults by not passing the properties at all.
+$versionProps = @()
+$latestTag = git describe --tags --abbrev=0 2>$null
+if ($latestTag -match '^v(\d+)\.(\d+)\.(\d+)$') {
+    $semMajor = [int]$Matches[1]; $semMinor = [int]$Matches[2]; $semPatch = [int]$Matches[3]
+    $versionProps = @("-p:Major=$semMajor", "-p:Minor=$semMinor", "-p:Patch=$semPatch")
+    $msbuildVersionProps = @("/p:Major=$semMajor", "/p:Minor=$semMinor", "/p:Patch=$semPatch")
+    Write-Host "[INFO] Version from tag ${latestTag}: $semMajor.$semMinor.$semPatch" -ForegroundColor Green
+} else {
+    $msbuildVersionProps = @()
+    Write-Host "[INFO] No v* tag reachable — using csproj default version properties." -ForegroundColor Yellow
+}
+
+# ---------------------------------------------------------------------------
 # 2. Build each version (restore + build paired per version)
 # ---------------------------------------------------------------------------
 # Each configuration targets a different .NET Framework version (net47 vs
@@ -178,7 +198,7 @@ foreach ($version in $BuildVersions) {
     Write-Host "  ---- Revit $version ($buildConfig) ----" -ForegroundColor Cyan
 
     if ($dotnetCmd) {
-        & dotnet build $projectFile -p:Configuration="$buildConfig" -p:Platform=x64 -o "$versionOutput"
+        & dotnet build $projectFile -p:Configuration="$buildConfig" -p:Platform=x64 @versionProps -o "$versionOutput"
     } else {
         & $msbuild.FullName $Solution /t:Restore /p:Configuration="$buildConfig" /v:minimal
         if ($LASTEXITCODE -ne 0) {
@@ -186,7 +206,7 @@ foreach ($version in $BuildVersions) {
             $buildResults[$version] = $false
             continue
         }
-        & $msbuild.FullName $Solution /p:Configuration="$buildConfig" /p:Platform=x64 /p:OutputPath="$versionOutput" /v:minimal /nologo
+        & $msbuild.FullName $Solution /p:Configuration="$buildConfig" /p:Platform=x64 @msbuildVersionProps /p:OutputPath="$versionOutput" /v:minimal /nologo
     }
 
     if ($LASTEXITCODE -ne 0) {
