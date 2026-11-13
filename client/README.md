@@ -175,7 +175,7 @@ The packaged `SKILL.md` teaches AI coding agents to drive Revit through this CLI
 .\skills\revit-cli\revit-cli.exe skill install --agent claude,codebuddy
 ```
 
-Installation rewrites the `revit-cli.exe` reference inside `SKILL.md` to an absolute path, so agents invoke the right binary. Use `skill show` to inspect status and `skill update` after rebuilding.
+Installation stages a machine-wide binary copy at `%LOCALAPPDATA%\revit-cli\bin\revit-cli.exe` and rewrites the `revit-cli.exe` reference inside `SKILL.md` to that stable path, so agents invoke the right binary even after the original install folder moves or is rebuilt. Use `skill show` to inspect status (it flags a stale binary copy) and `skill update` after rebuilding to refresh both the markdown installs and the staged copy.
 
 ## API Reference (llms.txt)
 

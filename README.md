@@ -353,7 +353,7 @@ cd C:\revit-cli
 .\revit-cli.exe skill install --agent claude,codebuddy   # 2. install non-interactively
 ```
 
-Installation copies `SKILL.md` into `<agent>/skills/revit-cli/` and rewrites the `revit-cli.exe` reference inside it to the absolute path on this machine, so the skill works out of the box.
+Installation copies `SKILL.md` into `<agent>/skills/revit-cli/` and stages a machine-wide copy of the binary at `%LOCALAPPDATA%\revit-cli\bin\revit-cli.exe`; the `revit-cli.exe` reference inside `SKILL.md` is rewritten to that stable path, so the skill works out of the box and survives moving or upgrading the original install folder.
 
 | Flag | Description |
 |------|-------------|

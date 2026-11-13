@@ -237,6 +237,16 @@ func configureCheck(args []string) int {
 	fmt.Printf("Data directory:        %s\n", discovery.DataDir())
 	fmt.Printf("Schema cache:          %s\n", discovery.CacheDir())
 	fmt.Printf("Instance registry:     %s\n", discovery.InstancesDir())
+	bin := binExePath()
+	if fileExists(bin) {
+		note := ""
+		if v := readBinVersion(); v != "" && v != ClientVersion {
+			note = fmt.Sprintf(" (v%s — stale, run 'revit-cli.exe skill update')", v)
+		}
+		fmt.Printf("Client binary:         %s%s\n", bin, note)
+	} else {
+		fmt.Println("Client binary:         not staged (created by 'revit-cli.exe skill install')")
+	}
 
 	return 0
 }
