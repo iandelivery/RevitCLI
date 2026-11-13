@@ -1,6 +1,6 @@
 module revit-cli
 
-go 1.22
+go 1.26.11
 
 require (
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
