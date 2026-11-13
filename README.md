@@ -1,7 +1,7 @@
 # Revit CLI Bridge
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Go Version](https://img.shields.io/badge/go-%3E%3D1.23-blue.svg)](https://go.dev/)
+[![Go Version](https://img.shields.io/badge/go-%3E%3D1.26-blue.svg)](https://go.dev/)
 
 A command-line interface toolkit that enables AI agents and automation scripts to drive Autodesk Revit through an HTTP API.
 
