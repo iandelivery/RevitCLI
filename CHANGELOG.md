@@ -6,6 +6,25 @@ commits (feat/fix only) — do not edit released sections. Historical releases
 before v1.12.0 live on the
 [GitHub Releases page](https://github.com/iandelivery/RevitCLI/releases).
 
+## v1.17.1 (2026-11-13)
+
+Maintenance release — no feature or behavior changes.
+
+- **Toolchain**: Go floor raised from EOL 1.22 to 1.26.11 (go.mod, CI,
+  release build, READMEs), shipping binaries against a fully patched
+  standard library.
+- **Supply-chain hardening**: CI now runs golangci-lint, govulncheck,
+  NuGet vulnerability scans, and gitleaks on every PR; all third-party
+  GitHub Actions are pinned by commit SHA; Dependabot keeps Go, NuGet,
+  and action dependencies current.
+- **Dependency updates**: Newtonsoft.Json 13.0.4, xunit 2.9.3,
+  xunit.runner.visualstudio 4.0.1, Microsoft.NET.Test.Sdk 18.12.0,
+  XMLDoc2Markdown 6.0.0, and GitHub Actions major bumps (checkout v4,
+  cache v6, upload-artifact v7, download-artifact v8, paths-filter v4,
+  action-gh-release v3, golangci-lint-action v9).
+
+**Full Changelog**: https://github.com/iandelivery/RevitCLI/compare/v1.17.0...v1.17.1
+
 ## v1.17.0 (2026-11-13)
 
 ### What's Changed
