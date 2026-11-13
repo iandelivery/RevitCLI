@@ -27,7 +27,7 @@ fallback, and type-safe argument parsing.
 
 ## Requirements
 
-- **Go 1.21+** — for building
+- **Go 1.26+** — for building
 - **Revit** — with the CLI Bridge add-in installed and running
 
 ## Build
@@ -37,7 +37,7 @@ binary, packages it as an Open Skill, and emits the companion `SKILL.md`.
 
 ### Prerequisites
 
-- **Go 1.21+** — on `PATH` (install with `winget install GoLang.Go` if missing)
+- **Go 1.26+** — on `PATH` (install with `winget install GoLang.Go` if missing)
 - **PowerShell 5+** (preinstalled on Windows)
 
 ### Build the skill (default)

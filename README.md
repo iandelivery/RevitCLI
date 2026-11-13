@@ -126,7 +126,7 @@ Verify everything is on `PATH` before building:
 
 ```powershell
 dotnet --version     # should print 6.x or 7.x
-go version           # should print go1.21 or newer
+go version           # should print go1.26 or newer
 git --version
 ```
 

@@ -123,7 +123,7 @@ CLI 客户端会把命令 schema（通过 `GET /api/commands` 获取）在本地
 
 ```powershell
 dotnet --version     # 应输出 6.x 或 7.x
-go version           # 应输出 go1.21 或更新版本
+go version           # 应输出 go1.26 或更新版本
 git --version
 ```
 
