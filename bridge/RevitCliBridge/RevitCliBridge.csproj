@@ -72,7 +72,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
     <PackageReference Include="Revit_API_x64" Version="$(RevitVersion).*">
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
