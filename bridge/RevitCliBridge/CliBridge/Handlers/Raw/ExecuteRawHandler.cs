@@ -12,8 +12,8 @@ using System.Text;
 namespace RevitCliBridge.Handlers.Raw
 {
     /// <summary>
-    /// Executes raw C# or Python code against the Revit API.
-    /// Disabled by default — requires explicit opt-in via configuration.
+    /// Executes raw C# code against the Revit API.
+    /// Enabled by default; toggled at runtime via the raw-mode command.
     /// Only accessible from localhost for security.
     /// </summary>
     public class ExecuteRawHandler : BridgeCommandBase

@@ -8,7 +8,7 @@ import (
 	"revit-cli/internal/abstractions"
 )
 
-// ExecuteRawHandler executes C# or Python code on the bridge via the
+// ExecuteRawHandler executes C# code on the bridge via the
 // "execute_raw" command. This is a stub that forwards to the bridge.
 // Mirrors C# RevitCliClient.BuiltIn.ExecuteRawCommand.
 type ExecuteRawHandler struct{}

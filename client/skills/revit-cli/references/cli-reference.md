@@ -27,7 +27,7 @@ Instance registry files are stored under `%AppData%\revit-cli\instances\`, one J
 | `commands [--refresh]` | List all commands (with local cache) |
 | `schema <name>` | Show command parameter details |
 | `raw -j <json>` | Send raw JSON command |
-| `execute_raw --code <code>` | Execute C# or Python code on the bridge |
+| `execute_raw --code <code>` | Execute C# code on the bridge |
 | `raw_mode [--enable\|--disable]` | Query or toggle raw execution mode |
 | `configure <setup\|teardown\|check\|port>` | Manage bridge installation and configuration |
 | `skill <install\|show\|update\|uninstall>` | Install and manage the AI agent skill (SKILL.md); see the Skill Installation section in SKILL.md |
@@ -58,7 +58,7 @@ The bridge exposes `GET /api/llms.txt`, a text index of raw Revit API elements, 
    revit-cli.exe execute_raw --lang csharp --code (Get-Content rebuild.csx -Raw)
    ```
 
-Raw mode is disabled by default for security and is **in-memory only**: a Revit restart resets it to the `allow_raw_execution` value in `cli_bridge_setting.json`. All raw scripts must satisfy the hard constraints in [csharp-scripting.md](csharp-scripting.md).
+Raw execution is enabled by default; the raw-mode toggle is **in-memory only**: a Revit restart resets it to the `allow_raw_execution` value in `cli_bridge_setting.json` (true for new installs). All raw scripts must satisfy the hard constraints in [csharp-scripting.md](csharp-scripting.md).
 
 ## SSE Real-Time Events
 
