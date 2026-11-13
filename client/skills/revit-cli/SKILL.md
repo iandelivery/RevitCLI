@@ -1,6 +1,6 @@
 ---
 name: revit-cli
-description: "Command-line client (revit-cli.exe) that drives Autodesk Revit through the RevitCLI Bridge HTTP API. Use when the user wants to control Revit from the command line, when an agent needs to create, query, modify, or transform Revit elements, automate Revit tasks, execute raw C# or Python scripts inside Revit via execute_raw, or stream real-time progress (SSE) for long-running Revit operations. Owns bridge connection and instance discovery, command schema discovery, millimeter-based command units, raw-mode toggling, C# script hard constraints, execution discipline, and CLI troubleshooting."
+description: "Command-line client (revit-cli.exe) that drives Autodesk Revit through the RevitCLI Bridge HTTP API. Use when the user wants to control Revit from the command line, when an agent needs to create, query, modify, or transform Revit elements, automate Revit tasks, execute raw C# scripts inside Revit via execute_raw, or stream real-time progress (SSE) for long-running Revit operations. Owns bridge connection and instance discovery, command schema discovery, millimeter-based command units, raw-mode toggling, C# script hard constraints, execution discipline, and CLI troubleshooting."
 metadata:
   author: "CHEN YIN"
   upstream: "https://github.com/iandelivery/RevitCLI"
@@ -45,7 +45,7 @@ Related sub-commands: `skill show` (installation status), `skill update` (re-syn
 - The user wants to control Revit from the command line
 - An agent needs to execute Revit API operations (create, query, modify, transform elements)
 - The user asks to automate Revit tasks via CLI
-- Raw C# or Python code must run inside Revit (`execute_raw`)
+- Raw C# code must run inside Revit (`execute_raw`)
 - Real-time progress feedback for long-running Revit operations is needed
 
 ## Prerequisites
@@ -60,7 +60,7 @@ Related sub-commands: `skill show` (installation status), `skill update` (re-syn
 Always follow this two-tier strategy to optimize performance and maintain stability:
 
 1. **Dynamic Discovery** — run `revit-cli.exe commands` first to check available high-level commands, or inspect a command's parameters via `revit-cli.exe schema <name>`. If a high-level command exists for the task, **always use it**.
-2. **Raw Code Fallback** — only if the discovered high-level commands **cannot** solve the task, search the API reference (`revit-cli.exe llms`) and execute C# or Python scripts directly with `revit-cli.exe execute_raw`. Toggle raw mode with `revit-cli.exe raw_mode --enable` / `revit-cli.exe raw_mode --disable` (raw execution is disabled by default for security and resets on Revit restart).
+2. **Raw Code Fallback** — only if the discovered high-level commands **cannot** solve the task, search the API reference (`revit-cli.exe llms`) and execute C# scripts directly with `revit-cli.exe execute_raw`. Toggle raw mode with `revit-cli.exe raw_mode --enable` / `revit-cli.exe raw_mode --disable` (raw execution is enabled by default; the toggle is in-memory and resets to the `allow_raw_execution` config value on Revit restart).
 
 Raw scripts compiled by the bridge are subject to **hard constraints** (ASCII-only payload, LF endings, no `using` directives, flat parallel arrays, single transaction, mm↔feet units). Violating any of them fails the run. Read [references/csharp-scripting.md](references/csharp-scripting.md) before writing any raw script.
 
@@ -78,7 +78,7 @@ revit-cli.exe execute_raw --lang csharp --code "return doc.Title;"
 revit-cli.exe raw -j '{"command":"ping"}'           # raw JSON command
 ```
 
-**Units**: the client uses **millimeters** — every distance, coordinate, and size argument of high-level commands (and every such value returned) is in mm; the bridge converts to/from Revit internal feet (`1 ft = 304.8 mm`). Raw C#/Python scripts bypass this conversion and talk to the Revit API directly in internal feet — see the units constraint in [references/csharp-scripting.md](references/csharp-scripting.md).
+**Units**: the client uses **millimeters** — every distance, coordinate, and size argument of high-level commands (and every such value returned) is in mm; the bridge converts to/from Revit internal feet (`1 ft = 304.8 mm`). Raw C# scripts bypass this conversion and talk to the Revit API directly in internal feet — see the units constraint in [references/csharp-scripting.md](references/csharp-scripting.md).
 
 Full command table, argument shortcuts, dynamic discovery, SSE events, and configuration: [references/cli-reference.md](references/cli-reference.md).
 
