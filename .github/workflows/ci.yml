@@ -1,0 +1,87 @@
+name: CI
+
+on:
+  pull_request: {}
+  push:
+    branches: [main]
+    paths: [bridge/**, client/**]
+
+permissions:
+  contents: read
+
+env:
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
+  NUGET_XMLDOC_MODE: skip
+  GO_VERSION: '1.22'
+
+jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      bridge: ${{ steps.filter.outputs.bridge }}
+      client: ${{ steps.filter.outputs.client }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Detect changed areas
+        uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            bridge:
+              - 'bridge/**'
+            client:
+              - 'client/**'
+
+  bridge:
+    needs: changes
+    if: needs.changes.outputs.bridge == 'true'
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 6.0.x
+
+      - name: Build bridge
+        run: dotnet build bridge/RevitCliBridge.sln
+
+      - name: Test bridge
+        run: dotnet test bridge/RevitCliBridge.Tests/RevitCliBridge.Tests.csproj --no-build
+
+  client:
+    needs: changes
+    if: needs.changes.outputs.client == 'true'
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: client/go.sum
+
+      - name: Check gofmt
+        working-directory: client
+        shell: pwsh
+        run: |
+          $files = gofmt -l .
+          if ($files) { $files; exit 1 }
+
+      - name: Vet, test, and build client
+        working-directory: client
+        env:
+          GOOS: windows
+          GOARCH: amd64
+          CGO_ENABLED: '0'
+        shell: pwsh
+        run: |
+          go vet ./...
+          go test ./...
+          go build -trimpath -o revit-cli.exe ./cmd/revit-cli
