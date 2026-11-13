@@ -3,7 +3,7 @@
   "isRoot": true,
   "tools": {
     "XMLDoc2Markdown": {
-      "version": "3.0.2",
+      "version": "6.0.0",
       "commands": [
         "xmldoc2md"
       ]
