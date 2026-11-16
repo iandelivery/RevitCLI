@@ -1,10 +1,31 @@
 # Changelog
 
-All notable, user-visible changes are documented here. New sections are
-auto-generated at release time by the Release workflow from conventional
-commits (feat/fix only) — do not edit released sections. Historical releases
-before v1.12.0 live on the
+All notable, user-visible changes are documented here. A new section is
+added at release time summarizing the notable changes (the Release
+workflow generates the GitHub release description from conventional
+commits — feat/fix only). Do not edit released sections. Historical
+releases before v1.12.0 live on the
 [GitHub Releases page](https://github.com/iandelivery/RevitCLI/releases).
+
+## v1.17.2 (2026-11-16)
+
+- **Skill installs default to user level** — `skill install` now roots
+  candidate directories at the user profile (`~\.claude`, `~\.trae`, ...)
+  instead of the current working directory, so a plain install no longer
+  drops `SKILL.md` inside the folder the terminal happened to be in
+  (e.g. the extracted release zip). `--project` opts into project-level
+  (cwd) installs and replaces the `--global` flag, which is removed —
+  passing it is harmless: it now behaves as the user-level default.
+- **Build**: local bridge builds (`bridge\build.ps1`) stamp the real
+  semantic version from the latest reachable `v*` tag instead of the
+  stale csproj placeholder, matching release binaries.
+- **Docs**: documented third-party plugin registration and deployment
+  (register via `BridgeRegistration`, never ship local
+  `RevitCliBridge.Abstractions.dll` / `Newtonsoft.Json.dll` copies,
+  verify with `revit-cli catalog`), added `/api/catalog` to the API
+  table, and synced README Go-version references to 1.26.
+
+**Full Changelog**: https://github.com/iandelivery/RevitCLI/compare/v1.17.1...v1.17.2
 
 ## v1.17.1 (2026-11-13)
 
