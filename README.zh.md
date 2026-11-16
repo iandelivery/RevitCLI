@@ -333,12 +333,13 @@ revit-cli.exe skill uninstall --target <dir>   # 自定义 skills 根目录
 
 ## 配合 AI 编程 Agent 使用
 
-每个 release 压缩包都内置 `SKILL.md` —— 一个 [Open Skill 协议](https://github.com/open-skill/protocol)文件，教会 AI 编程 Agent（Claude Code、Cursor、Codex、Trae、Trae CN、CodeBuddy、WorkBuddy、Kimi）如何通过本 CLI 驱动 Revit。一条命令即可注册到项目中已安装的 Agent：
+每个 release 压缩包都内置 `SKILL.md` —— 一个 [Open Skill 协议](https://github.com/open-skill/protocol)文件，教会 AI 编程 Agent（Claude Code、Cursor、Codex、Trae、Trae CN、CodeBuddy、WorkBuddy、Kimi）如何通过本 CLI 驱动 Revit。默认注册到本机用户级（`~`）已安装的 Agent，加 `--project` 则注册到当前项目：
 
 ```powershell
 cd C:\revit-cli
-.\revit-cli.exe skill install --list              # 1. 列出检测到的 Agent 目录
+.\revit-cli.exe skill install --list              # 1. 列出检测到的 Agent 目录（用户级）
 .\revit-cli.exe skill install --agent claude,codebuddy   # 2. 非交互式安装
+.\revit-cli.exe skill install --agent claude --project   # 或者：项目级（当前目录）
 ```
 
 安装会把 `SKILL.md` 复制到 `<agent>/skills/revit-cli/`，并把其中 `revit-cli.exe` 的引用改写为本机绝对路径，装完即用。
@@ -348,7 +349,7 @@ cd C:\revit-cli
 | `--agent <ids>` | 逗号分隔的 Agent id：`claude`、`cursor`、`codex`、`trae`、`trae-cn`、`codebuddy`、`workbuddy`、`kimi-work`、`kimi-code` |
 | `--all` | 安装到所有检测到的 Agent 目录 |
 | `--target <dir>` | 自定义 skills 根目录；安装到 `<dir>/revit-cli/` |
-| `--global` | 操作用户级（`~`）Agent 目录而非项目级（当前目录） |
+| `--project` | 操作项目级（当前目录）Agent 目录而非用户级（`~`，默认） |
 | `--force` | 覆盖已安装版本 |
 | `--list` / `--json` | 仅列出候选目标 / 机器可读输出 |
 

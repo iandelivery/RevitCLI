@@ -33,7 +33,7 @@ Installation copies this file (plus `references/`) into `<agent>/skills/revit-cl
 | `--agent <ids>` | Comma-separated agent ids: `claude`, `cursor`, `codex`, `trae`, `trae-cn`, `codebuddy`, `workbuddy`, `kimi-work`, `kimi-code` |
 | `--all` | Install into every detected agent directory |
 | `--target <dir>` | Custom skills root; installs into `<dir>/revit-cli/` |
-| `--global` | User-level (`~`) agent directories instead of project (cwd) |
+| `--project` | Project-level (cwd) agent directories instead of user-level (`~`, the default) |
 | `--force` | Overwrite an existing installation |
 | `--list` | Only list candidate targets; do not install |
 | `--json` | Machine-readable output |

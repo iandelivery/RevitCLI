@@ -28,7 +28,7 @@ func (SkillHandler) Metadata() abstractions.CommandMetadata {
 		Examples: []string{
 			"revit-cli.exe skill install --list",
 			"revit-cli.exe skill install --agent claude,codebuddy",
-			"revit-cli.exe skill install --agent claude --global",
+			"revit-cli.exe skill install --agent claude --project",
 			"revit-cli.exe skill install --target D:\\skills",
 			"revit-cli.exe skill update",
 			"revit-cli.exe skill uninstall --all",
@@ -66,9 +66,9 @@ Usage: revit-cli.exe skill <install|show|update|uninstall> [options]
 
 Options (install / uninstall):
   --agent <ids>   comma-separated agent ids: `+harnessIDs()+`
-  --all           all detected agent directories (add --global for user-level)
+  --all           all detected agent directories (user-level by default)
   --target <dir>  custom skills root; installs into <dir>/revit-cli/
-  --global        operate on user-level skill dirs (~) instead of project (cwd)
+  --project       operate on project-level skill dirs (cwd) instead of user-level (~)
   --force         overwrite an existing installation
   --list          only list candidate targets, do not install
   --json          machine-readable output
@@ -77,32 +77,32 @@ Options (install / uninstall):
 Examples:
   revit-cli.exe skill install --list
   revit-cli.exe skill install --agent claude,codebuddy
-  revit-cli.exe skill install --agent claude --global
+  revit-cli.exe skill install --agent claude --project
   revit-cli.exe skill update
   revit-cli.exe skill uninstall --all`)
 }
 
 type skillOptions struct {
-	agents string
-	target string
-	global bool
-	all    bool
-	force  bool
-	list   bool
-	json   bool
+	agents  string
+	target  string
+	project bool
+	all     bool
+	force   bool
+	list    bool
+	json    bool
 }
 
 func parseSkillOptions(args []string) skillOptions {
 	agents, _ := abstractions.FindArg(args, "--agent")
 	target, _ := abstractions.FindArg(args, "--target")
 	return skillOptions{
-		agents: agents,
-		target: target,
-		global: abstractions.HasFlag(args, "--global"),
-		all:    abstractions.HasFlag(args, "--all"),
-		force:  abstractions.HasFlag(args, "--force"),
-		list:   abstractions.HasFlag(args, "--list"),
-		json:   abstractions.HasFlag(args, "--json"),
+		agents:  agents,
+		target:  target,
+		project: abstractions.HasFlag(args, "--project"),
+		all:     abstractions.HasFlag(args, "--all"),
+		force:   abstractions.HasFlag(args, "--force"),
+		list:    abstractions.HasFlag(args, "--list"),
+		json:    abstractions.HasFlag(args, "--json"),
 	}
 }
 
@@ -254,14 +254,14 @@ func skillInstall(args []string) int {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			return 1
 		}
-		base, err := skillBaseDir(opts.global)
+		base, err := skillBaseDir(!opts.project)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error: cannot resolve %s directory: %v\n", map[bool]string{true: "home", false: "current"}[opts.global], err)
+			fmt.Fprintf(os.Stderr, "Error: cannot resolve %s directory: %v\n", map[bool]string{true: "current", false: "home"}[opts.project], err)
 			return 1
 		}
-		scope := skillScopeProject
-		if opts.global {
-			scope = skillScopeUser
+		scope := skillScopeUser
+		if opts.project {
+			scope = skillScopeProject
 		}
 		for _, h := range harnesses {
 			dir := filepath.Join(base, h.Dir, "skills", skillDirName)
@@ -273,7 +273,7 @@ func skillInstall(args []string) int {
 		}
 
 	default:
-		cs, err := skillCandidates(opts.global)
+		cs, err := skillCandidates(!opts.project)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			return 1
@@ -293,9 +293,9 @@ func skillInstall(args []string) int {
 			}
 		}
 		if len(detected) == 0 {
-			scopeName := "current directory"
-			if opts.global {
-				scopeName = "user home directory"
+			scopeName := "user home directory"
+			if opts.project {
+				scopeName = "current directory"
 			}
 			fmt.Fprintf(os.Stderr, "Error: no known agent directories found under the %s.\n", scopeName)
 			fmt.Fprintf(os.Stderr, "Use --target <dir> for a custom skills root, or --agent <ids> (valid: %s).\n", harnessIDs())
@@ -398,14 +398,14 @@ func printSkillList(opts skillOptions, candidates []skillCandidate) int {
 	if opts.json {
 		printSkillJSON(map[string]interface{}{
 			"version":    ClientVersion,
-			"scope":      map[bool]string{true: "user", false: "project"}[opts.global],
+			"scope":      map[bool]string{true: "project", false: "user"}[opts.project],
 			"candidates": candidates,
 		})
 		return 0
 	}
-	scopeName := "project (cwd)"
-	if opts.global {
-		scopeName = "user (home)"
+	scopeName := "user (home)"
+	if opts.project {
+		scopeName = "project (cwd)"
 	}
 	fmt.Printf("revit-cli skill candidates — scope: %s (valid agent ids: %s)\n", scopeName, harnessIDs())
 	printSkillCandidates(os.Stdout, candidates)
@@ -589,14 +589,14 @@ func skillUninstall(args []string) int {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			return 1
 		}
-		base, err := skillBaseDir(opts.global)
+		base, err := skillBaseDir(!opts.project)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			return 1
 		}
-		scope := skillScopeProject
-		if opts.global {
-			scope = skillScopeUser
+		scope := skillScopeUser
+		if opts.project {
+			scope = skillScopeProject
 		}
 		for _, h := range harnesses {
 			dir := filepath.Join(base, h.Dir, "skills", skillDirName)

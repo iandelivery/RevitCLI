@@ -131,6 +131,15 @@ func TestParseSelection(t *testing.T) {
 	}
 }
 
+func TestParseSkillOptionsScope(t *testing.T) {
+	if opts := parseSkillOptions(nil); opts.project {
+		t.Error("default scope should be user-level (project=false)")
+	}
+	if opts := parseSkillOptions([]string{"--project"}); !opts.project {
+		t.Error("--project should select project scope")
+	}
+}
+
 func TestFindHarnesses(t *testing.T) {
 	hs, err := findHarnesses("Claude, CODEBUDDY,claude")
 	if err != nil {
@@ -369,6 +378,8 @@ func TestDeregisterSkillDir(t *testing.T) {
 
 func TestFindInstalledSkillsExeDirGhost(t *testing.T) {
 	t.Setenv("REVIT_CLI_DATA_DIR", t.TempDir())
+	t.Setenv("USERPROFILE", t.TempDir())
+	t.Setenv("HOME", t.TempDir())
 	exeDir := t.TempDir()
 	exePath := filepath.Join(exeDir, "revit-cli.exe")
 

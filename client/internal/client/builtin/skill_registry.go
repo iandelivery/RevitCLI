@@ -213,21 +213,21 @@ type skillCandidate struct {
 	Manifest *SkillManifest `json:"manifest,omitempty"`
 }
 
-func skillBaseDir(global bool) (string, error) {
-	if global {
+func skillBaseDir(user bool) (string, error) {
+	if user {
 		return os.UserHomeDir()
 	}
 	return os.Getwd()
 }
 
-func skillCandidates(global bool) ([]skillCandidate, error) {
-	base, err := skillBaseDir(global)
+func skillCandidates(user bool) ([]skillCandidate, error) {
+	base, err := skillBaseDir(user)
 	if err != nil {
 		return nil, err
 	}
-	scope := skillScopeProject
-	if global {
-		scope = skillScopeUser
+	scope := skillScopeUser
+	if !user {
+		scope = skillScopeProject
 	}
 	var out []skillCandidate
 	for _, h := range harnessRegistry {
@@ -331,8 +331,8 @@ func findInstalledSkillsIn(exePath string) []skillCandidate {
 		seen[key] = true
 		out = append(out, c)
 	}
-	for _, global := range []bool{false, true} {
-		if cs, err := skillCandidates(global); err == nil {
+	for _, user := range []bool{false, true} {
+		if cs, err := skillCandidates(user); err == nil {
 			for _, c := range cs {
 				if c.Manifest != nil {
 					add(c)

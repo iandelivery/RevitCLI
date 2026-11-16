@@ -161,14 +161,14 @@ Server-side config is read from `.config/cli_bridge_setting.json`. The client al
 |-------------|-------------|
 | `skill install --list` | List candidate agent directories (Claude Code, Cursor, Codex, Trae, Trae CN, CodeBuddy, WorkBuddy, Kimi) |
 | `skill install --agent <ids>` | Install non-interactively into the named agents (comma-separated) |
-| `skill install --target <dir>` / `--global` / `--all` / `--force` | Custom skills root / user-level dirs / every detected dir / overwrite |
+| `skill install --target <dir>` / `--project` / `--all` / `--force` | Custom skills root / project-level (cwd) dirs / every detected dir / overwrite |
 | `skill show` | Report the local SKILL.md source and install status |
 | `skill update` | Re-sync every installed location from the current executable |
 | `skill uninstall` | Remove installs (only directories containing a revit-cli manifest; the running exe's own directory is deregistered, not deleted) |
 
 ## Use with AI Agents
 
-The packaged `SKILL.md` teaches AI coding agents to drive Revit through this CLI. After running `.\build.ps1`, register the freshly built skill with the agents detected in the current directory:
+The packaged `SKILL.md` teaches AI coding agents to drive Revit through this CLI. After running `.\build.ps1`, register the freshly built skill with the agents detected at user level (the default; `--project` targets the current directory instead):
 
 ```powershell
 .\skills\revit-cli\revit-cli.exe skill install --list
