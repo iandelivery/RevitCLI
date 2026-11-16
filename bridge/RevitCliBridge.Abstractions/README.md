@@ -22,16 +22,16 @@ Target framework: **netstandard2.0** — no Revit API reference required, compat
 
 ## Install
 
-The package uses plain semantic versioning (`1.11.0`). It is **Revit-version independent** — the same package works with every supported Revit version (2019–2022):
+The package uses plain semantic versioning. It is **Revit-version independent** — the same package works with every supported Revit version (2019–2022):
 
 ```
-dotnet add package RevitCliBridge.Abstractions --version 1.11.0
+dotnet add package RevitCliBridge.Abstractions --version 1.17.1
 ```
 
 To always stay on the latest patch in a minor line:
 
 ```xml
-<PackageReference Include="RevitCliBridge.Abstractions" Version="1.11.*"/>
+<PackageReference Include="RevitCliBridge.Abstractions" Version="1.17.*"/>
 ```
 
 ## Quick start: expose a plugin command
@@ -39,7 +39,7 @@ To always stay on the latest patch in a minor line:
 Create a class library targeting **net48** (you will cast to Revit API types). Reference this package plus your Revit version's API package:
 
 ```xml
-<PackageReference Include="RevitCliBridge.Abstractions" Version="1.7.*" />
+<PackageReference Include="RevitCliBridge.Abstractions" Version="1.17.*" />
 <PackageReference Include="Revit_API_x64" Version="2022.*" />
 ```
 
@@ -194,11 +194,6 @@ public class MyCompanyApp : IExternalApplication
 
 Under the hood the facade locates the already-loaded bridge assembly in the Revit process and forwards to the bridge's command registry via reflection. You therefore never reference (or ship a copy of) `RevitCliBridge.dll`, which keeps type identity intact.
 
-Setup notes:
-
-- The bridge add-in must be installed and started before your registration call runs. Revit loads `.addin` manifests alphabetically; the bridge's manifest is named `@RevitCliBridge.addin`, so its `@` prefix sorts it ahead of ordinary names — any conventionally named manifest loads after it.
-- Registration is thread-safe and invalidates the bridge's schema cache, so commands appear at `GET /api/commands` immediately, even when registered after startup.
-
 | | Programmatic registration | DLL discovery |
 |---|---|---|
 | Authenticode signing | Not required | Required by default |
@@ -206,19 +201,45 @@ Setup notes:
 | Conditional registration (license/feature checks) | Natural | Not possible |
 | Extra add-in project required | Yes | No |
 
+Setup notes:
+
+- The bridge add-in must be installed and started before your registration call runs. Revit loads `.addin` manifests alphabetically; the bridge's manifest is named `@RevitCliBridge.addin`, so its `@` prefix sorts it ahead of ordinary names — any conventionally named manifest loads after it.
+- Registration is thread-safe and invalidates the bridge's schema cache, so commands appear at `GET /api/commands` immediately, even when registered after startup.
+
+### Deployment rule: never ship your own `RevitCliBridge.Abstractions.dll` or `Newtonsoft.Json.dll`
+
+The bridge folder already provides both, and the runtime loader falls back to the bridge's copies for any assembly your plugin didn't load. If your plugin's output folder contains its own (possibly older) `RevitCliBridge.Abstractions.dll`, .NET loads that exact copy instead, your `IBridgeCommand` type splits from the bridge's, and registration breaks **silently** — DLL discovery just skips your command with no error. Exclude both from your build output:
+
+```xml
+<PackageReference Include="RevitCliBridge.Abstractions" Version="1.17.*" ExcludeAssets="runtime" />
+<PackageReference Include="Newtonsoft.Json" ExcludeAssets="runtime" />
+```
+
+`ExcludeAssets="runtime"` keeps the compile-time reference while keeping the DLLs out of your publish output. If you copy files manually instead, delete both DLLs before shipping.
+
+### Verify discovery
+
+After starting Revit with the bridge enabled, confirm your command is registered:
+
+```bash
+revit-cli catalog
+```
+
+Your command should appear in the index (name, category, summary). `GET /api/commands` returns the full schema including parameters.
+
 ## Versioned commands
 
 Override `Version` (e.g. `"v2"`) to publish a breaking change under the same command name. Callers pin a version with `mycompany_do_thing@v2`; unversioned requests resolve to the default version (`v1`).
 
 ## Strong naming
 
-This assembly is strong-name signed. Third-party addins can reference it from a different Revit addin folder without type-identity splits — the bridge's own copy and the plugin's copy unify by strong name + version.
+This assembly is strong-name signed. The bridge registers an `AssemblyResolve` fallback that serves `RevitCliBridge.Abstractions.dll` from its own folder, so a plugin compiled against an older package version binds to the newer copy the bridge already loaded — provided the plugin does **not** ship its own copy of the DLL (see the deployment rule above). Plugins built against package **1.4.0 or later** are supported; earlier versions lack the `IBridgeCommand.Version` member and fail to load.
 
 ## Versioning
 
-This package uses plain semantic versioning (`1.11.0`), not the Nice3point `{RevitYear}.{Major}.{Minor}` scheme. Because the assembly is netstandard2.0 with no Revit API reference, the binary is identical across every supported Revit version — a single version line is honest about that, and one package serves all Revit versions (the bridge itself, which _does_ bind Revit API types, keeps the Nice3point-style version).
+This package uses plain semantic versioning, not the Nice3point `{RevitYear}.{Major}.{Minor}` scheme. Because the assembly is netstandard2.0 with no Revit API reference, the binary is identical across every supported Revit version — a single version line is honest about that, and one package serves all Revit versions (the bridge itself, which _does_ bind Revit API types, keeps the Nice3point-style version).
 
-`AssemblyVersion`, `FileVersion` and the package `Version` all track `1.11.0`.
+`AssemblyVersion`, `FileVersion` and the package `Version` all track the package version (currently `1.17.1`).
 
 ## License
 

@@ -141,6 +141,7 @@ The CLI client uses these registry files to discover and connect to specific ins
 | GET | `/api/identity` | Instance identity (version, PID, port) |
 | GET | `/api/commands` | Full command schema (with ETag support) |
 | GET | `/api/commands/{name}` | Single command schema |
+| GET | `/api/catalog` | Lightweight command index (name, category, summary) |
 | GET | `/api/llms.txt` | Revit API reference for AI agents |
 
 ### /api/identity
@@ -245,7 +246,35 @@ public class MyCommand : IBridgeCommand
 }
 ```
 
-Compile your plugin DLL and place it in a `CliBridgePlugins/` subfolder next to `RevitCliBridge.dll`. The bridge will auto-discover and register it at startup.
+Compile your plugin DLL and place it in a `CliBridgePlugins/` subfolder next to `RevitCliBridge.dll`. The bridge will auto-discover and register it at startup (the DLL must be Authenticode-signed; unsigned DLLs are rejected unless `allow_unsigned_plugins` is enabled).
+
+### Registering from your own add-in (recommended)
+
+If your plugin is itself a Revit add-in, skip the `CliBridgePlugins` folder and register commands programmatically — using only the `RevitCliBridge.Abstractions` package, no reference to the bridge assembly:
+
+```csharp
+public class MyCompanyApp : IExternalApplication
+{
+    public Result OnStartup(UIControlledApplication app)
+    {
+        BridgeRegistration.Register(new MyCommand());
+        return Result.Succeeded;
+    }
+}
+```
+
+Deployment rules:
+
+- Ship only your own DLL. **Never** deploy a copy of `RevitCliBridge.Abstractions.dll` or `Newtonsoft.Json.dll` with your plugin — the bridge folder provides both, and a stale local copy splits type identity so your commands silently fail to register. Exclude them with `ExcludeAssets="runtime"` on the package references.
+- Your `.addin` manifest must load after the bridge's (`@RevitCliBridge.addin` sorts first alphabetically). Any conventionally named manifest is fine.
+
+Verify after starting Revit:
+
+```bash
+revit-cli catalog
+```
+
+Your command should appear in the index. Full authoring guide: [RevitCliBridge.Abstractions README](RevitCliBridge.Abstractions/README.md).
 
 ## Architecture
 
