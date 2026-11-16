@@ -194,6 +194,13 @@ public class MyCompanyApp : IExternalApplication
 
 Under the hood the facade locates the already-loaded bridge assembly in the Revit process and forwards to the bridge's command registry via reflection. You therefore never reference (or ship a copy of) `RevitCliBridge.dll`, which keeps type identity intact.
 
+| | Programmatic registration | DLL discovery |
+|---|---|---|
+| Authenticode signing | Not required | Required by default |
+| Registration failures | Surface in your code | Logged, plugin skipped |
+| Conditional registration (license/feature checks) | Natural | Not possible |
+| Extra add-in project required | Yes | No |
+
 Setup notes:
 
 - The bridge add-in must be installed and started before your registration call runs. Revit loads `.addin` manifests alphabetically; the bridge's manifest is named `@RevitCliBridge.addin`, so its `@` prefix sorts it ahead of ordinary names — any conventionally named manifest loads after it.
@@ -219,13 +226,6 @@ revit-cli catalog
 ```
 
 Your command should appear in the index (name, category, summary). `GET /api/commands` returns the full schema including parameters.
-
-| | Programmatic registration | DLL discovery |
-|---|---|---|
-| Authenticode signing | Not required | Required by default |
-| Registration failures | Surface in your code | Logged, plugin skipped |
-| Conditional registration (license/feature checks) | Natural | Not possible |
-| Extra add-in project required | Yes | No |
 
 ## Versioned commands
 
