@@ -131,6 +131,15 @@ func TestParseSelection(t *testing.T) {
 	}
 }
 
+func TestParseSkillOptionsScope(t *testing.T) {
+	if opts := parseSkillOptions(nil); opts.project {
+		t.Error("default scope should be user-level (project=false)")
+	}
+	if opts := parseSkillOptions([]string{"--project"}); !opts.project {
+		t.Error("--project should select project scope")
+	}
+}
+
 func TestFindHarnesses(t *testing.T) {
 	hs, err := findHarnesses("Claude, CODEBUDDY,claude")
 	if err != nil {

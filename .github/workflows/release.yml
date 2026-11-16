@@ -349,7 +349,7 @@ jobs:
           revit-cli.exe skill install --agent claude,codebuddy
           ```
 
-          The first command lists the agent directories detected in your project; the second installs the skill non-interactively (``--global`` for user-level, ``--target <dir>`` for a custom location). After upgrading the CLI, refresh every install with ``revit-cli.exe skill update``.
+          The first command lists the agent directories detected at user level (``~``, the default); the second installs the skill non-interactively (``--project`` for project-level/cwd, ``--target <dir>`` for a custom location). After upgrading the CLI, refresh every install with ``revit-cli.exe skill update``.
 
           ### Supported Revit Versions
 

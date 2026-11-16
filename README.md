@@ -345,12 +345,13 @@ If you deploy from source instead (`bridge\build.ps1 -Deploy`), the deployed API
 
 ## Use with AI Agents
 
-Every release zip ships `SKILL.md` — an [Open Skill protocol](https://github.com/open-skill/protocol) file that teaches AI coding agents (Claude Code, Cursor, Codex, Trae, Trae CN, CodeBuddy, WorkBuddy, Kimi) how to drive Revit through this CLI. Register it with the agents installed in your project:
+Every release zip ships `SKILL.md` — an [Open Skill protocol](https://github.com/open-skill/protocol) file that teaches AI coding agents (Claude Code, Cursor, Codex, Trae, Trae CN, CodeBuddy, WorkBuddy, Kimi) how to drive Revit through this CLI. Register it with the agents installed on your machine (user-level, the default) or in the current project (`--project`):
 
 ```powershell
 cd C:\revit-cli
-.\revit-cli.exe skill install --list              # 1. list detected agent directories
+.\revit-cli.exe skill install --list              # 1. list detected agent directories (user-level)
 .\revit-cli.exe skill install --agent claude,codebuddy   # 2. install non-interactively
+.\revit-cli.exe skill install --agent claude --project   # or: project-level (cwd) instead
 ```
 
 Installation copies `SKILL.md` into `<agent>/skills/revit-cli/` and stages a machine-wide copy of the binary at `%LOCALAPPDATA%\revit-cli\bin\revit-cli.exe`; the `revit-cli.exe` reference inside `SKILL.md` is rewritten to that stable path, so the skill works out of the box and survives moving or upgrading the original install folder.
@@ -360,7 +361,7 @@ Installation copies `SKILL.md` into `<agent>/skills/revit-cli/` and stages a mac
 | `--agent <ids>` | Comma-separated agent ids: `claude`, `cursor`, `codex`, `trae`, `trae-cn`, `codebuddy`, `workbuddy`, `kimi-work`, `kimi-code` |
 | `--all` | Install into every detected agent directory |
 | `--target <dir>` | Custom skills root; installs into `<dir>/revit-cli/` |
-| `--global` | User-level (`~`) agent directories instead of project (cwd) |
+| `--project` | Project-level (cwd) agent directories instead of user-level (`~`, the default) |
 | `--force` | Overwrite an existing installation |
 | `--list` / `--json` | List candidates / machine-readable output |
 
