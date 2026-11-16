@@ -316,7 +316,8 @@ revit-cli.exe configure teardown
 
 # 从 Agent 移除 skill
 revit-cli.exe skill uninstall --all            # 所有已安装的 Agent
-revit-cli.exe skill uninstall --agent claude   # 仅指定 Agent
+revit-cli.exe skill uninstall --agent claude   # 用户级（默认）
+revit-cli.exe skill uninstall --agent claude --project   # 项目级安装
 revit-cli.exe skill uninstall --target <dir>   # 自定义 skills 根目录
 ```
 

@@ -328,7 +328,8 @@ revit-cli.exe configure teardown
 
 # Remove the skill from agents
 revit-cli.exe skill uninstall --all            # every agent that has it
-revit-cli.exe skill uninstall --agent claude   # specific agents only
+revit-cli.exe skill uninstall --agent claude   # user-level (default)
+revit-cli.exe skill uninstall --agent claude --project   # project-level installs
 revit-cli.exe skill uninstall --target <dir>   # a custom skills root
 ```
 
