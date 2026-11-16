@@ -378,6 +378,8 @@ func TestDeregisterSkillDir(t *testing.T) {
 
 func TestFindInstalledSkillsExeDirGhost(t *testing.T) {
 	t.Setenv("REVIT_CLI_DATA_DIR", t.TempDir())
+	t.Setenv("USERPROFILE", t.TempDir())
+	t.Setenv("HOME", t.TempDir())
 	exeDir := t.TempDir()
 	exePath := filepath.Join(exeDir, "revit-cli.exe")
 
