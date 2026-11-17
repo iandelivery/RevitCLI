@@ -46,6 +46,8 @@ namespace RevitCliBridge.Handlers.Architecture
             var result = new Dictionary<string, object>();
             result["wall_id"] = wallId.Value;
 
+            List<string> resolvedFailures;
+
             using (var t = new DryRunTransaction(doc, "CLI Set Wall Constraint", cmd.DryRun))
             {
                 t.ConfigureFailureHandling();
@@ -87,14 +89,16 @@ namespace RevitCliBridge.Handlers.Architecture
                 }
 
                 t.Commit();
+
+                resolvedFailures = t.ResolvedFailures;
             }
 
             var messages = new List<string>();
             if (baseLevelId is not null) messages.Add($"base constraint to level {baseLevelId}");
             if (topLevelId is not null) messages.Add($"top constraint to level {topLevelId}");
 
-            return CommandResponse.Success(cmd.TaskId, result,
-                $"Wall {string.Join(" and ", messages)}.").ToJson();
+            return CommandResponse.SuccessWithResolvedFailures(cmd.TaskId, result,
+                $"Wall {string.Join(" and ", messages)}.", resolvedFailures).ToJson();
         }
     }
 }

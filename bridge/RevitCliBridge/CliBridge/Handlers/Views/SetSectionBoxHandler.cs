@@ -69,12 +69,16 @@ namespace RevitCliBridge.Handlers.Views
                 source = "explicit";
             }
 
+            List<string> resolvedFailures;
+
             using (var t = new DryRunTransaction(doc, "CLI Set Section Box", cmd.DryRun))
             {
                 t.ConfigureFailureHandling();
                 view.SetSectionBox(bounds);
                 view.IsSectionBoxActive = true;
                 t.Commit();
+
+                resolvedFailures = t.ResolvedFailures;
             }
 
             var result = new
@@ -90,7 +94,7 @@ namespace RevitCliBridge.Handlers.Views
                 max_y = bounds.Max.Y.FeetToMillimeter(),
                 max_z = bounds.Max.Z.FeetToMillimeter()
             };
-            return CommandResponse.Success(cmd.TaskId, result, "Section box set successfully.").ToJson();
+            return CommandResponse.SuccessWithResolvedFailures(cmd.TaskId, result, "Section box set successfully.", resolvedFailures).ToJson();
         }
     }
 

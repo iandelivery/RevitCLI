@@ -91,7 +91,7 @@ namespace RevitCliBridge.Handlers.Modification
                     result["old_top_offset"] = (oldTopOffset ?? 0.0).FeetToMillimeter();
                 }
 
-                return CommandResponse.Success(cmd.TaskId, result, "Offset set successfully.").ToJson();
+                return CommandResponse.SuccessWithResolvedFailures(cmd.TaskId, result, "Offset set successfully.", t.ResolvedFailures).ToJson();
             }
         }
 

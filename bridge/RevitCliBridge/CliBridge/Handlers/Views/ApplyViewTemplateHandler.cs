@@ -67,6 +67,8 @@ namespace RevitCliBridge.Handlers.Views
             int failCount = 0;
             var results = new List<object>();
 
+            List<string> resolvedFailures;
+
             using (var t = new DryRunTransaction(doc, "CLI Apply View Template", cmd.DryRun))
             {
                 t.ConfigureFailureHandling();
@@ -94,6 +96,8 @@ namespace RevitCliBridge.Handlers.Views
                 }
 
                 t.Commit();
+
+                resolvedFailures = t.ResolvedFailures;
             }
 
             var result = new
@@ -105,8 +109,8 @@ namespace RevitCliBridge.Handlers.Views
                 results = results
             };
 
-            return CommandResponse.Success(cmd.TaskId, result,
-                $"Applied view template: {successCount} succeeded, {failCount} failed.").ToJson();
+            return CommandResponse.SuccessWithResolvedFailures(cmd.TaskId, result,
+                $"Applied view template: {successCount} succeeded, {failCount} failed.", resolvedFailures).ToJson();
         }
 
         private List<View>? ResolveTargetViews(Document doc, Dictionary<string, object> parameters)

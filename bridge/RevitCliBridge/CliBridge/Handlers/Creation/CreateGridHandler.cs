@@ -67,7 +67,7 @@ namespace RevitCliBridge.Handlers.Creation
                     end_y = endY
                 };
 
-                return CommandResponse.Success(cmd.TaskId, result, "Grid created successfully.").ToJson();
+                return CommandResponse.SuccessWithResolvedFailures(cmd.TaskId, result, "Grid created successfully.", t.ResolvedFailures).ToJson();
             }
         }
     }

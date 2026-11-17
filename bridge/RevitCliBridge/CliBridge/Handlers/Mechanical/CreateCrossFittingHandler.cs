@@ -103,7 +103,7 @@ namespace RevitCliBridge.Handlers.Mechanical
                 var fitting = doc.Create.NewCrossFitting(c1, c2, c3, c4);
                 tx.Commit();
 
-                return CommandResponse.Success(cmd.TaskId,
+                return CommandResponse.SuccessWithResolvedFailures(cmd.TaskId,
                     new
                     {
                         fitting_id = fitting.Id.IntegerValue,
@@ -114,7 +114,7 @@ namespace RevitCliBridge.Handlers.Mechanical
                             z = junction.Z.FeetToMillimeter()
                         }
                     },
-                    "Cross fitting created successfully.").ToJson();
+                    "Cross fitting created successfully.", tx.ResolvedFailures).ToJson();
             }
             catch (Autodesk.Revit.Exceptions.ArgumentException ex)
             {

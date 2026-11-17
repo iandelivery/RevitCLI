@@ -82,7 +82,7 @@ namespace RevitCliBridge.Handlers.Modification
                     }
                 };
 
-                return CommandResponse.Success(cmd.TaskId, result, "Element mirrored successfully.").ToJson();
+                return CommandResponse.SuccessWithResolvedFailures(cmd.TaskId, result, "Element mirrored successfully.", t.ResolvedFailures).ToJson();
             }
         }
 

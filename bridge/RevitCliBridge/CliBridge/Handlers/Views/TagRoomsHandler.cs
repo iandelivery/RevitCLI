@@ -72,6 +72,8 @@ namespace RevitCliBridge.Handlers.Views
             int successCount = 0;
             int failCount = 0;
 
+            List<string> resolvedFailures;
+
             using (var t = new DryRunTransaction(doc, "CLI Tag Rooms", cmd.DryRun))
             {
                 t.ConfigureFailureHandling();
@@ -105,6 +107,8 @@ namespace RevitCliBridge.Handlers.Views
                 }
 
                 t.Commit();
+
+                resolvedFailures = t.ResolvedFailures;
             }
 
             var result = new
@@ -117,8 +121,8 @@ namespace RevitCliBridge.Handlers.Views
                 results = results
             };
 
-            return CommandResponse.Success(cmd.TaskId, result,
-                $"Tag rooms: {successCount} succeeded, {failCount} failed.").ToJson();
+            return CommandResponse.SuccessWithResolvedFailures(cmd.TaskId, result,
+                $"Tag rooms: {successCount} succeeded, {failCount} failed.", resolvedFailures).ToJson();
         }
 
         private List<Room> ResolveRooms(Document doc, int[]? roomIds)

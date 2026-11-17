@@ -72,6 +72,8 @@ namespace RevitCliBridge.Handlers.Architecture
             var resultPairs = new List<object>();
             int totalWalls = wallIds.Count;
 
+            List<string> resolvedFailures;
+
             using (var t = new DryRunTransaction(doc, "CLI Set Walls Constraint", cmd.DryRun))
             {
                 t.ConfigureFailureHandling();
@@ -114,12 +116,14 @@ namespace RevitCliBridge.Handlers.Architecture
                 }
 
                 t.Commit();
+
+                resolvedFailures = t.ResolvedFailures;
             }
 
             var result = BuildResult(resultPairs, topLevelId, baseLevelId);
 
-            return CommandResponse.Success(cmd.TaskId, result,
-                $"Processed {resultPairs.Count} wall constraints.").ToJson();
+            return CommandResponse.SuccessWithResolvedFailures(cmd.TaskId, result,
+                $"Processed {resultPairs.Count} wall constraints.", resolvedFailures).ToJson();
         }
 
         private string HandleAllWalls(Document doc, QueuedCommand cmd, Dictionary<string, object> parameters, int? topLevelId, int? baseLevelId)
@@ -142,6 +146,8 @@ namespace RevitCliBridge.Handlers.Architecture
             var resultPairs = new List<object>();
             int totalWalls = walls.Count;
             int processedCount = 0;
+
+            List<string> resolvedFailures;
 
             using (var t = new DryRunTransaction(doc, "CLI Set All Walls Constraint", cmd.DryRun))
             {
@@ -180,6 +186,8 @@ namespace RevitCliBridge.Handlers.Architecture
                 }
 
                 t.Commit();
+
+                resolvedFailures = t.ResolvedFailures;
             }
 
             var result = BuildResult(resultPairs, topLevelId, baseLevelId);
@@ -188,8 +196,8 @@ namespace RevitCliBridge.Handlers.Architecture
             if (baseLevelId is not null) messages.Add($"base constraint to level {baseLevelId}");
             if (topLevelId is not null) messages.Add($"top constraint to level {topLevelId}");
 
-            return CommandResponse.Success(cmd.TaskId, result,
-                $"Set {string.Join(" and ", messages)} for {resultPairs.Count} walls.").ToJson();
+            return CommandResponse.SuccessWithResolvedFailures(cmd.TaskId, result,
+                $"Set {string.Join(" and ", messages)} for {resultPairs.Count} walls.", resolvedFailures).ToJson();
         }
 
         private object BuildResult(List<object> resultPairs, int? topLevelId, int? baseLevelId)

@@ -87,7 +87,7 @@ namespace RevitCliBridge.Handlers.Creation
                     sill_height = sillHeight?.FeetToMillimeter()
                 };
 
-                return CommandResponse.Success(cmd.TaskId, result, "Window created successfully.").ToJson();
+                return CommandResponse.SuccessWithResolvedFailures(cmd.TaskId, result, "Window created successfully.", t.ResolvedFailures).ToJson();
             }
         }
     }

@@ -97,6 +97,8 @@ namespace RevitCliBridge.Handlers.Creation
 
             Dimension dimension;
 
+            List<string> resolvedFailures;
+
             using (var t = new DryRunTransaction(doc, "CLI Create Dimensions", cmd.DryRun))
             {
                 t.ConfigureFailureHandling();
@@ -120,6 +122,8 @@ namespace RevitCliBridge.Handlers.Creation
                 }
 
                 t.Commit();
+
+                resolvedFailures = t.ResolvedFailures;
             }
 
             var result = new
@@ -136,7 +140,7 @@ namespace RevitCliBridge.Handlers.Creation
                 element_ids = elementIds
             };
 
-            return CommandResponse.Success(cmd.TaskId, result, "Dimension created successfully.").ToJson();
+            return CommandResponse.SuccessWithResolvedFailures(cmd.TaskId, result, "Dimension created successfully.", resolvedFailures).ToJson();
         }
 
         private View? ResolveView(Document doc, Dictionary<string, object> parameters)

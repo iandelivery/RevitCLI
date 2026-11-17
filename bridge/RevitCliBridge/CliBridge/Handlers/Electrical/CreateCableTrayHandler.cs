@@ -78,7 +78,7 @@ namespace RevitCliBridge.Handlers.Electrical
                 tx.Commit();
 
                 var result = CableTrayUtils.Default.Snapshot(tray, doc);
-                return CommandResponse.Success(cmd.TaskId, result, "Cable tray created successfully.").ToJson();
+                return CommandResponse.SuccessWithResolvedFailures(cmd.TaskId, result, "Cable tray created successfully.", tx.ResolvedFailures).ToJson();
             }
             catch (Autodesk.Revit.Exceptions.ArgumentException ex)
             {

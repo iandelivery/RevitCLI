@@ -65,14 +65,14 @@ namespace RevitCliBridge.Handlers.Electrical
                 var fitting = doc.Create.NewTransitionFitting(c1!, c2!);
                 tx.Commit();
 
-                return CommandResponse.Success(cmd.TaskId,
+                return CommandResponse.SuccessWithResolvedFailures(cmd.TaskId,
                     new
                     {
                         fitting_id = fitting.Id.IntegerValue,
                         size_1 = new { width_mm = w1, height_mm = h1 },
                         size_2 = new { width_mm = w2, height_mm = h2 }
                     },
-                    "Transition fitting created successfully.").ToJson();
+                    "Transition fitting created successfully.", tx.ResolvedFailures).ToJson();
             }
             catch (Autodesk.Revit.Exceptions.ArgumentException ex)
             {

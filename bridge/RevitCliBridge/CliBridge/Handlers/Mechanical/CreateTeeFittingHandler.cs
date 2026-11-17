@@ -95,7 +95,7 @@ namespace RevitCliBridge.Handlers.Mechanical
                 var fitting = doc.Create.NewTeeFitting(mainConnector, mainConnector, branchConnector);
                 tx.Commit();
 
-                return CommandResponse.Success(cmd.TaskId,
+                return CommandResponse.SuccessWithResolvedFailures(cmd.TaskId,
                     new
                     {
                         fitting_id = fitting.Id.IntegerValue,
@@ -106,7 +106,7 @@ namespace RevitCliBridge.Handlers.Mechanical
                             z = intersection.Z.FeetToMillimeter()
                         }
                     },
-                    "Tee fitting created successfully.").ToJson();
+                    "Tee fitting created successfully.", tx.ResolvedFailures).ToJson();
             }
             catch (Autodesk.Revit.Exceptions.ArgumentException ex)
             {

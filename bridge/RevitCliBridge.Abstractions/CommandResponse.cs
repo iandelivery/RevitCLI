@@ -36,6 +36,24 @@ namespace RevitCliBridge.Abstractions
             new CommandResponse { TaskId = taskId, Status = "success", Message = message, Data = data,
                 ResolvedFailures = resolvedFailures };
 
+        /// <summary>
+        /// Success for a transaction that ran with failure collection.
+        /// When <paramref name="resolvedFailures"/> is non-empty, the
+        /// message gains a summary suffix and the response carries the
+        /// top-level <c>resolved_failures</c> field; otherwise this is
+        /// identical to <see cref="Success"/> and the data shape stays
+        /// unchanged.
+        /// </summary>
+        public static CommandResponse SuccessWithResolvedFailures(
+            string taskId, object? data, string message, IReadOnlyList<string>? resolvedFailures)
+        {
+            if (resolvedFailures is null || resolvedFailures.Count == 0)
+                return Success(taskId, data, message);
+            return Success(taskId, data,
+                $"{message} Revit auto-resolved {resolvedFailures.Count} error(s), see resolved_failures.",
+                resolvedFailures);
+        }
+
         public static CommandResponse Error(string taskId, string message, string? errorDetails = null) =>
             new CommandResponse { TaskId = taskId, Status = "error", Message = message, ErrorDetails = errorDetails };
 

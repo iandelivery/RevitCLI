@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using RevitCliBridge.Abstractions;
 using Xunit;
 
@@ -136,6 +137,29 @@ namespace RevitCliBridge.Tests
             var resp = CommandResponse.Success("t", data, "ok", new[] { "joined geometry" });
             var json = resp.ToJson();
 
+            Assert.Contains("\"resolved_failures\":[\"joined geometry\"]", json);
+            Assert.Contains("\"data\":[1,2]", json);
+        }
+
+        [Fact]
+        public void SuccessWithResolvedFailures_EmptyList_IsPlainSuccess()
+        {
+            var resp = CommandResponse.SuccessWithResolvedFailures("t", new { x = 1 }, "Created 2 walls.", new List<string>());
+            Assert.Equal("Created 2 walls.", resp.Message);
+            Assert.Null(resp.ResolvedFailures);
+            Assert.DoesNotContain("\"resolved_failures\"", resp.ToJson());
+        }
+
+        [Fact]
+        public void SuccessWithResolvedFailures_WithFailures_ComposesMessageAndKeepsData()
+        {
+            var data = new[] { 1, 2 };
+            var resp = CommandResponse.SuccessWithResolvedFailures("t", data, "Created 2 walls.",
+                new List<string> { "joined geometry" });
+
+            Assert.Equal("Created 2 walls. Revit auto-resolved 1 error(s), see resolved_failures.", resp.Message);
+            Assert.NotNull(resp.ResolvedFailures);
+            var json = resp.ToJson();
             Assert.Contains("\"resolved_failures\":[\"joined geometry\"]", json);
             Assert.Contains("\"data\":[1,2]", json);
         }

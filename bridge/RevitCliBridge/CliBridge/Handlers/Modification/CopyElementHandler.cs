@@ -67,7 +67,7 @@ namespace RevitCliBridge.Handlers.Modification
                     translation_z = dz ?? 0
                 };
 
-                return CommandResponse.Success(cmd.TaskId, result, "Element copied successfully.").ToJson();
+                return CommandResponse.SuccessWithResolvedFailures(cmd.TaskId, result, "Element copied successfully.", t.ResolvedFailures).ToJson();
             }
         }
     }

@@ -54,6 +54,8 @@ namespace RevitCliBridge.Handlers.Creation
 
             Room? room = null;
 
+            List<string> resolvedFailures;
+
             using (var t = new DryRunTransaction(doc, "CLI Create Room", cmd.DryRun))
             {
                 t.ConfigureFailureHandling();
@@ -82,6 +84,8 @@ namespace RevitCliBridge.Handlers.Creation
                 }
 
                 t.Commit();
+
+                resolvedFailures = t.ResolvedFailures;
             }
 
             if (room is null)
@@ -95,7 +99,7 @@ namespace RevitCliBridge.Handlers.Creation
                 level_id = levelId.Value
             };
 
-            return CommandResponse.Success(cmd.TaskId, result, "Room created successfully.").ToJson();
+            return CommandResponse.SuccessWithResolvedFailures(cmd.TaskId, result, "Room created successfully.", resolvedFailures).ToJson();
         }
 
         private Phase? GetLastPhase(Document doc)

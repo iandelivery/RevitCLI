@@ -89,7 +89,7 @@ namespace RevitCliBridge.Handlers.Mechanical
                 tx.Commit();
 
                 var result = DuctUtils.Default.Snapshot(duct, doc);
-                return CommandResponse.Success(cmd.TaskId, result, "Duct created successfully.").ToJson();
+                return CommandResponse.SuccessWithResolvedFailures(cmd.TaskId, result, "Duct created successfully.", tx.ResolvedFailures).ToJson();
             }
             catch (Autodesk.Revit.Exceptions.ArgumentException ex)
             {

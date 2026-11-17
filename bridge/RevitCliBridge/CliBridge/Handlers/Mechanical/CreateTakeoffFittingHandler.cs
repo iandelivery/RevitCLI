@@ -79,9 +79,9 @@ namespace RevitCliBridge.Handlers.Mechanical
                 var fitting = doc.Create.NewTakeoffFitting(branchConnector, main);
                 tx.Commit();
 
-                return CommandResponse.Success(cmd.TaskId,
+                return CommandResponse.SuccessWithResolvedFailures(cmd.TaskId,
                     new { fitting_id = fitting.Id.IntegerValue },
-                    "Takeoff fitting created successfully.").ToJson();
+                    "Takeoff fitting created successfully.", tx.ResolvedFailures).ToJson();
             }
             catch (Autodesk.Revit.Exceptions.ArgumentException ex)
             {

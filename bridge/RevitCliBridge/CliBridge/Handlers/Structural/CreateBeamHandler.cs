@@ -96,7 +96,7 @@ namespace RevitCliBridge.Handlers.Structural
 
                 tx.Commit();
 
-                return CommandResponse.Success(cmd.TaskId, result, "Beam created successfully.").ToJson();
+                return CommandResponse.SuccessWithResolvedFailures(cmd.TaskId, result, "Beam created successfully.", tx.ResolvedFailures).ToJson();
             }
             catch (Autodesk.Revit.Exceptions.ArgumentException ex)
             {

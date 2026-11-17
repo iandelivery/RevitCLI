@@ -103,7 +103,7 @@ namespace RevitCliBridge.Handlers.Structural
 
                 tx.Commit();
 
-                return CommandResponse.Success(cmd.TaskId, result, "Structural column created successfully.").ToJson();
+                return CommandResponse.SuccessWithResolvedFailures(cmd.TaskId, result, "Structural column created successfully.", tx.ResolvedFailures).ToJson();
             }
             catch (Autodesk.Revit.Exceptions.ArgumentException ex)
             {

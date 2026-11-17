@@ -65,13 +65,13 @@ namespace RevitCliBridge.Handlers.Piping
                 var fitting = doc.Create.NewUnionFitting(c1!, c2!);
                 tx.Commit();
 
-                return CommandResponse.Success(cmd.TaskId,
+                return CommandResponse.SuccessWithResolvedFailures(cmd.TaskId,
                     new
                     {
                         fitting_id = fitting.Id.IntegerValue,
                         diameter_mm = dia1
                     },
-                    "Union fitting created successfully.").ToJson();
+                    "Union fitting created successfully.", tx.ResolvedFailures).ToJson();
             }
             catch (Autodesk.Revit.Exceptions.ArgumentException ex)
             {

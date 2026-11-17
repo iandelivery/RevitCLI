@@ -75,7 +75,7 @@ namespace RevitCliBridge.Handlers.Piping
                 tx.Commit();
 
                 var result = PipeUtils.Default.Snapshot(pipe, doc);
-                return CommandResponse.Success(cmd.TaskId, result, "Pipe created successfully.").ToJson();
+                return CommandResponse.SuccessWithResolvedFailures(cmd.TaskId, result, "Pipe created successfully.", tx.ResolvedFailures).ToJson();
             }
             catch (Autodesk.Revit.Exceptions.ArgumentException ex)
             {
