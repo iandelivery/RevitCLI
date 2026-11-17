@@ -129,7 +129,7 @@ namespace RevitCliBridge.Handlers.Structural
                 tx.Commit();
 
                 var result = StructuralUtils.Default.SnapshotBeam(beam, doc);
-                return CommandResponse.Success(cmd.TaskId, result, "Beam modified successfully.").ToJson();
+                return CommandResponse.SuccessWithResolvedFailures(cmd.TaskId, result, "Beam modified successfully.", tx.ResolvedFailures).ToJson();
             }
             catch (Autodesk.Revit.Exceptions.ArgumentException ex)
             {

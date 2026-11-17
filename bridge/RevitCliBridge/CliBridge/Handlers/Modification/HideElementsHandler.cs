@@ -52,6 +52,8 @@ namespace RevitCliBridge.Handlers.Modification
 
             string action = cmd.Command == "unhide_elements" ? "Unhide" : "Hide";
 
+            List<string> resolvedFailures;
+
             using (var t = new DryRunTransaction(doc, $"CLI {action} Elements", cmd.DryRun))
             {
                 t.ConfigureFailureHandling();
@@ -69,6 +71,8 @@ namespace RevitCliBridge.Handlers.Modification
                 }
 
                 t.Commit();
+
+                resolvedFailures = t.ResolvedFailures;
             }
 
             var result = new
@@ -80,8 +84,8 @@ namespace RevitCliBridge.Handlers.Modification
                 element_ids = validIds.Select(id => id.IntegerValue).ToArray()
             };
 
-            return CommandResponse.Success(cmd.TaskId, result,
-                $"{action}d {validIds.Count} element(s) in view '{view.Name}'.").ToJson();
+            return CommandResponse.SuccessWithResolvedFailures(cmd.TaskId, result,
+                $"{action}d {validIds.Count} element(s) in view '{view.Name}'.", resolvedFailures).ToJson();
         }
 
         private View? ResolveView(Document doc, Dictionary<string, object> parameters)

@@ -66,13 +66,13 @@ namespace RevitCliBridge.Handlers.Mechanical
                 var fitting = doc.Create.NewUnionFitting(c1!, c2!);
                 tx.Commit();
 
-                return CommandResponse.Success(cmd.TaskId,
+                return CommandResponse.SuccessWithResolvedFailures(cmd.TaskId,
                     new
                     {
                         fitting_id = fitting.Id.IntegerValue,
                         size = new { diameter_mm = dia1, width_mm = w1, height_mm = h1 }
                     },
-                    "Union fitting created successfully.").ToJson();
+                    "Union fitting created successfully.", tx.ResolvedFailures).ToJson();
             }
             catch (Autodesk.Revit.Exceptions.ArgumentException ex)
             {

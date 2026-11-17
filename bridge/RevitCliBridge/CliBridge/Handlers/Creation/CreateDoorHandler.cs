@@ -76,7 +76,7 @@ namespace RevitCliBridge.Handlers.Creation
                     location_y = locY.FeetToMillimeter()
                 };
 
-                return CommandResponse.Success(cmd.TaskId, result, "Door created successfully.").ToJson();
+                return CommandResponse.SuccessWithResolvedFailures(cmd.TaskId, result, "Door created successfully.", t.ResolvedFailures).ToJson();
             }
         }
     }

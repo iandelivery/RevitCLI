@@ -57,7 +57,7 @@ namespace RevitCliBridge.Handlers.Modification
                     new_location = location
                 };
 
-                return CommandResponse.Success(cmd.TaskId, result, "Element moved successfully.").ToJson();
+                return CommandResponse.SuccessWithResolvedFailures(cmd.TaskId, result, "Element moved successfully.", t.ResolvedFailures).ToJson();
             }
         }
 

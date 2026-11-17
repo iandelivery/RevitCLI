@@ -63,6 +63,8 @@ namespace RevitCliBridge.Handlers.Views
 
             View newView;
 
+            List<string> resolvedFailures;
+
             using (var t = new DryRunTransaction(doc, "CLI Duplicate View", cmd.DryRun))
             {
                 t.ConfigureFailureHandling();
@@ -89,6 +91,8 @@ namespace RevitCliBridge.Handlers.Views
                 }
 
                 t.Commit();
+
+                resolvedFailures = t.ResolvedFailures;
             }
 
             if (activate)
@@ -106,7 +110,7 @@ namespace RevitCliBridge.Handlers.Views
                 activated = activate
             };
 
-            return CommandResponse.Success(cmd.TaskId, result, $"View duplicated as '{newView.Name}'.").ToJson();
+            return CommandResponse.SuccessWithResolvedFailures(cmd.TaskId, result, $"View duplicated as '{newView.Name}'.", resolvedFailures).ToJson();
         }
     }
 }

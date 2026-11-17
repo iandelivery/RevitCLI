@@ -33,11 +33,15 @@ namespace RevitCliBridge.Handlers.Views
             if (viewOrError.View is null) return viewOrError.ErrorJson!;
             var view = viewOrError.View;
 
+            List<string> resolvedFailures;
+
             using (var t = new DryRunTransaction(doc, "CLI Toggle Section Box", cmd.DryRun))
             {
                 t.ConfigureFailureHandling();
                 view.IsSectionBoxActive = p.Enable;
                 t.Commit();
+
+                resolvedFailures = t.ResolvedFailures;
             }
 
             var result = new
@@ -46,8 +50,8 @@ namespace RevitCliBridge.Handlers.Views
                 view_name = view.Name,
                 active = p.Enable
             };
-            return CommandResponse.Success(cmd.TaskId, result,
-                p.Enable ? "Section box enabled." : "Section box disabled.").ToJson();
+            return CommandResponse.SuccessWithResolvedFailures(cmd.TaskId, result,
+                p.Enable ? "Section box enabled." : "Section box disabled.", resolvedFailures).ToJson();
         }
     }
 

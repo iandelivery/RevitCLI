@@ -60,6 +60,8 @@ namespace RevitCliBridge.Handlers.Creation
 
             ViewSheet? sheet = null;
 
+            List<string> resolvedFailures;
+
             using (var t = new DryRunTransaction(doc, "CLI Create Sheet", cmd.DryRun))
             {
                 t.ConfigureFailureHandling();
@@ -79,6 +81,8 @@ namespace RevitCliBridge.Handlers.Creation
                 }
 
                 t.Commit();
+
+                resolvedFailures = t.ResolvedFailures;
             }
 
             var result = new
@@ -88,7 +92,7 @@ namespace RevitCliBridge.Handlers.Creation
                 sheet_number = sheet.SheetNumber
             };
 
-            return CommandResponse.Success(cmd.TaskId, result, "Sheet created successfully.").ToJson();
+            return CommandResponse.SuccessWithResolvedFailures(cmd.TaskId, result, "Sheet created successfully.", resolvedFailures).ToJson();
         }
     }
 }

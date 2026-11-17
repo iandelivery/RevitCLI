@@ -55,6 +55,8 @@ namespace RevitCliBridge.Handlers.Parameters
             int failCount = 0;
             int totalElements = elementIds.Count;
 
+            List<string> resolvedFailures;
+
             using (var t = new DryRunTransaction(doc, "CLI Batch Set Parameter", cmd.DryRun))
             {
                 t.ConfigureFailureHandling();
@@ -107,6 +109,8 @@ namespace RevitCliBridge.Handlers.Parameters
                 }
 
                 t.Commit();
+
+                resolvedFailures = t.ResolvedFailures;
             }
 
             var result = new
@@ -119,8 +123,8 @@ namespace RevitCliBridge.Handlers.Parameters
                 results = results
             };
 
-            return CommandResponse.Success(cmd.TaskId, result,
-                $"Batch set '{paramName}': {successCount} succeeded, {failCount} failed.").ToJson();
+            return CommandResponse.SuccessWithResolvedFailures(cmd.TaskId, result,
+                $"Batch set '{paramName}': {successCount} succeeded, {failCount} failed.", resolvedFailures).ToJson();
         }
 
         private List<ElementId>? ResolveElementIds(Document doc, UIDocument uiDoc, Dictionary<string, object> parameters)

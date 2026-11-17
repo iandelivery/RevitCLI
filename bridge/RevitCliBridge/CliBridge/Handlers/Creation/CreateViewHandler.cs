@@ -41,6 +41,8 @@ namespace RevitCliBridge.Handlers.Creation
 
             View? newView = null;
 
+            List<string> resolvedFailures;
+
             using (var t = new DryRunTransaction(doc, "CLI Create View", cmd.DryRun))
             {
                 t.ConfigureFailureHandling();
@@ -111,6 +113,8 @@ namespace RevitCliBridge.Handlers.Creation
                 }
 
                 t.Commit();
+
+                resolvedFailures = t.ResolvedFailures;
             }
 
             var result = new
@@ -120,7 +124,7 @@ namespace RevitCliBridge.Handlers.Creation
                 view_type = newView.ViewType.ToString()
             };
 
-            return CommandResponse.Success(cmd.TaskId, result, "View created successfully.").ToJson();
+            return CommandResponse.SuccessWithResolvedFailures(cmd.TaskId, result, "View created successfully.", resolvedFailures).ToJson();
         }
 
         private View? CreateFloorPlanView(Document doc, Dictionary<string, object> parameters)

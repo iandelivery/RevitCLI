@@ -119,7 +119,7 @@ namespace RevitCliBridge.Handlers.Structural
                 tx.Commit();
 
                 var result = StructuralUtils.Default.SnapshotColumn(column, doc);
-                return CommandResponse.Success(cmd.TaskId, result, "Structural column modified successfully.").ToJson();
+                return CommandResponse.SuccessWithResolvedFailures(cmd.TaskId, result, "Structural column modified successfully.", tx.ResolvedFailures).ToJson();
             }
             catch (Autodesk.Revit.Exceptions.ArgumentException ex)
             {

@@ -69,6 +69,8 @@ namespace RevitCliBridge.Handlers.Views
 
             Viewport? viewport = null;
 
+            List<string> resolvedFailures;
+
             using (var t = new DryRunTransaction(doc, "CLI Place View on Sheet", cmd.DryRun))
             {
                 t.ConfigureFailureHandling();
@@ -94,6 +96,8 @@ namespace RevitCliBridge.Handlers.Views
                 }
 
                 t.Commit();
+
+                resolvedFailures = t.ResolvedFailures;
             }
 
             if (viewport is null)
@@ -108,7 +112,7 @@ namespace RevitCliBridge.Handlers.Views
                 location_y = location.Y.FeetToMillimeter()
             };
 
-            return CommandResponse.Success(cmd.TaskId, result, "View placed on sheet successfully.").ToJson();
+            return CommandResponse.SuccessWithResolvedFailures(cmd.TaskId, result, "View placed on sheet successfully.", resolvedFailures).ToJson();
         }
     }
 }

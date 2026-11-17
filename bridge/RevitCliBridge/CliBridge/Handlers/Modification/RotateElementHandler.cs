@@ -85,7 +85,7 @@ namespace RevitCliBridge.Handlers.Modification
                     }
                 };
 
-                return CommandResponse.Success(cmd.TaskId, result, "Element rotated successfully.").ToJson();
+                return CommandResponse.SuccessWithResolvedFailures(cmd.TaskId, result, "Element rotated successfully.", t.ResolvedFailures).ToJson();
             }
         }
 

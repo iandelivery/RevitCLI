@@ -70,7 +70,7 @@ namespace RevitCliBridge.Handlers.Creation
                     level_id = p.LevelId
                 };
 
-                return CommandResponse.Success(cmd.TaskId, result, "Family instance created successfully.").ToJson();
+                return CommandResponse.SuccessWithResolvedFailures(cmd.TaskId, result, "Family instance created successfully.", t.ResolvedFailures).ToJson();
             }
         }
     }

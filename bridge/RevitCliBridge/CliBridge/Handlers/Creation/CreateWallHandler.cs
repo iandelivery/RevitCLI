@@ -59,9 +59,9 @@ namespace RevitCliBridge.Handlers.Creation
                     height = p.Height
                 });
 
-                return CommandResponse.Success(cmd.TaskId, result,
+                return CommandResponse.SuccessWithResolvedFailures(cmd.TaskId, result,
                     t.Describe("[DRY-RUN] Wall validated and rolled back.",
-                               "Wall created successfully.")).ToJson();
+                               "Wall created successfully."), t.ResolvedFailures).ToJson();
             }
         }
     }

@@ -57,9 +57,9 @@ namespace RevitCliBridge.Handlers.Piping
                 var fitting = doc.Create.NewElbowFitting(c1!, c2!);
                 tx.Commit();
 
-                return CommandResponse.Success(cmd.TaskId,
+                return CommandResponse.SuccessWithResolvedFailures(cmd.TaskId,
                     new { fitting_id = fitting.Id.IntegerValue },
-                    "Elbow fitting created successfully.").ToJson();
+                    "Elbow fitting created successfully.", tx.ResolvedFailures).ToJson();
             }
             catch (Autodesk.Revit.Exceptions.ArgumentException ex)
             {

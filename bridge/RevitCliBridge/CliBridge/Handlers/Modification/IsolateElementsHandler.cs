@@ -46,11 +46,15 @@ namespace RevitCliBridge.Handlers.Modification
             if (validIds.Count == 0)
                 return CommandResponse.Error(cmd.TaskId, "No valid elements found.").ToJson();
 
+            List<string> resolvedFailures;
+
             using (var t = new DryRunTransaction(doc, "CLI Isolate Elements", cmd.DryRun))
             {
                 t.ConfigureFailureHandling();
                 view.IsolateElementsTemporary(validIds);
                 t.Commit();
+
+                resolvedFailures = t.ResolvedFailures;
             }
 
             var result = new
@@ -61,8 +65,8 @@ namespace RevitCliBridge.Handlers.Modification
                 element_ids = validIds.Select(id => id.IntegerValue).ToArray()
             };
 
-            return CommandResponse.Success(cmd.TaskId, result,
-                $"Isolated {validIds.Count} element(s) in view '{view.Name}'.").ToJson();
+            return CommandResponse.SuccessWithResolvedFailures(cmd.TaskId, result,
+                $"Isolated {validIds.Count} element(s) in view '{view.Name}'.", resolvedFailures).ToJson();
         }
 
         private View? ResolveView(Document doc, Dictionary<string, object> parameters)

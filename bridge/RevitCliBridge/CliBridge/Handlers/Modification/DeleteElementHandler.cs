@@ -35,16 +35,20 @@ namespace RevitCliBridge.Handlers.Modification
             if (element is null)
                 return CommandResponse.Error(cmd.TaskId, $"Element with ID {elementId} not found.").ToJson();
 
+            List<string> resolvedFailures;
+
             using (var t = new DryRunTransaction(doc, "CLI Delete Element", cmd.DryRun))
             {
                 t.ConfigureFailureHandling();
 
                 doc.Delete(element.Id);
                 t.Commit();
+
+                resolvedFailures = t.ResolvedFailures;
             }
 
-            return CommandResponse.Success(cmd.TaskId,
-                new { element_id = elementId }, "Element deleted successfully.").ToJson();
+            return CommandResponse.SuccessWithResolvedFailures(cmd.TaskId,
+                new { element_id = elementId }, "Element deleted successfully.", resolvedFailures).ToJson();
         }
     }
 }
