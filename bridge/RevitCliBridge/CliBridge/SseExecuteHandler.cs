@@ -55,6 +55,15 @@ namespace RevitCliBridge
             if (string.IsNullOrEmpty(input.TaskId))
                 input.TaskId = Guid.NewGuid().ToString();
 
+            var duplicate = TaskRegistry.FindByRequestId(requestId);
+            if (duplicate != null)
+            {
+                CliLogger.Info("request_dedup",
+                    ("request_id", requestId), ("task_id", duplicate.TaskId));
+                await HttpIo.WriteJsonResponseAsync(response, CliHttpServer.BuildTaskStatusPayload(duplicate));
+                return;
+            }
+
             response.ContentType = "text/event-stream";
             response.Headers.Add("Cache-Control", "no-cache");
             response.Headers.Add("Connection", "keep-alive");
@@ -62,6 +71,7 @@ namespace RevitCliBridge
             response.StatusCode = 200;
 
             var taskInfo = TaskRegistry.CreateTask(input.TaskId, input.Command);
+            taskInfo.RequestId = requestId;
 
             var sseCts = CancellationTokenSource.CreateLinkedTokenSource(_serverToken);
             bool clientDisconnected = false;
@@ -132,7 +142,7 @@ namespace RevitCliBridge
 
             if (completedTask == timeoutTask)
             {
-                TaskRegistry.SetFailed(input.TaskId,
+                TaskRegistry.SetTimeout(input.TaskId,
                     CommandResponse.Error(input.TaskId, "Revit API execution timed out").ToJson());
             }
 
