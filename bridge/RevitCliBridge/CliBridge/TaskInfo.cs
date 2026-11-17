@@ -18,6 +18,9 @@ namespace RevitCliBridge
         [JsonProperty("task_id")]
         public string TaskId { get; set; } = string.Empty;
 
+        [JsonProperty("request_id")]
+        public string? RequestId { get; set; }
+
         [JsonProperty("command")]
         public string Command { get; set; } = string.Empty;
 

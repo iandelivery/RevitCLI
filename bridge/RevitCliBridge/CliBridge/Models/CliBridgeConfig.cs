@@ -42,6 +42,15 @@ namespace RevitCliBridge.Models
         [JsonProperty("max_command_queue_size")]
         public int MaxCommandQueueSize { get; set; }
 
+        /// <summary>
+        /// How long completed tasks are kept after completion, in seconds.
+        /// Failed and timed-out tasks are kept longer (one hour) because CLI
+        /// clients poll late exactly when something went wrong.
+        /// Default: 900.
+        /// </summary>
+        [JsonProperty("task_retention_seconds")]
+        public int TaskRetentionSeconds { get; set; } = 900;
+
         [JsonProperty("allow_raw_execution")]
         public bool AllowRawExecution { get; set; }
 
@@ -98,6 +107,7 @@ namespace RevitCliBridge.Models
             Port = 5000;
             TimeoutSeconds = 180;
             MaxCommandQueueSize = 100;
+            TaskRetentionSeconds = 900;
             AllowRawExecution = true;
             AutoPort = true;
             MaxRequestBodySizeBytes = 10L * 1024 * 1024;

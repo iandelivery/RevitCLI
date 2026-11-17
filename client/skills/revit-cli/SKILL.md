@@ -78,6 +78,24 @@ revit-cli.exe execute_raw --lang csharp --code "return doc.Title;"
 revit-cli.exe raw -j '{"command":"ping"}'           # raw JSON command
 ```
 
+## Exit Codes, Timeouts, and Long Tasks
+
+Every command exits with exactly one of:
+
+- `0` — success
+- `1` — usage error or unknown command
+- `2` — bridge unreachable or API key rejected
+- `3` — task timed out
+- `4` — command ran and failed
+
+Global flags (usable on any command):
+
+- `--timeout <seconds>` — per-command budget, default 120. The bridge default is higher; raise this for long `batch_export` or `execute_raw` runs.
+- `--no-wait` — submit the command, print `task_id: <id>`, and exit 0 immediately. Poll later with `revit-cli.exe task -ti <id>`. Use this when the calling harness kills processes at its own limit.
+- `--request-id <id>` — stable retry key. If the bridge already holds a task with the same ID, it returns that task instead of running the command again. Pass the same value on every retry of the same logical request.
+
+A timed-out task may still have committed its Revit transaction, because the Revit API cannot be canceled mid-call. Treat exit code 3 as "outcome unknown": check the model with a query command before retrying, or retry with the same `--request-id` so the bridge deduplicates instead of creating a second element.
+
 **Units**: the client uses **millimeters** — every distance, coordinate, and size argument of high-level commands (and every such value returned) is in mm; the bridge converts to/from Revit internal feet (`1 ft = 304.8 mm`). Raw C# scripts bypass this conversion and talk to the Revit API directly in internal feet — see the units constraint in [references/csharp-scripting.md](references/csharp-scripting.md).
 
 Full command table, argument shortcuts, dynamic discovery, SSE events, and configuration: [references/cli-reference.md](references/cli-reference.md).

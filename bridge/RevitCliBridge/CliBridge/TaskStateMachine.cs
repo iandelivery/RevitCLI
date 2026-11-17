@@ -5,8 +5,10 @@ namespace RevitCliBridge
     /// <summary>
     /// Pure-logic state machine for <see cref="TaskInfo"/> lifecycle transitions.
     /// Extracted from <see cref="TaskRegistry"/> so the transition rules
-    /// (Pending → Running → Completed/Failed) and invariant enforcement
+    /// (Pending → Running → Completed/Failed/Timeout) and invariant enforcement
     /// can be unit-tested without the static <see cref="TaskRegistry"/> singleton.
+    /// Terminal states are final: the first terminal transition wins and later
+    /// transitions are ignored, so a timed-out task cannot flip back to completed.
     /// </summary>
     /// <remarks>
     /// All methods operate on a <see cref="TaskInfo"/> instance passed in by
@@ -16,13 +18,20 @@ namespace RevitCliBridge
     public static class TaskStateMachine
     {
         /// <summary>
+        /// Reports whether the status is terminal (no further transitions allowed).
+        /// </summary>
+        public static bool IsTerminal(CliTaskStatus status)
+            => status is CliTaskStatus.Completed or CliTaskStatus.Failed or CliTaskStatus.Timeout;
+
+        /// <summary>
         /// Transition a task from Pending to Running, stamp StartedAt, and
         /// broadcast a "progress" event with progress=0.
-        /// No-op if the task is null (mirrors TaskRegistry.SetRunning).
+        /// No-op if the task is null or already terminal.
         /// </summary>
         public static void SetRunning(TaskInfo? task)
         {
             if (task is null) return;
+            if (IsTerminal(task.Status)) return;
 
             task.Status = CliTaskStatus.Running;
             task.StartedAt = DateTime.Now;
@@ -47,11 +56,13 @@ namespace RevitCliBridge
         /// <summary>
         /// Transition a task to Completed, stamp CompletedAt, cache resultJson,
         /// broadcast a "completed" event, and complete the TaskCompletionSource.
-        /// No-op if the task is null. TrySetResult guards against double-completion.
+        /// No-op if the task is null or already terminal (the first terminal
+        /// transition wins). TrySetResult guards against double-completion.
         /// </summary>
         public static void SetCompleted(TaskInfo? task, string resultJson)
         {
             if (task is null) return;
+            if (IsTerminal(task.Status)) return;
 
             task.Status = CliTaskStatus.Completed;
             task.ResultJson = resultJson;
@@ -64,16 +75,36 @@ namespace RevitCliBridge
         /// Transition a task to Failed, stamp CompletedAt, cache errorJson,
         /// broadcast a "failed" event, and complete the TaskCompletionSource
         /// with the error payload.
-        /// No-op if the task is null. TrySetResult guards against double-completion.
+        /// No-op if the task is null or already terminal (the first terminal
+        /// transition wins). TrySetResult guards against double-completion.
         /// </summary>
         public static void SetFailed(TaskInfo? task, string errorJson)
         {
             if (task is null) return;
+            if (IsTerminal(task.Status)) return;
 
             task.Status = CliTaskStatus.Failed;
             task.ResultJson = errorJson;
             task.CompletedAt = DateTime.Now;
             task.Broadcast("failed", new { task_id = task.TaskId, status = "failed", result = SafeParseJson(errorJson) });
+            task.Tcs.TrySetResult(errorJson);
+        }
+
+        /// <summary>
+        /// Transition a task to Timeout, stamp CompletedAt, cache errorJson,
+        /// broadcast a "failed" event (so SSE clients terminate promptly) with
+        /// status "timeout", and complete the TaskCompletionSource with the
+        /// error payload. No-op if the task is null or already terminal.
+        /// </summary>
+        public static void SetTimeout(TaskInfo? task, string errorJson)
+        {
+            if (task is null) return;
+            if (IsTerminal(task.Status)) return;
+
+            task.Status = CliTaskStatus.Timeout;
+            task.ResultJson = errorJson;
+            task.CompletedAt = DateTime.Now;
+            task.Broadcast("failed", new { task_id = task.TaskId, status = "timeout", result = SafeParseJson(errorJson) });
             task.Tcs.TrySetResult(errorJson);
         }
 

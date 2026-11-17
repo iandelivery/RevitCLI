@@ -37,20 +37,27 @@ public static TaskInfo CreateTask(string taskId, string command);
 public static void SetRunning(string taskId);     // → TaskStateMachine.SetRunning(task)
 public static void SetCompleted(string taskId, string resultJson);
 public static void SetFailed(string taskId, string errorJson);
+public static void SetTimeout(string taskId, string errorJson);
+public static TaskInfo? FindByRequestId(string requestId);
 
 // TaskStateMachine — pure logic, operates on a TaskInfo instance
+public static bool IsTerminal(CliTaskStatus status);
 public static void SetRunning(TaskInfo? task);              // Pending→Running, stamp, broadcast
 public static void SetCompleted(TaskInfo? task, string r);  // → Completed, TCS.TrySetResult
 public static void SetFailed(TaskInfo? task, string r);     // → Failed, TCS.TrySetResult
+public static void SetTimeout(TaskInfo? task, string r);    // → Timeout, TCS.TrySetResult
 ```
 
 `TrySetResult` (not `SetResult`) avoids `InvalidOperationException` on double-set.
-`CleanupOldTasks()` runs after each command loop to prevent memory leaks.
+Terminal states (`Completed`, `Failed`, `Timeout`) are final: later transitions
+are ignored, so a timed-out task cannot flip back to completed.
+`CleanupOldTasks()` runs after each command loop; completed tasks are kept for
+`task_retention_seconds` (default 900), failed and timed-out tasks for one hour.
 
 **Task lifecycle**: `pending → running → completed | failed | timeout`
 
 **TaskInfo** (all mutable fields `lock`-protected; `Tcs` is `[JsonIgnore]`):
-`TaskId`, `Command`, `Status`, `Progress`, `ProgressMessage`, `ResultJson`,
+`TaskId`, `RequestId`, `Command`, `Status`, `Progress`, `ProgressMessage`, `ResultJson`,
 `CreatedAt`, `StartedAt`, `CompletedAt`, `Tcs`.
 
 > The enum is `CliTaskStatus` (not `TaskStatus`) to avoid clashing with
