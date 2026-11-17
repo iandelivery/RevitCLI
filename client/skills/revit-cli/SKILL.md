@@ -96,6 +96,8 @@ Global flags (usable on any command):
 
 A timed-out task may still have committed its Revit transaction, because the Revit API cannot be canceled mid-call. Treat exit code 3 as "outcome unknown": check the model with a query command before retrying, or retry with the same `--request-id` so the bridge deduplicates instead of creating a second element.
 
+**Streams**: stdout carries the result JSON only. Progress lines, `task_id`, and error payloads go to stderr, so `revit-cli.exe <command> 2>$null` yields parseable JSON.
+
 **Units**: the client uses **millimeters** — every distance, coordinate, and size argument of high-level commands (and every such value returned) is in mm; the bridge converts to/from Revit internal feet (`1 ft = 304.8 mm`). Raw C# scripts bypass this conversion and talk to the Revit API directly in internal feet — see the units constraint in [references/csharp-scripting.md](references/csharp-scripting.md).
 
 Full command table, argument shortcuts, dynamic discovery, SSE events, and configuration: [references/cli-reference.md](references/cli-reference.md).

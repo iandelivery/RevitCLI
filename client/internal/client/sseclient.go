@@ -83,7 +83,7 @@ func (c *SseClient) Execute(ctx context.Context, command string, parameters inte
 			"detail":  err.Error(),
 		}
 		b, _ := json.MarshalIndent(errResp, "", "  ")
-		fmt.Println(string(b))
+		fmt.Fprintln(os.Stderr, string(b))
 		return ExitConnect
 	}
 	return exitCode
@@ -293,9 +293,9 @@ func (c *SseClient) handleSSEEvent(eventName, data string, lastProgress *int) (i
 					msg, _ = v.(string)
 				}
 				if msg != "" {
-					fmt.Fprintf(os.Stdout, "\r  Progress: %d%% - %s    ", pct, msg)
+					fmt.Fprintf(os.Stderr, "\r  Progress: %d%% - %s    ", pct, msg)
 				} else {
-					fmt.Fprintf(os.Stdout, "\r  Progress: %d%%    ", pct)
+					fmt.Fprintf(os.Stderr, "\r  Progress: %d%%    ", pct)
 				}
 			}
 		}
@@ -409,16 +409,16 @@ func (c *SseClient) pollTaskResult(ctx context.Context, taskID string, maxWaitSe
 						msg, _ = v.(string)
 					}
 					if msg != "" {
-						fmt.Fprintf(os.Stdout, "\r  Progress: %d%% - %s    ", pct, msg)
+						fmt.Fprintf(os.Stderr, "\r  Progress: %d%% - %s    ", pct, msg)
 					} else {
-						fmt.Fprintf(os.Stdout, "\r  Progress: %d%%    ", pct)
+						fmt.Fprintf(os.Stderr, "\r  Progress: %d%%    ", pct)
 					}
 				}
 			}
 		}
 	}
 
-	fmt.Printf("\nTask %s timed out after %d seconds.\n", taskID, maxWaitSeconds)
+	fmt.Fprintf(os.Stderr, "\nTask %s timed out after %d seconds.\n", taskID, maxWaitSeconds)
 	return ExitTimeout
 }
 
