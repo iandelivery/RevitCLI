@@ -7,6 +7,44 @@ commits — feat/fix only). Do not edit released sections. Historical
 releases before v1.12.0 live on the
 [GitHub Releases page](https://github.com/iandelivery/RevitCLI/releases).
 
+## v1.18.0 (2026-11-17)
+
+- **Retry-safe commands** — pass `--request-id <id>` on any command and the
+  bridge returns the existing task instead of running it twice. A timed-out
+  task now stays `timeout` permanently (previously it could flip back to
+  `completed` when Revit finished the work late, so a retried command could
+  run twice).
+- **Detached long tasks** — `--no-wait` submits a command, prints
+  `task_id: <id>`, and exits 0 immediately; poll later with
+  `revit-cli.exe task -ti <id>`. `--timeout <seconds>` raises the
+  per-command budget (default 120) for long `batch_export` or `execute_raw`
+  runs. The `task_id` is also printed on the SSE `accepted` event, so a
+  killed process leaves its ID behind.
+- **Documented exit codes** — 0 success, 1 usage error, 2 bridge
+  unreachable or auth rejected, 3 timed out, 4 command failed. stdout now
+  carries the result JSON only; progress, `task_id`, and errors go to
+  stderr, so `revit-cli.exe <command> 2>$null` yields parseable JSON.
+- **Self-service discovery** — dynamic commands answer `--help` with their
+  schema (description, parameters, defaults, examples), unknown names get
+  up to three "Did you mean" suggestions from both the client (offline via
+  the schema cache) and the bridge, and `--dry-run` is rejected locally for
+  commands whose schema says unsupported.
+- **`execute_raw --stdin`** — pipe a C# script instead of fighting shell
+  quoting on Windows (`Get-Content script.cs -Raw | revit-cli.exe
+  execute_raw --stdin`).
+- **`resolved_failures` reporting** — when Revit auto-resolves model errors
+  during a `create_walls` commit, the response now carries a
+  `resolved_failures` array so agents can tell a clean commit from a
+  corrected one.
+- **Configurable task retention** — `task_retention_seconds` in
+  `cli_bridge_setting.json` (default 900) controls how long finished task
+  results stay queryable; failed and timed-out tasks are kept for an hour,
+  and the task 404 response explains the window.
+- **Docs** — SKILL.md now documents the exit-code/stream contract, the
+  correct `raw-mode` command name, and `--stdin`; the READMEs cover the
+  new global flags; Dependabot no longer opens nuget PRs against the
+  Revit-pinned bridge.
+
 ## v1.17.2 (2026-11-16)
 
 - **Skill installs default to user level** — `skill install` now roots

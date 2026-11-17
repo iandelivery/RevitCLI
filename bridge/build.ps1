@@ -158,7 +158,7 @@ if ($Clean -and (Test-Path $OutputDir)) {
 # ---------------------------------------------------------------------------
 # 1.5 Derive the semantic version from the latest v* tag
 # ---------------------------------------------------------------------------
-# Mirrors the Release workflow: tag v1.17.2 -> Major=1 Minor=17 Patch=2, so a
+# Mirrors the Release workflow: tag v1.18.0 -> Major=1 Minor=18 Patch=0, so a
 # local build stamps the same {RevitYear}.{Major}.{Minor}.{Patch} as the
 # released binaries instead of the stale csproj placeholder defaults. When no
 # tag is reachable (shallow clone, detached scratch), fall back to the csproj
