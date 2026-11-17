@@ -40,9 +40,16 @@ func (d *DynamicCommand) Metadata() abstractions.CommandMetadata {
 }
 
 // Handle parses CLI args against the schema, validates required parameters,
-// and forwards the command to the bridge via sendCommand.
+// and forwards the command to the bridge via sendCommand. --help and -h
+// print the schema-derived help block and return 0 without contacting the
+// bridge.
 // Mirrors C# DynamicCommand.HandleAsync.
 func (d *DynamicCommand) Handle(ctx context.Context, args []string, send abstractions.SendCommandFunc) int {
+	if abstractions.HasFlag(args, "--help", "-h") {
+		fmt.Print(d.buildHelp())
+		return 0
+	}
+
 	params := d.parseArgs(args)
 
 	var missing []string
@@ -93,6 +100,49 @@ func (d *DynamicCommand) parseArgs(args []string) map[string]interface{} {
 	}
 
 	return result
+}
+
+// buildHelp renders the help block for this command from the schema:
+// name, description, usage line, parameter details, dry-run support,
+// and examples. Everything it prints comes from the CommandDef, so help
+// works offline from the stale schema cache.
+func (d *DynamicCommand) buildHelp() string {
+	var sb strings.Builder
+
+	fmt.Fprintf(&sb, "%s\n", d.def.Name)
+	if d.def.Description != "" {
+		fmt.Fprintf(&sb, "%s\n", d.def.Description)
+	}
+	fmt.Fprintf(&sb, "\nUsage:\n  revit-cli %s\n", d.buildUsage())
+
+	if len(d.def.Parameters) > 0 {
+		sb.WriteString("\nParameters:\n")
+		for _, p := range d.def.Parameters {
+			line := fmt.Sprintf("  --%s <%s>", p.Name, p.Type)
+			if p.Required {
+				line += " (required)"
+			} else if p.Default != nil {
+				line += fmt.Sprintf(" (default: %v)", p.Default)
+			}
+			if p.ShortFlag != "" {
+				line += fmt.Sprintf("  [-%s]", p.ShortFlag)
+			}
+			sb.WriteString(line + "\n")
+		}
+	}
+
+	if d.def.SupportsDryRun {
+		sb.WriteString("\n  --dry-run executes the command and rolls back the transaction\n")
+	}
+
+	if len(d.def.Examples) > 0 {
+		sb.WriteString("\nExamples:\n")
+		for _, ex := range d.def.Examples {
+			fmt.Fprintf(&sb, "  %s\n", ex)
+		}
+	}
+
+	return sb.String()
 }
 
 // buildUsage constructs a usage string from the schema's parameters.
