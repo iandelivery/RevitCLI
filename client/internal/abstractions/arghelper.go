@@ -58,21 +58,37 @@ func HasFlag(args []string, flags ...string) bool {
 	return false
 }
 
+// GlobalValueFlags lists the global flags that take a separate value
+// argument ("--flag value" or inline "--flag=value"). main's argument
+// scanner and FirstPositional share this list so every caller skips the
+// same flags regardless of position.
+var GlobalValueFlags = []string{"--url", "--pid", "--revit", "--timeout", "--request-id"}
+
+// IsGlobalValueFlag reports whether arg is one of GlobalValueFlags, in
+// either the "--flag" or the inline "--flag=value" form.
+func IsGlobalValueFlag(arg string) bool {
+	for _, flag := range GlobalValueFlags {
+		if arg == flag || strings.HasPrefix(arg, flag+"=") {
+			return true
+		}
+	}
+	return false
+}
+
 // FirstPositional returns the first positional argument in args and the
-// remaining arguments after it. It skips the global connection flags
-// (--url/--pid/--revit in both "--flag value" and "--flag=value" forms) and
-// any other leading flags, so built-in handlers that dispatch on a
-// sub-command or command name work regardless of where the user placed the
-// global flags (e.g. "revit-cli --revit 2019 schema create_wall"). Mirrors
-// the flag-skipping loop in main.dispatchDynamic.
+// remaining arguments after it. It skips the global value flags listed in
+// GlobalValueFlags (in both "--flag value" and "--flag=value" forms), other
+// leading flags such as --no-wait, and their values, so built-in handlers
+// that dispatch on a sub-command or command name work regardless of where
+// the user placed the global flags (e.g. "revit-cli --revit 2019 schema
+// create_wall").
 func FirstPositional(args []string) (string, []string) {
 	for i := 0; i < len(args); i++ {
 		a := args[i]
-		if a == "--url" || a == "--pid" || a == "--revit" {
-			i++
-			continue
-		}
-		if strings.HasPrefix(a, "--url=") || strings.HasPrefix(a, "--pid=") || strings.HasPrefix(a, "--revit=") {
+		if IsGlobalValueFlag(a) {
+			if !strings.Contains(a, "=") {
+				i++
+			}
 			continue
 		}
 		if strings.HasPrefix(a, "-") {

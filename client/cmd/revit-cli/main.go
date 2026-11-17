@@ -5,11 +5,14 @@ package main
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"fmt"
 	"net/http"
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"revit-cli/internal/abstractions"
 	"revit-cli/internal/client"
@@ -39,10 +42,88 @@ const banner = ".-./`)    ____    ,---.   .--.            _______   .---.  .---.
 var exitCode int
 
 var (
-	flagURL   string
-	flagPID   int
-	flagRevit int
+	flagURL       string
+	flagPID       int
+	flagRevit     int
+	flagTimeout   int
+	flagNoWait    bool
+	flagRequestID string
 )
+
+// globalOptions carries the parsed global flags shared by every execution
+// path: connection targeting (--url/--pid/--revit) and the execution
+// contract flags (--timeout/--no-wait/--request-id).
+type globalOptions struct {
+	url       string
+	pid       int
+	revit     int
+	timeout   int
+	noWait    bool
+	requestID string
+}
+
+// parseGlobalOptions scans args for the global flags in both "--flag value"
+// and inline "--flag=value" forms. Invalid values exit the process with a
+// usage error, matching the historical resolveBaseURL behavior.
+func parseGlobalOptions(args []string) globalOptions {
+	var opts globalOptions
+	for i := 0; i < len(args); i++ {
+		a := args[i]
+
+		if a == "--no-wait" {
+			opts.noWait = true
+			continue
+		}
+		if !abstractions.IsGlobalValueFlag(a) {
+			continue
+		}
+
+		var val string
+		if idx := strings.Index(a, "="); idx >= 0 {
+			val = a[idx+1:]
+		} else {
+			if i+1 >= len(args) {
+				continue
+			}
+			val = args[i+1]
+			i++
+		}
+
+		name := a
+		if idx := strings.Index(a, "="); idx >= 0 {
+			name = a[:idx]
+		}
+
+		switch name {
+		case "--url":
+			opts.url = strings.TrimRight(val, "/")
+		case "--pid":
+			v, err := strconv.Atoi(val)
+			if err != nil || v <= 0 {
+				fmt.Fprintf(os.Stderr, "Invalid --pid value: %s (expected positive integer)\n", val)
+				os.Exit(1)
+			}
+			opts.pid = v
+		case "--revit":
+			if v, ok := instance.ParseVersion(val); ok {
+				opts.revit = v
+			} else {
+				fmt.Fprintf(os.Stderr, "Invalid --revit version: %s (expected e.g. 2022)\n", val)
+				os.Exit(1)
+			}
+		case "--timeout":
+			v, err := strconv.Atoi(val)
+			if err != nil || v < 1 {
+				fmt.Fprintf(os.Stderr, "Invalid --timeout value: %s (expected a positive number of seconds)\n", val)
+				os.Exit(1)
+			}
+			opts.timeout = v
+		case "--request-id":
+			opts.requestID = val
+		}
+	}
+	return opts
+}
 
 func main() {
 	builtin.ClientVersion = Version
@@ -55,9 +136,12 @@ func main() {
 
 const skillHint = "AI agent integration: run 'revit-cli skill install' to register this tool with Claude Code / Cursor / Trae / CodeBuddy."
 
+const contractHint = "Global flags: --url <url>, --pid <pid>, --revit <version>, --timeout <seconds>, --no-wait, --request-id <id>\n" +
+	"Exit codes: 0 success, 1 usage error, 2 bridge unreachable or auth rejected, 3 timed out, 4 command failed"
+
 func newRootCmd() *cobra.Command {
-	longDesc := fmt.Sprintf("%s\n\nRevit CLI Client (Go) v%s\nCommand-line tool for AI agents to drive Autodesk Revit.\nDeveloped by %s.\n\n%s",
-		banner, Version, Author, skillHint)
+	longDesc := fmt.Sprintf("%s\n\nRevit CLI Client (Go) v%s\nCommand-line tool for AI agents to drive Autodesk Revit.\nDeveloped by %s.\n\n%s\n\n%s",
+		banner, Version, Author, skillHint, contractHint)
 	root := &cobra.Command{
 		Use:                "revit-cli [flags] <command> [args]",
 		Short:              "Command-line tool for AI agents to drive Autodesk Revit",
@@ -90,78 +174,48 @@ func newRootCmd() *cobra.Command {
 	root.PersistentFlags().StringVar(&flagURL, "url", "", "Revit CLI server address (default: auto-discover)")
 	root.PersistentFlags().IntVar(&flagPID, "pid", 0, "Connect to a specific Revit instance by process ID")
 	root.PersistentFlags().IntVar(&flagRevit, "revit", 0, "Connect to a specific Revit version (e.g. 2022)")
+	root.PersistentFlags().IntVar(&flagTimeout, "timeout", 120, "Per-command timeout in seconds")
+	root.PersistentFlags().BoolVar(&flagNoWait, "no-wait", false, "Submit the command and return the task ID immediately")
+	root.PersistentFlags().StringVar(&flagRequestID, "request-id", "", "Stable request ID; the bridge deduplicates retries that reuse it")
 
 	registerBuiltinCmds(root)
 	return root
 }
 
-func resolveBaseURL() string {
-	args := os.Args[1:]
-	var explicitURL string
-	var pidFlag int
-	var revitFlag int
-
-	for i := 0; i < len(args); i++ {
-		switch args[i] {
-		case "--url":
-			if i+1 < len(args) {
-				explicitURL = strings.TrimRight(args[i+1], "/")
-				i++
-			}
-		case "--pid":
-			if i+1 < len(args) {
-				v, err := strconv.Atoi(args[i+1])
-				if err != nil || v <= 0 {
-					fmt.Fprintf(os.Stderr, "Invalid --pid value: %s (expected positive integer)\n", args[i+1])
-					os.Exit(1)
-				}
-				pidFlag = v
-				i++
-			}
-		case "--revit":
-			if i+1 < len(args) {
-				if v, ok := instance.ParseVersion(args[i+1]); ok {
-					revitFlag = v
-				} else {
-					fmt.Fprintf(os.Stderr, "Invalid --revit version: %s (expected e.g. 2022)\n", args[i+1])
-					os.Exit(1)
-				}
-				i++
-			}
-		}
-	}
-
-	return instance.ResolveURL(explicitURL, pidFlag, revitFlag)
+func resolveBaseURL(args []string) string {
+	opts := parseGlobalOptions(args)
+	return instance.ResolveURL(opts.url, opts.pid, opts.revit)
 }
 
-func makeSend(baseURL string) abstractions.SendCommandFunc {
+func makeSend(baseURL string, opts globalOptions) abstractions.SendCommandFunc {
 	sseClient := client.NewSseClient(baseURL)
+	if opts.timeout > 0 {
+		sseClient.TimeoutSeconds = opts.timeout
+	}
+	sseClient.NoWait = opts.noWait
+	if opts.requestID != "" {
+		sseClient.RequestID = opts.requestID
+	} else {
+		sseClient.RequestID = generateRequestID()
+	}
 	return abstractions.SendCommandFunc(func(ctx context.Context, cmd string, params interface{}, extra ...map[string]interface{}) int {
 		return sseClient.Execute(ctx, cmd, params, extra...)
 	})
 }
 
-func dispatchDynamic(args []string) int {
-	baseURL := resolveBaseURL()
-
-	cmdName := ""
-	var cmdArgs []string
-	for i := 0; i < len(args); i++ {
-		a := args[i]
-		if a == "--url" || a == "--pid" || a == "--revit" {
-			i++
-			continue
-		}
-		if strings.HasPrefix(a, "--url=") || strings.HasPrefix(a, "--pid=") || strings.HasPrefix(a, "--revit=") {
-			continue
-		}
-		if strings.HasPrefix(a, "-") {
-			continue
-		}
-		cmdName = a
-		cmdArgs = args[i+1:]
-		break
+func generateRequestID() string {
+	b := make([]byte, 4)
+	if _, err := rand.Read(b); err != nil {
+		return fmt.Sprintf("%d", time.Now().UnixNano())
 	}
+	return hex.EncodeToString(b)
+}
+
+func dispatchDynamic(args []string) int {
+	opts := parseGlobalOptions(args)
+	baseURL := instance.ResolveURL(opts.url, opts.pid, opts.revit)
+
+	cmdName, cmdArgs := abstractions.FirstPositional(args)
 	if cmdName == "" {
 		return 0
 	}
@@ -171,7 +225,7 @@ func dispatchDynamic(args []string) int {
 
 	if def := fetcher.FetchCommand(cmdName); def != nil {
 		dynCmd := discovery.NewDynamicCommand(*def)
-		send := makeSend(baseURL)
+		send := makeSend(baseURL, opts)
 		return dynCmd.Handle(context.Background(), cmdArgs, send)
 	}
 
@@ -196,7 +250,7 @@ func dispatchDynamic(args []string) int {
 			}
 		}
 		dynCmd := discovery.NewDynamicCommand(def)
-		send := makeSend(baseURL)
+		send := makeSend(baseURL, opts)
 		return dynCmd.Handle(context.Background(), cmdArgs, send)
 	}
 
@@ -361,9 +415,10 @@ func newBuiltinCmd(use, short string, examples []string, needsURL bool,
 			var httpClient *http.Client
 
 			if needsURL {
-				baseURL = resolveBaseURL()
+				opts := parseGlobalOptions(args)
+				baseURL = instance.ResolveURL(opts.url, opts.pid, opts.revit)
 				httpClient = &http.Client{Timeout: 0}
-				send = makeSend(baseURL)
+				send = makeSend(baseURL, opts)
 			} else {
 				send = abstractions.SendCommandFunc(func(_ context.Context, _ string, _ interface{}, _ ...map[string]interface{}) int {
 					fmt.Fprintln(os.Stderr, "Error: this command does not use the bridge connection.")

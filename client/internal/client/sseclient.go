@@ -16,24 +16,61 @@ import (
 	"revit-cli/internal/client/auth"
 )
 
+// Process exit codes, shared by every execution path:
+// 0 success, 1 usage error, 2 unreachable or auth rejected,
+// 3 task timed out, 4 command ran and failed.
+const (
+	ExitSuccess     = 0
+	ExitUsage       = 1
+	ExitConnect     = 2
+	ExitTimeout     = 3
+	ExitCommandFail = 4
+)
+
+// defaultTimeoutSeconds is the per-command budget when --timeout is absent.
+// The bridge default (timeout_seconds in cli_bridge_setting.json) is higher;
+// this value keeps the historical client behavior.
+const defaultTimeoutSeconds = 120
+
+// bridgeTimeoutMessage is the fixed text the bridge returns when a task
+// exceeds its timeout. Both sides own this string; keep them in sync.
+const bridgeTimeoutMessage = "Revit API execution timed out."
+
 // SseClient handles command execution via SSE stream with legacy polling
 // fallback. Mirrors C# RevitCliClient.SseClient.
 type SseClient struct {
 	httpClient    *http.Client
 	baseURL       string
 	lastSseTaskID string
+
+	// TimeoutSeconds is the per-command budget in seconds (default 120).
+	TimeoutSeconds int
+	// NoWait submits the command asynchronously and returns the task ID
+	// immediately instead of waiting for the result.
+	NoWait bool
+	// RequestID is sent as X-Request-Id. The bridge deduplicates retries
+	// that reuse the same value instead of running the command twice.
+	RequestID string
 }
 
 // NewSseClient creates a new SSE client targeting the given base URL.
 func NewSseClient(baseURL string) *SseClient {
 	return &SseClient{
-		httpClient: &http.Client{Timeout: 0},
-		baseURL:    baseURL,
+		httpClient:     &http.Client{Timeout: 0},
+		baseURL:        baseURL,
+		TimeoutSeconds: defaultTimeoutSeconds,
 	}
 }
 
+func (c *SseClient) timeoutSeconds() int {
+	if c.TimeoutSeconds > 0 {
+		return c.TimeoutSeconds
+	}
+	return defaultTimeoutSeconds
+}
+
 // Execute sends a command to the bridge and streams the result via SSE.
-// Returns the process exit code (0 success, 1 failure).
+// Returns the process exit code (see Exit* constants).
 // extraTopLevel maps are merged into the JSON payload's top level, letting
 // callers forward bridge-level fields such as dry_run from raw JSON input.
 // Mirrors C# SseClient.ExecuteAsync.
@@ -47,7 +84,7 @@ func (c *SseClient) Execute(ctx context.Context, command string, parameters inte
 		}
 		b, _ := json.MarshalIndent(errResp, "", "  ")
 		fmt.Println(string(b))
-		return 1
+		return ExitConnect
 	}
 	return exitCode
 }
@@ -57,7 +94,10 @@ func (c *SseClient) Execute(ctx context.Context, command string, parameters inte
 func (c *SseClient) consumeSSEStream(ctx context.Context, command string, parameters interface{}, extraTopLevel ...map[string]interface{}) (int, error) {
 	payload := map[string]interface{}{
 		"command":         command,
-		"timeout_seconds": 120,
+		"timeout_seconds": c.timeoutSeconds(),
+	}
+	if c.NoWait {
+		payload["async"] = true
 	}
 	if parameters != nil {
 		if pm, ok := parameters.(map[string]interface{}); ok {
@@ -76,20 +116,25 @@ func (c *SseClient) consumeSSEStream(ctx context.Context, command string, parame
 
 	body, err := json.Marshal(payload)
 	if err != nil {
-		return 1, err
+		return ExitCommandFail, err
 	}
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.baseURL+"/api/execute", bytes.NewReader(body))
 	if err != nil {
-		return 1, err
+		return ExitCommandFail, err
 	}
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Accept", "text/event-stream")
+	if !c.NoWait {
+		req.Header.Set("Accept", "text/event-stream")
+	}
+	if c.RequestID != "" {
+		req.Header.Set("X-Request-Id", c.RequestID)
+	}
 	auth.WithAuth(req, c.baseURL)
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		return 1, err
+		return ExitConnect, err
 	}
 	defer resp.Body.Close()
 
@@ -101,32 +146,69 @@ func (c *SseClient) consumeSSEStream(ctx context.Context, command string, parame
 	return c.readSSEStream(ctx, command, resp.Body)
 }
 
-// handleLegacyResponse processes a non-SSE JSON response, potentially polling
-// for an async task. Mirrors C# SseClient.HandleLegacyResponseAsync.
+// handleLegacyResponse processes a non-SSE JSON response: an async submit
+// receipt (--no-wait), a task-status snapshot (request-id dedup), a
+// CommandResponse error, or any other legacy JSON. Mirrors C#
+// SseClient.HandleLegacyResponseAsync.
 func (c *SseClient) handleLegacyResponse(resp *http.Response) (int, error) {
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return 1, err
+		return ExitCommandFail, err
 	}
 
 	var obj map[string]interface{}
 	if err := json.Unmarshal(body, &obj); err != nil {
 		fmt.Println(string(body))
-		return 1, nil
+		return legacyHTTPExitCode(resp.StatusCode), nil
 	}
 
-	if status, _ := obj["status"].(string); status == "pending" {
+	switch status, _ := obj["status"].(string); status {
+	case "pending":
 		if taskID, ok := obj["task_id"].(string); ok {
-			fmt.Printf("Task submitted: %s. Polling for result...\n", taskID)
-			return c.pollTaskResult(context.Background(), taskID, 120, 500), nil
+			if c.NoWait {
+				fmt.Printf("task_id: %s\n", taskID)
+				return ExitSuccess, nil
+			}
+			fmt.Fprintf(os.Stderr, "Task submitted: %s. Polling for result...\n", taskID)
+			return c.pollTaskResult(context.Background(), taskID, c.timeoutSeconds(), 500), nil
 		}
+	case "completed", "failed", "timeout":
+		if result, ok := obj["result"]; ok {
+			fmt.Println(formatJSON(result))
+		} else {
+			fmt.Println(string(body))
+		}
+		switch status {
+		case "completed":
+			return ExitSuccess, nil
+		case "timeout":
+			return ExitTimeout, nil
+		default:
+			return ExitCommandFail, nil
+		}
+	case "error":
+		fmt.Println(string(body))
+		if resultMessage(obj) == bridgeTimeoutMessage {
+			return ExitTimeout, nil
+		}
+		return legacyHTTPExitCode(resp.StatusCode), nil
 	}
 
 	fmt.Println(string(body))
-	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
-		return 0, nil
+	return legacyHTTPExitCode(resp.StatusCode), nil
+}
+
+// legacyHTTPExitCode maps an HTTP status to the exit-code contract:
+// 401 means the bridge rejected the API key (or the client cannot reach it);
+// other non-2xx statuses mean the command ran and failed.
+func legacyHTTPExitCode(statusCode int) int {
+	if statusCode == http.StatusUnauthorized {
+		return ExitConnect
 	}
-	return 1, nil
+	if statusCode >= 200 && statusCode < 300 {
+		return ExitSuccess
+	}
+	return ExitCommandFail
 }
 
 // readSSEStream reads the SSE event stream and dispatches events.
@@ -193,6 +275,7 @@ func (c *SseClient) handleSSEEvent(eventName, data string, lastProgress *int) (i
 	case "accepted":
 		if taskID, ok := obj["task_id"].(string); ok {
 			c.lastSseTaskID = taskID
+			fmt.Fprintf(os.Stderr, "task_id: %s\n", taskID)
 		}
 
 	case "progress":
@@ -221,17 +304,35 @@ func (c *SseClient) handleSSEEvent(eventName, data string, lastProgress *int) (i
 		if result, ok := obj["result"]; ok {
 			fmt.Fprintf(os.Stdout, "\n%s\n", formatJSON(result))
 		}
-		return 0, true
+		return ExitSuccess, true
 
 	case "failed":
 		if result, ok := obj["result"]; ok {
 			fmt.Fprintf(os.Stderr, "\n%s\n", formatJSON(result))
 		}
-		return 1, true
+		if resultMessage(obj) == bridgeTimeoutMessage {
+			return ExitTimeout, true
+		}
+		return ExitCommandFail, true
 
 	case "heartbeat":
 	}
 	return 0, false
+}
+
+// resultMessage extracts the human-readable message from either a
+// CommandResponse ({"message": ...}) or an SSE terminal event whose result
+// carries the message ({"result": {"message": ...}}).
+func resultMessage(obj map[string]interface{}) string {
+	if m, ok := obj["message"].(string); ok {
+		return m
+	}
+	if r, ok := obj["result"].(map[string]interface{}); ok {
+		if m, ok := r["message"].(string); ok {
+			return m
+		}
+	}
+	return ""
 }
 
 // fallbackPollLastTask polls the last known task ID after an SSE failure.
@@ -239,9 +340,9 @@ func (c *SseClient) handleSSEEvent(eventName, data string, lastProgress *int) (i
 func (c *SseClient) fallbackPollLastTask(command string) int {
 	if c.lastSseTaskID == "" {
 		log.Printf("[SSE] No task_id for fallback. Command: %s", command)
-		return 1
+		return ExitConnect
 	}
-	return c.pollTaskResult(context.Background(), c.lastSseTaskID, 120, 500)
+	return c.pollTaskResult(context.Background(), c.lastSseTaskID, c.timeoutSeconds(), 500)
 }
 
 // pollTaskResult polls GET /api/task/{id} until completion or timeout.
@@ -289,10 +390,14 @@ func (c *SseClient) pollTaskResult(ctx context.Context, taskID string, maxWaitSe
 			} else {
 				fmt.Println(string(body))
 			}
-			if status == "completed" {
-				return 0
+			switch status {
+			case "completed":
+				return ExitSuccess
+			case "timeout":
+				return ExitTimeout
+			default:
+				return ExitCommandFail
 			}
-			return 1
 		}
 
 		if progress, ok := taskObj["progress"]; ok && progress != nil {
@@ -314,7 +419,7 @@ func (c *SseClient) pollTaskResult(ctx context.Context, taskID string, maxWaitSe
 	}
 
 	fmt.Printf("\nTask %s timed out after %d seconds.\n", taskID, maxWaitSeconds)
-	return 1
+	return ExitTimeout
 }
 
 func readLineWithTimeout(ctx context.Context, reader *bufio.Reader, timeout time.Duration) (string, error) {
