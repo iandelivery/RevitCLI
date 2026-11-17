@@ -152,10 +152,13 @@ func newRootCmd() *cobra.Command {
 		SilenceErrors:      true,
 		Args:               cobra.ArbitraryArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if len(args) == 0 {
+				return cmd.Help()
+			}
+			if helpName, _ := abstractions.FirstPositional(args); abstractions.HasFlag(args, "--help", "-h") && helpName == "" {
+				return cmd.Help()
+			}
 			for _, a := range args {
-				if a == "--help" || a == "-h" {
-					return cmd.Help()
-				}
 				if a == "--version" || a == "-V" {
 					fmt.Println(banner)
 					fmt.Printf("revit-cli %s\n", Version)
@@ -163,9 +166,6 @@ func newRootCmd() *cobra.Command {
 					fmt.Println(skillHint)
 					return nil
 				}
-			}
-			if len(args) == 0 {
-				return cmd.Help()
 			}
 			exitCode = dispatchDynamic(args)
 			return nil
