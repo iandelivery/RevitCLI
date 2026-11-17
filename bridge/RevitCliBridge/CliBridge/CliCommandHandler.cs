@@ -13,6 +13,16 @@ namespace RevitCliBridge
 
             while (TaskRegistry.CommandQueue.TryDequeue(out var queuedCommand))
             {
+                var existing = TaskRegistry.GetTask(queuedCommand.TaskId);
+                if (existing != null && TaskStateMachine.IsTerminal(existing.Status))
+                {
+                    CliLogger.Warn($"skipped_terminal_task",
+                        ("task_id", queuedCommand.TaskId),
+                        ("command", queuedCommand.Command),
+                        ("status", existing.Status.ToString().ToLowerInvariant()));
+                    continue;
+                }
+
                 TaskRegistry.SetRunning(queuedCommand.TaskId);
 
                 string resultJson = "{}";
