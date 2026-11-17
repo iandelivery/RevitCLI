@@ -275,6 +275,14 @@ revit-cli.exe create_pipe_elbow_fitting --element-id-1 12345 --element-id-2 1234
 revit-cli.exe llms
 ```
 
+### 全局参数、退出码与输出流
+
+所有命令都接受全局参数：`--timeout <秒>`（单命令预算，默认 120）、`--no-wait`（提交后打印 `task_id` 立即退出，稍后用 `task -ti <id>` 轮询）、`--request-id <id>`（稳定重试键——桥接器遇到相同 ID 时返回已有任务，不会重复执行）。
+
+退出码：`0` 成功，`1` 用法错误，`2` 无法连接或认证被拒，`3` 超时，`4` 命令执行失败。超时的任务仍可能已提交 Revit 事务；把 `3` 视为"结果未知"。
+
+stdout 只输出结果 JSON；进度行、`task_id` 和错误信息走 stderr，因此重定向 stderr 后即可直接解析 JSON。动态命令支持 `--help`（由 schema 生成），未知命令名会给出最多三条 "Did you mean" 建议。
+
 ### 原始执行模式
 
 `execute_raw` 命令（用于在 Revit API 上执行任意 C# 代码）**默认启用**。`raw-mode` 命令允许你在运行时切换该设置，而无需修改配置文件或重启 Revit：
@@ -291,6 +299,12 @@ revit-cli.exe raw-mode --disable
 ```
 
 该命令通过 `GET /api/raw-mode` 查询当前状态，通过 `POST /api/raw-mode` 进行切换。设置仅保存在内存中——重启 Revit 后会恢复为 `cli_bridge_setting.json` 中 `allow_raw_execution` 的值。若需持久化更改，请直接编辑该文件。
+
+`execute_raw` 支持三种互斥的脚本来源：`--code`、`--file`、`--stdin`。通过管道传入可避免在 Windows 上为多行 C# 转义引号：
+
+```powershell
+Get-Content script.cs -Raw | revit-cli.exe execute_raw --stdin
+```
 
 ## 安装、卸载与更新
 

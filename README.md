@@ -287,6 +287,14 @@ revit-cli.exe toggle_section_box --view-id 12345 --enable false
 revit-cli.exe llms
 ```
 
+### Global flags, exit codes, and streams
+
+Global flags work on every command: `--timeout <seconds>` (per-command budget, default 120), `--no-wait` (submit, print `task_id`, exit immediately; poll later with `task -ti <id>`), and `--request-id <id>` (stable retry key — the bridge returns the existing task instead of running the command twice).
+
+Exit codes: `0` success, `1` usage error, `2` bridge unreachable or auth rejected, `3` timed out, `4` command failed. A timed-out task may still have committed its Revit transaction; treat `3` as "outcome unknown".
+
+stdout carries the result JSON only. Progress lines, `task_id`, and error payloads go to stderr, so piping stderr away yields parseable JSON. Dynamic commands answer `--help` from their schema, and unknown names get up to three "Did you mean" suggestions.
+
 ### Raw Execution Mode
 
 The `execute_raw` command (which runs arbitrary C# code against the Revit API) is **enabled by default**. The `raw-mode` command lets you toggle this at runtime without editing config files or restarting Revit:
@@ -303,6 +311,12 @@ revit-cli.exe raw-mode --disable
 ```
 
 This calls `GET /api/raw-mode` to query and `POST /api/raw-mode` to toggle. The setting is in-memory only — restarting Revit resets it to the value in `cli_bridge_setting.json` (`allow_raw_execution`). For persistent changes, edit that file.
+
+`execute_raw` accepts the script through `--code`, `--file`, or `--stdin` (one at a time). Piping avoids shell quoting of multi-line C# on Windows:
+
+```powershell
+Get-Content script.cs -Raw | revit-cli.exe execute_raw --stdin
+```
 
 ## Install, Uninstall, and Update
 
