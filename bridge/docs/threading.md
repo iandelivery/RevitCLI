@@ -42,7 +42,8 @@
 | Invalid parameters | `ArgHelper` type-safe parsing + `ParameterBinder` validation |
 | External network exposure | Listen on `localhost` only |
 | Running when disabled | `CliBridgeStateManager` + config `enabled` toggle |
-| Task memory leak | `CleanupOldTasks()` removes completed tasks after 5 min |
+| Task memory leak | `CleanupOldTasks()` removes finished tasks after `task_retention_seconds` (failed/timeout kept 1 h) |
+| Timed-out task overwritten | Terminal states final in `TaskStateMachine`; `CliCommandHandler` skips terminal tasks on dequeue |
 | Unbounded concurrency | `SemaphoreSlim(10, 10)` limits concurrent request handlers |
 | Queue overflow | HTTP 429 when `CommandQueue.Count >= max` |
 | Large request bodies | HTTP 413 for bodies > 10 MB |
