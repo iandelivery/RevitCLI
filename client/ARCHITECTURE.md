@@ -16,8 +16,6 @@ client/
 │   │   ├── registry.go            # CommandRegistry (case-insensitive, order-preserving)
 │   │   ├── sseclient.go           # SSE transport with legacy polling fallback
 │   │   ├── helptext.go            # Help text generation
-│   │   ├── outputprocessor.go     # Output post-processing (jq/fields/fmt stubs)
-│   │   ├── util.go                # Shared utilities
 │   │   ├── builtin/               # Always-available commands (no server needed)
 │   │   │   ├── system.go          # ping, status, health, task, raw
 │   │   │   ├── executeraw.go      # execute_raw (forwards to bridge)

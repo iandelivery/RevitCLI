@@ -42,6 +42,8 @@ The client uses **millimeters**: every distance, coordinate, and size argument p
 
 Non-built-in commands are auto-discovered from the bridge schema endpoint (`GET /api/commands`). The schema is cached locally (30-min TTL) under `%AppData%\revit-cli\` with ETag-based conditional requests and stale-cache fallback for offline resilience. Use `commands --refresh` to force a re-fetch.
 
+Every dynamic command accepts the output flags `--fields`, `--fmt`, and `--jq`. The **bridge** executes them; the client forwards arguments untouched, so there is no client-side filtering step.
+
 ## API Reference (llms.txt) and Raw Execution
 
 The bridge exposes `GET /api/llms.txt`, a text index of raw Revit API elements, parameters, and classes. If and only if discovered high-level commands do not cover a need:
