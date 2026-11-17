@@ -161,14 +161,14 @@ namespace RevitCliBridge.Tests
         }
 
         [Fact]
-        public async Task DoubleCompletion_DoesNotThrow()
+        public async Task DoubleCompletion_DoesNotThrowAndKeepsFirstResult()
         {
             var task = NewTask();
 
             TaskStateMachine.SetCompleted(task, "{\"first\":true}");
             TaskStateMachine.SetCompleted(task, "{\"second\":true}");
 
-            Assert.Equal("{\"second\":true}", task.ResultJson);
+            Assert.Equal("{\"first\":true}", task.ResultJson);
             Assert.Equal("{\"first\":true}", await task.Tcs.Task);
         }
 
@@ -228,15 +228,15 @@ namespace RevitCliBridge.Tests
         }
 
         [Fact]
-        public void SetCompleted_OverwritesPreviousFailedState()
+        public void SetCompleted_AfterSetFailed_KeepsFailedStatus()
         {
             var task = NewTask();
             TaskStateMachine.SetFailed(task, "{\"err\":true}");
 
             TaskStateMachine.SetCompleted(task, "{\"ok\":true}");
 
-            Assert.Equal(CliTaskStatus.Completed, task.Status);
-            Assert.Equal("{\"ok\":true}", task.ResultJson);
+            Assert.Equal(CliTaskStatus.Failed, task.Status);
+            Assert.Equal("{\"err\":true}", task.ResultJson);
         }
 
         [Fact]
@@ -251,7 +251,7 @@ namespace RevitCliBridge.Tests
         }
 
         [Fact]
-        public async Task SetFailed_AfterSetCompleted_TcsKeepsFirstResult()
+        public async Task SetFailed_AfterSetCompleted_KeepsCompletedStatus()
         {
             var task = NewTask();
             TaskStateMachine.SetCompleted(task, "first-ok");
@@ -259,7 +259,75 @@ namespace RevitCliBridge.Tests
             TaskStateMachine.SetFailed(task, "later-fail");
 
             Assert.Equal("first-ok", await task.Tcs.Task);
-            Assert.Equal(CliTaskStatus.Failed, task.Status);
+            Assert.Equal(CliTaskStatus.Completed, task.Status);
+            Assert.Equal("first-ok", task.ResultJson);
+        }
+
+        [Fact]
+        public void SetTimeout_TransitionsToTimeoutAndCompletesTcs()
+        {
+            var task = NewTask();
+
+            TaskStateMachine.SetTimeout(task, "{\"message\":\"Revit API execution timed out.\"}");
+
+            Assert.Equal(CliTaskStatus.Timeout, task.Status);
+            Assert.NotNull(task.CompletedAt);
+            Assert.True(task.Tcs.Task.IsCompleted);
+        }
+
+        [Fact]
+        public void SetTimeout_BroadcastsFailedEventWithTimeoutStatus()
+        {
+            var task = NewTask();
+            string? seenEvent = null;
+            string? seenJson = null;
+            task.OnSseEvent += (name, json) => { seenEvent = name; seenJson = json; };
+
+            TaskStateMachine.SetTimeout(task, "{}");
+
+            Assert.Equal("failed", seenEvent);
+            Assert.Contains("\"status\":\"timeout\"", seenJson);
+        }
+
+        [Fact]
+        public void SetTimeout_AfterCompleted_IsNoOp()
+        {
+            var task = NewTask();
+            TaskStateMachine.SetCompleted(task, "done");
+
+            TaskStateMachine.SetTimeout(task, "late-timeout");
+
+            Assert.Equal(CliTaskStatus.Completed, task.Status);
+            Assert.Equal("done", task.ResultJson);
+        }
+
+        [Fact]
+        public void SetTimeout_NoOpOnNullTask()
+        {
+            TaskStateMachine.SetTimeout(null, "{}");
+        }
+
+        [Fact]
+        public void SetRunning_AfterTerminalState_IsNoOp()
+        {
+            var task = NewTask();
+            TaskStateMachine.SetTimeout(task, "{}");
+
+            TaskStateMachine.SetRunning(task);
+
+            Assert.Equal(CliTaskStatus.Timeout, task.Status);
+        }
+
+        [Fact]
+        public void SetCompleted_AfterSetTimeout_KeepsTimeoutStatus()
+        {
+            var task = NewTask();
+            TaskStateMachine.SetTimeout(task, "{\"message\":\"timed out\"}");
+
+            TaskStateMachine.SetCompleted(task, "{\"ok\":true}");
+
+            Assert.Equal(CliTaskStatus.Timeout, task.Status);
+            Assert.Equal("{\"message\":\"timed out\"}", task.ResultJson);
         }
 
         [Fact]
