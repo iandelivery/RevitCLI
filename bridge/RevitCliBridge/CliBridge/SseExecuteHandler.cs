@@ -143,7 +143,7 @@ namespace RevitCliBridge
             if (completedTask == timeoutTask)
             {
                 TaskRegistry.SetTimeout(input.TaskId,
-                    CommandResponse.Error(input.TaskId, "Revit API execution timed out").ToJson());
+                    CommandResponse.Error(input.TaskId, "Revit API execution timed out.").ToJson());
             }
 
             if (!clientDisconnected)
