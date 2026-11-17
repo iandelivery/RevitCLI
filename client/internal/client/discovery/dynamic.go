@@ -69,6 +69,11 @@ func (d *DynamicCommand) Handle(ctx context.Context, args []string, send abstrac
 	}
 
 	if abstractions.HasFlag(args, "--dry-run") {
+		if !d.def.SupportsDryRun {
+			fmt.Fprintf(os.Stderr, "Error: command '%s' does not support --dry-run\n", d.def.Name)
+			fmt.Fprintf(os.Stderr, "Usage: revit-cli %s\n", d.buildUsage())
+			return 1
+		}
 		params["dry_run"] = true
 	}
 

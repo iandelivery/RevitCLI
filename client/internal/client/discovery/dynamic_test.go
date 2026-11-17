@@ -42,6 +42,49 @@ func TestHandle_HelpFlagPrintsAndSkipsExecution(t *testing.T) {
 	}
 }
 
+func TestHandle_DryRunGatedBySchema(t *testing.T) {
+	unsupported := models.CommandDef{
+		Name: "get_elements",
+		Parameters: []models.CommandParamSchema{
+			{Name: "category", Type: "string", Required: true},
+		},
+	}
+	called := false
+	send := abstractions.SendCommandFunc(func(_ context.Context, _ string, _ interface{}, _ ...map[string]interface{}) int {
+		called = true
+		return 0
+	})
+
+	code := NewDynamicCommand(unsupported).Handle(context.Background(), []string{"--category", "OST_Walls", "--dry-run"}, send)
+	if code != 1 {
+		t.Fatalf("unsupported --dry-run: got exit %d, want 1", code)
+	}
+	if called {
+		t.Error("unsupported --dry-run must fail before contacting the bridge")
+	}
+
+	supported := models.CommandDef{
+		Name:           "create_wall",
+		SupportsDryRun: true,
+		Parameters: []models.CommandParamSchema{
+			{Name: "level_id", Type: "int", Required: true},
+		},
+	}
+	var sent map[string]interface{}
+	forward := abstractions.SendCommandFunc(func(_ context.Context, _ string, params interface{}, _ ...map[string]interface{}) int {
+		sent, _ = params.(map[string]interface{})
+		return 0
+	})
+
+	code = NewDynamicCommand(supported).Handle(context.Background(), []string{"--level-id", "3001", "--dry-run"}, forward)
+	if code != 0 {
+		t.Fatalf("supported --dry-run: got exit %d, want 0", code)
+	}
+	if sent == nil || sent["dry_run"] != true {
+		t.Errorf("dry_run not forwarded for a supporting command: %v", sent)
+	}
+}
+
 // Tests for DynamicCommand.parseArgs flag matching. Parameter names use
 // underscores (min_x) but the documented CLI convention uses dashes
 // (--min-x), so both spellings must bind.
