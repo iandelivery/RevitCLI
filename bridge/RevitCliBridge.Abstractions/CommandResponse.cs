@@ -1,4 +1,5 @@
 using Newtonsoft.Json;
+using System.Collections.Generic;
 
 namespace RevitCliBridge.Abstractions
 {
@@ -22,8 +23,18 @@ namespace RevitCliBridge.Abstractions
         [JsonProperty("error_details", NullValueHandling = NullValueHandling.Ignore)]
         public string? ErrorDetails { get; set; }
 
-        public static CommandResponse Success(string taskId, object? data, string message = "Success") =>
-            new CommandResponse { TaskId = taskId, Status = "success", Message = message, Data = data };
+        /// <summary>
+        /// Descriptions of the Revit errors the failure preprocessor
+        /// resolved during the transaction. Serialized only when at least
+        /// one error was resolved, so clean responses keep their shape.
+        /// </summary>
+        [JsonProperty("resolved_failures", NullValueHandling = NullValueHandling.Ignore)]
+        public IReadOnlyList<string>? ResolvedFailures { get; set; }
+
+        public static CommandResponse Success(string taskId, object? data, string message = "Success",
+            IReadOnlyList<string>? resolvedFailures = null) =>
+            new CommandResponse { TaskId = taskId, Status = "success", Message = message, Data = data,
+                ResolvedFailures = resolvedFailures };
 
         public static CommandResponse Error(string taskId, string message, string? errorDetails = null) =>
             new CommandResponse { TaskId = taskId, Status = "error", Message = message, ErrorDetails = errorDetails };

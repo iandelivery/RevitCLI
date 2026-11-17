@@ -28,7 +28,7 @@ Instance registry files are stored under `%AppData%\revit-cli\instances\`, one J
 | `schema <name>` | Show command parameter details |
 | `raw -j <json>` | Send raw JSON command |
 | `execute_raw --code <code>` | Execute C# code on the bridge |
-| `raw_mode [--enable\|--disable]` | Query or toggle raw execution mode |
+| `raw-mode [--enable\|--disable]` | Query or toggle raw execution mode |
 | `configure <setup\|teardown\|check\|port>` | Manage bridge installation and configuration |
 | `skill <install\|show\|update\|uninstall>` | Install and manage the AI agent skill (SKILL.md); see the Skill Installation section in SKILL.md |
 
@@ -42,6 +42,8 @@ The client uses **millimeters**: every distance, coordinate, and size argument p
 
 Non-built-in commands are auto-discovered from the bridge schema endpoint (`GET /api/commands`). The schema is cached locally (30-min TTL) under `%AppData%\revit-cli\` with ETag-based conditional requests and stale-cache fallback for offline resilience. Use `commands --refresh` to force a re-fetch.
 
+Every dynamic command accepts the output flags `--fields`, `--fmt`, and `--jq`. The **bridge** executes them; the client forwards arguments untouched, so there is no client-side filtering step.
+
 ## API Reference (llms.txt) and Raw Execution
 
 The bridge exposes `GET /api/llms.txt`, a text index of raw Revit API elements, parameters, and classes. If and only if discovered high-level commands do not cover a need:
@@ -54,7 +56,7 @@ The bridge exposes `GET /api/llms.txt`, a text index of raw Revit API elements, 
    ```
 4. To run a generated script file (PowerShell):
    ```powershell
-   revit-cli.exe raw_mode --enable
+   revit-cli.exe raw-mode --enable
    revit-cli.exe execute_raw --lang csharp --code (Get-Content rebuild.csx -Raw)
    ```
 

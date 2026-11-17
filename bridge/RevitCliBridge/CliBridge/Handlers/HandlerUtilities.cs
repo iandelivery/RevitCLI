@@ -14,6 +14,18 @@ namespace RevitCliBridge.Handlers
             t.SetFailureHandlingOptions(options);
         }
 
+        /// <summary>
+        /// Same as the parameterless overload, but every resolved error
+        /// description is appended to <paramref name="resolvedErrors"/> so
+        /// the handler can report it as resolved_failures.
+        /// </summary>
+        public static void ConfigureFailureHandling(this Transaction t, List<string> resolvedErrors)
+        {
+            var options = t.GetFailureHandlingOptions();
+            options.SetFailuresPreprocessor(new CliFailurePreprocessor(resolvedErrors));
+            t.SetFailureHandlingOptions(options);
+        }
+
         public static double? GetDoubleOrNull(Dictionary<string, object>? parameters, string key)
         {
             if (parameters is null)

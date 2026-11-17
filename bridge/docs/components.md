@@ -132,14 +132,20 @@ parameters) so AI agents can discover uncovered APIs and fall back to
 Implements `IFailuresPreprocessor`: `Warning` → auto-delete; `Error` → attempt
 resolve + `ProceedWithCommit`. **Why**: AI agents can't click Revit's modal "OK"
 button — without this, the workflow freezes. Apply via
-`HandlerUtilities.ConfigureFailureHandling(this Transaction)`.
+`HandlerUtilities.ConfigureFailureHandling(this Transaction)`. The preprocessor
+collects every resolved error description; handlers pass it to
+`CommandResponse.Success`, which serializes it as the top-level
+`resolved_failures` field only when non-empty, so the `data` shape stays stable
+(`create_walls` is the first handler wired).
 
 ## DryRunTransaction — Auto-Rollback
 
 **File**: `CliBridge/Handlers/DryRunTransaction.cs`
 
 Wraps `Transaction` so `Commit()` rolls back when `cmd.DryRun` is true. Handlers
-advertising `SupportsDryRun => true` use it to simulate modifications:
+advertising `SupportsDryRun => true` use it to simulate modifications. Its
+`ConfigureFailureHandling()` populates `ResolvedFailures`, the descriptions the
+failure preprocessor resolved during the transaction:
 
 ```csharp
 using (var tx = new DryRunTransaction(doc, "Create Wall", cmd.DryRun))

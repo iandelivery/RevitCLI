@@ -60,7 +60,7 @@ Related sub-commands: `skill show` (installation status), `skill update` (re-syn
 Always follow this two-tier strategy to optimize performance and maintain stability:
 
 1. **Dynamic Discovery** — run `revit-cli.exe commands` first to check available high-level commands, or inspect a command's parameters via `revit-cli.exe schema <name>`. If a high-level command exists for the task, **always use it**.
-2. **Raw Code Fallback** — only if the discovered high-level commands **cannot** solve the task, search the API reference (`revit-cli.exe llms`) and execute C# scripts directly with `revit-cli.exe execute_raw`. Toggle raw mode with `revit-cli.exe raw_mode --enable` / `revit-cli.exe raw_mode --disable` (raw execution is enabled by default; the toggle is in-memory and resets to the `allow_raw_execution` config value on Revit restart).
+2. **Raw Code Fallback** — only if the discovered high-level commands **cannot** solve the task, search the API reference (`revit-cli.exe llms`) and execute C# scripts directly with `revit-cli.exe execute_raw`. Toggle raw mode with `revit-cli.exe raw-mode --enable` / `revit-cli.exe raw-mode --disable` (raw execution is enabled by default; the toggle is in-memory and resets to the `allow_raw_execution` config value on Revit restart).
 
 Raw scripts compiled by the bridge are subject to **hard constraints** (ASCII-only payload, LF endings, no `using` directives, flat parallel arrays, single transaction, mm↔feet units). Violating any of them fails the run. Read [references/csharp-scripting.md](references/csharp-scripting.md) before writing any raw script.
 
@@ -75,6 +75,7 @@ revit-cli.exe schema create_wall                    # inspect one command
 revit-cli.exe elements -c OST_Walls                 # query elements by category
 revit-cli.exe create_wall --start-x 0 --start-y 0 --end-x 5000 --end-y 0 -l 3001   # mm
 revit-cli.exe execute_raw --lang csharp --code "return doc.Title;"
+Get-Content script.cs -Raw | revit-cli.exe execute_raw --stdin   # pipe a script
 revit-cli.exe raw -j '{"command":"ping"}'           # raw JSON command
 ```
 
@@ -95,6 +96,8 @@ Global flags (usable on any command):
 - `--request-id <id>` — stable retry key. If the bridge already holds a task with the same ID, it returns that task instead of running the command again. Pass the same value on every retry of the same logical request.
 
 A timed-out task may still have committed its Revit transaction, because the Revit API cannot be canceled mid-call. Treat exit code 3 as "outcome unknown": check the model with a query command before retrying, or retry with the same `--request-id` so the bridge deduplicates instead of creating a second element.
+
+**Streams**: stdout carries the result JSON only. Progress lines, `task_id`, and error payloads go to stderr, so `revit-cli.exe <command> 2>$null` yields parseable JSON.
 
 **Units**: the client uses **millimeters** — every distance, coordinate, and size argument of high-level commands (and every such value returned) is in mm; the bridge converts to/from Revit internal feet (`1 ft = 304.8 mm`). Raw C# scripts bypass this conversion and talk to the Revit API directly in internal feet — see the units constraint in [references/csharp-scripting.md](references/csharp-scripting.md).
 

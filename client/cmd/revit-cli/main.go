@@ -19,6 +19,7 @@ import (
 	"revit-cli/internal/client/builtin"
 	"revit-cli/internal/client/discovery"
 	"revit-cli/internal/instance"
+	"revit-cli/internal/models"
 
 	"github.com/spf13/cobra"
 )
@@ -151,10 +152,13 @@ func newRootCmd() *cobra.Command {
 		SilenceErrors:      true,
 		Args:               cobra.ArbitraryArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if len(args) == 0 {
+				return cmd.Help()
+			}
+			if helpName, _ := abstractions.FirstPositional(args); abstractions.HasFlag(args, "--help", "-h") && helpName == "" {
+				return cmd.Help()
+			}
 			for _, a := range args {
-				if a == "--help" || a == "-h" {
-					return cmd.Help()
-				}
 				if a == "--version" || a == "-V" {
 					fmt.Println(banner)
 					fmt.Printf("revit-cli %s\n", Version)
@@ -162,9 +166,6 @@ func newRootCmd() *cobra.Command {
 					fmt.Println(skillHint)
 					return nil
 				}
-			}
-			if len(args) == 0 {
-				return cmd.Help()
 			}
 			exitCode = dispatchDynamic(args)
 			return nil
@@ -255,8 +256,22 @@ func dispatchDynamic(args []string) int {
 	}
 
 	fmt.Fprintf(os.Stderr, "Unknown command: %s\n", cmdName)
+	if suggestions := suggestFromSchema(cmdName, schema.Commands); len(suggestions) > 0 {
+		fmt.Fprintf(os.Stderr, "Did you mean: %s?\n", abstractions.JoinSuggestions(suggestions))
+	}
 	fmt.Fprintln(os.Stderr, "Run 'revit-cli commands' to see available commands.")
 	return 1
+}
+
+func suggestFromSchema(typed string, defs []models.CommandDef) []string {
+	candidates := make([]abstractions.SuggestCandidate, 0, len(defs))
+	for _, def := range defs {
+		candidates = append(candidates, abstractions.SuggestCandidate{
+			Name:    def.Name,
+			Aliases: def.Aliases,
+		})
+	}
+	return abstractions.SuggestNames(typed, candidates)
 }
 
 func registerBuiltinCmds(root *cobra.Command) {
@@ -279,11 +294,12 @@ func registerBuiltinCmds(root *cobra.Command) {
 	))
 
 	root.AddCommand(newBuiltinCmd(
-		"execute_raw --code <code> | --file <path> [--lang csharp]",
+		"execute_raw --code <code> | --file <path> | --stdin [--lang csharp]",
 		"Execute C# code on the bridge",
 		[]string{
 			`revit-cli execute_raw --lang csharp --code "return doc.Title;"`,
 			`revit-cli execute_raw --file script.cs --lang csharp`,
+			`Get-Content script.cs -Raw | revit-cli execute_raw --stdin`,
 		},
 		true,
 		func(_ string, _ *http.Client) abstractions.CliCommand {

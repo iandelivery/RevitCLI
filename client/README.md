@@ -125,7 +125,12 @@ If only one Revit instance is running, it is auto-selected. If multiple instance
 | `--url <url>` | auto-discover | Revit CLI server address |
 | `--pid <pid>` | — | Connect to a specific Revit instance by process ID |
 | `--revit <version>` | — | Connect to a specific Revit version (e.g. 2022) |
-| `--help`, `-h` | — | Show help |
+| `--timeout <seconds>` | 120 | Per-command budget sent as `timeout_seconds` |
+| `--no-wait` | off | Submit, print `task_id`, exit 0; poll later with `task -ti <id>` |
+| `--request-id <id>` | random | Stable retry key; the bridge returns the existing task on a repeat |
+| `--help`, `-h` | — | Show help (dynamic commands answer from their schema) |
+
+Exit codes: `0` success, `1` usage error, `2` bridge unreachable or auth rejected, `3` timed out, `4` command failed. stdout carries the result JSON only; progress, `task_id`, and errors go to stderr.
 
 Server-side config is read from `.config/cli_bridge_setting.json`. The client also reads instance registry files from the revit-cli data directory (see cascading strategy below) for auto-discovery.
 
@@ -142,7 +147,7 @@ Server-side config is read from `.config/cli_bridge_setting.json`. The client al
 | `commands [--refresh]` | List all commands (with local cache) |
 | `schema <name>` | Show command parameter details |
 | `raw -j <json>` | Send raw JSON command |
-| `execute_raw --code <code>` | Execute C# code on the bridge |
+| `execute_raw --code <code> \| --file <path> \| --stdin` | Execute C# code on the bridge; `--stdin` reads a piped script |
 | `configure <setup\|teardown\|check\|port>` | Manage bridge installation and configuration |
 | `skill <install\|show\|update\|uninstall>` | Install and manage the AI agent skill (SKILL.md) |
 
@@ -198,7 +203,7 @@ The CLI client mirrors the C# `RevitCliClient` architecture:
 
 - **Built-in commands** (11) — always available without server contact
 - **Instance discovery** — reads registry files from the revit-cli data directory (resolved via cascading strategy)
-- **Lazy schema discovery** — schema fetched only when a non-built-in command is invoked
+- **Lazy schema discovery** — schema fetched only when a non-built-in command is invoked; dynamic commands answer `--help` from the schema, and unknown names get "Did you mean" suggestions (offline via the stale cache)
 - **Local cache** — schema cached with 30-min TTL, stale fallback on network error
 - **SSE streaming** — real-time progress via Server-Sent Events with polling fallback
 - **Embedded config** — default configuration embedded in the binary at compile time

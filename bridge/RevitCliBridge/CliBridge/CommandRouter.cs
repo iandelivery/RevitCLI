@@ -156,9 +156,13 @@ namespace RevitCliBridge
 
             if (!_handlers.TryGetValue(queuedCommand.Command, out var handler))
             {
-                return CommandResponse.Error(
-                    queuedCommand.TaskId,
-                    $"Unknown command: {queuedCommand.Command}").ToJson();
+                var suggestions = CommandSuggestor.SuggestCloseNames(
+                    queuedCommand.Command,
+                    GetAllHandlers().Select(h => h.CommandName));
+                var message = $"Unknown command: {queuedCommand.Command}";
+                if (suggestions.Count > 0)
+                    message += $". Did you mean: {string.Join(", ", suggestions)}?";
+                return CommandResponse.Error(queuedCommand.TaskId, message).ToJson();
             }
 
             queuedCommand.ProgressReporter =

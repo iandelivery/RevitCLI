@@ -99,3 +99,18 @@ func TestExecuteRawRequiresCode(t *testing.T) {
 		}
 	}
 }
+
+func TestExecuteRawStdinConflictsWithOtherSources(t *testing.T) {
+	send := func(_ context.Context, _ string, _ interface{}, _ ...map[string]interface{}) int {
+		t.Fatal("send must not be called on conflicting sources")
+		return 0
+	}
+	for _, args := range [][]string{
+		{"--stdin", "--code", "return 1;"},
+		{"--stdin", "--file", "script.cs"},
+	} {
+		if code := (ExecuteRawHandler{}).Handle(context.Background(), args, send); code != 1 {
+			t.Fatalf("Handle(%v) exit = %d, want 1", args, code)
+		}
+	}
+}
