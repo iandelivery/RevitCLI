@@ -19,6 +19,7 @@ import (
 	"revit-cli/internal/client/builtin"
 	"revit-cli/internal/client/discovery"
 	"revit-cli/internal/instance"
+	"revit-cli/internal/models"
 
 	"github.com/spf13/cobra"
 )
@@ -255,8 +256,22 @@ func dispatchDynamic(args []string) int {
 	}
 
 	fmt.Fprintf(os.Stderr, "Unknown command: %s\n", cmdName)
+	if suggestions := suggestFromSchema(cmdName, schema.Commands); len(suggestions) > 0 {
+		fmt.Fprintf(os.Stderr, "Did you mean: %s?\n", abstractions.JoinSuggestions(suggestions))
+	}
 	fmt.Fprintln(os.Stderr, "Run 'revit-cli commands' to see available commands.")
 	return 1
+}
+
+func suggestFromSchema(typed string, defs []models.CommandDef) []string {
+	candidates := make([]abstractions.SuggestCandidate, 0, len(defs))
+	for _, def := range defs {
+		candidates = append(candidates, abstractions.SuggestCandidate{
+			Name:    def.Name,
+			Aliases: def.Aliases,
+		})
+	}
+	return abstractions.SuggestNames(typed, candidates)
 }
 
 func registerBuiltinCmds(root *cobra.Command) {
