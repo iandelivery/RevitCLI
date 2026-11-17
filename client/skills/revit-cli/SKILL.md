@@ -75,6 +75,7 @@ revit-cli.exe schema create_wall                    # inspect one command
 revit-cli.exe elements -c OST_Walls                 # query elements by category
 revit-cli.exe create_wall --start-x 0 --start-y 0 --end-x 5000 --end-y 0 -l 3001   # mm
 revit-cli.exe execute_raw --lang csharp --code "return doc.Title;"
+Get-Content script.cs -Raw | revit-cli.exe execute_raw --stdin   # pipe a script
 revit-cli.exe raw -j '{"command":"ping"}'           # raw JSON command
 ```
 

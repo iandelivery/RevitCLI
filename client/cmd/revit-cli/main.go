@@ -279,11 +279,12 @@ func registerBuiltinCmds(root *cobra.Command) {
 	))
 
 	root.AddCommand(newBuiltinCmd(
-		"execute_raw --code <code> | --file <path> [--lang csharp]",
+		"execute_raw --code <code> | --file <path> | --stdin [--lang csharp]",
 		"Execute C# code on the bridge",
 		[]string{
 			`revit-cli execute_raw --lang csharp --code "return doc.Title;"`,
 			`revit-cli execute_raw --file script.cs --lang csharp`,
+			`Get-Content script.cs -Raw | revit-cli execute_raw --stdin`,
 		},
 		true,
 		func(_ string, _ *http.Client) abstractions.CliCommand {
