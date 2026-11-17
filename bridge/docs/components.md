@@ -133,9 +133,10 @@ Implements `IFailuresPreprocessor`: `Warning` → auto-delete; `Error` → attem
 resolve + `ProceedWithCommit`. **Why**: AI agents can't click Revit's modal "OK"
 button — without this, the workflow freezes. Apply via
 `HandlerUtilities.ConfigureFailureHandling(this Transaction)`. The preprocessor
-collects every resolved error description; handlers surface it as
-`resolved_failures` in the response so agents can tell a clean commit from a
-corrected one (`create_walls` is the first handler wired).
+collects every resolved error description; handlers pass it to
+`CommandResponse.Success`, which serializes it as the top-level
+`resolved_failures` field only when non-empty, so the `data` shape stays stable
+(`create_walls` is the first handler wired).
 
 ## DryRunTransaction — Auto-Rollback
 

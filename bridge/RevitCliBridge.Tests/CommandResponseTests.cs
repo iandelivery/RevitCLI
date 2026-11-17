@@ -122,6 +122,25 @@ namespace RevitCliBridge.Tests
         }
 
         [Fact]
+        public void ToJson_OmitsResolvedFailures_WhenNull()
+        {
+            var resp = CommandResponse.Success("t", new { x = 1 });
+            var json = resp.ToJson();
+            Assert.DoesNotContain("\"resolved_failures\"", json);
+        }
+
+        [Fact]
+        public void ToJson_IncludesResolvedFailures_WhenSet_WithStableData()
+        {
+            var data = new[] { 1, 2 };
+            var resp = CommandResponse.Success("t", data, "ok", new[] { "joined geometry" });
+            var json = resp.ToJson();
+
+            Assert.Contains("\"resolved_failures\":[\"joined geometry\"]", json);
+            Assert.Contains("\"data\":[1,2]", json);
+        }
+
+        [Fact]
         public void ToJson_RoundTripsThroughDeserialization()
         {
             var original = CommandResponse.Error("t-rt", "fail", "details-here");
