@@ -106,12 +106,8 @@ namespace RevitCliBridge.Handlers.Creation
 
                 t.Commit();
 
-                string message = $"Created {resultPairs.Count} walls.";
-                if (t.ResolvedFailures.Count > 0)
-                    message += $" Revit auto-resolved {t.ResolvedFailures.Count} error(s), see resolved_failures.";
-
-                return CommandResponse.Success(cmd.TaskId, resultPairs, message,
-                    t.ResolvedFailures.Count > 0 ? t.ResolvedFailures : null).ToJson();
+                return CommandResponse.SuccessWithResolvedFailures(cmd.TaskId, resultPairs,
+                    $"Created {resultPairs.Count} walls.", t.ResolvedFailures).ToJson();
             }
         }
     }
