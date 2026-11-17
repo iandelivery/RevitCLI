@@ -66,12 +66,55 @@ namespace RevitCliBridge
             }
         }
 
-        public static void CleanupOldTasks(int maxAgeSeconds = 300)
+        public static void SetTimeout(string taskId, string errorJson)
         {
-            var cutoff = DateTime.Now.AddSeconds(-maxAgeSeconds);
+            if (Tasks.TryGetValue(taskId, out var task))
+            {
+                TaskStateMachine.SetTimeout(task, errorJson);
+            }
+        }
+
+        /// <summary>
+        /// Returns the live task submitted with the given request ID, or null.
+        /// Used to deduplicate client retries that reuse the same X-Request-Id.
+        /// The dedup window ends when CleanupOldTasks removes the task.
+        /// </summary>
+        public static TaskInfo? FindByRequestId(string requestId)
+        {
+            if (string.IsNullOrEmpty(requestId)) return null;
             foreach (var kvp in Tasks)
             {
-                if (kvp.Value.CompletedAt.HasValue && kvp.Value.CompletedAt.Value < cutoff)
+                if (kvp.Value.RequestId == requestId)
+                    return kvp.Value;
+            }
+            return null;
+        }
+
+        /// <summary>
+        /// How long failed and timed-out tasks are kept after completion.
+        /// Longer than the finished-task retention because agents poll late
+        /// exactly when something went wrong.
+        /// </summary>
+        public const int FailedTaskRetentionSeconds = 3600;
+
+        /// <summary>
+        /// Removes finished tasks past their retention window. Completed tasks
+        /// use task_retention_seconds from the bridge config; failed and
+        /// timed-out tasks use <see cref="FailedTaskRetentionSeconds"/>.
+        /// </summary>
+        public static void CleanupOldTasks()
+        {
+            int completedAge = CliBridgeConfigLoader.Config.TaskRetentionSeconds;
+            var cutoffCompleted = DateTime.Now.AddSeconds(-completedAge);
+            var cutoffFailed = DateTime.Now.AddSeconds(-FailedTaskRetentionSeconds);
+
+            foreach (var kvp in Tasks)
+            {
+                if (!kvp.Value.CompletedAt.HasValue) continue;
+                var cutoff = kvp.Value.Status == CliTaskStatus.Failed || kvp.Value.Status == CliTaskStatus.Timeout
+                    ? cutoffFailed
+                    : cutoffCompleted;
+                if (kvp.Value.CompletedAt.Value < cutoff)
                 {
                     Tasks.TryRemove(kvp.Key, out _);
                 }

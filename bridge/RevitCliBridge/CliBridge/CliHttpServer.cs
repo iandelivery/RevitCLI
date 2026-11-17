@@ -298,9 +298,19 @@ namespace RevitCliBridge
             if (string.IsNullOrEmpty(input.TaskId))
                 input.TaskId = Guid.NewGuid().ToString();
 
+            var duplicate = TaskRegistry.FindByRequestId(requestId);
+            if (duplicate != null)
+            {
+                CliLogger.Info("request_dedup",
+                    ("request_id", requestId), ("task_id", duplicate.TaskId));
+                await HttpIo.WriteJsonResponseAsync(response, BuildTaskStatusPayload(duplicate));
+                return;
+            }
+
             bool asyncMode = input.Async ?? false;
 
             var taskInfo = TaskRegistry.CreateTask(input.TaskId, input.Command);
+            taskInfo.RequestId = requestId;
 
             var queuedCommand = new QueuedCommand
             {
@@ -351,7 +361,7 @@ namespace RevitCliBridge
                 }
                 else
                 {
-                    TaskRegistry.SetFailed(input.TaskId,
+                    TaskRegistry.SetTimeout(input.TaskId,
                         CommandResponse.Error(input.TaskId, "Revit API execution timed out.").ToJson());
                     await HttpIo.WriteJsonResponseAsync(response,
                         CommandResponse.Error(input.TaskId, "Revit API execution timed out.").ToJson());
@@ -365,10 +375,25 @@ namespace RevitCliBridge
             if (task == null)
             {
                 response.StatusCode = 404;
-                await HttpIo.WriteJsonResponseAsync(response, new { error = $"Task '{taskId}' not found." });
+                await HttpIo.WriteJsonResponseAsync(response, new
+                {
+                    error = $"Task '{taskId}' not found.",
+                    hint = $"Finished tasks are kept for {CliBridgeConfigLoader.Config.TaskRetentionSeconds} seconds; " +
+                           $"failed and timed-out tasks for {TaskRegistry.FailedTaskRetentionSeconds} seconds."
+                });
                 return;
             }
 
+            await HttpIo.WriteJsonResponseAsync(response, BuildTaskStatusPayload(task));
+        }
+
+        /// <summary>
+        /// Builds the JSON payload describing a task's current state. Shared by
+        /// GET /api/task/{id} and the request-id dedup path so both return the
+        /// same shape.
+        /// </summary>
+        internal static Dictionary<string, object> BuildTaskStatusPayload(TaskInfo task)
+        {
             var result = new Dictionary<string, object>
             {
                 ["task_id"] = task.TaskId,
@@ -376,6 +401,9 @@ namespace RevitCliBridge
                 ["status"] = task.Status.ToString().ToLowerInvariant(),
                 ["progress"] = task.Progress
             };
+
+            if (task.RequestId != null)
+                result["request_id"] = task.RequestId;
 
             if (task.ProgressMessage != null)
                 result["progress_message"] = task.ProgressMessage;
@@ -386,7 +414,7 @@ namespace RevitCliBridge
             if (task.CompletedAt.HasValue)
                 result["completed_at"] = task.CompletedAt.Value.ToString("o");
 
-            if (task.ResultJson != null && (task.Status == CliTaskStatus.Completed || task.Status == CliTaskStatus.Failed))
+            if (task.ResultJson != null && TaskStateMachine.IsTerminal(task.Status))
             {
                 try
                 {
@@ -398,7 +426,7 @@ namespace RevitCliBridge
                 }
             }
 
-            await HttpIo.WriteJsonResponseAsync(response, result);
+            return result;
         }
 
         private async Task HandleTaskListRequestAsync(HttpListenerResponse response)
