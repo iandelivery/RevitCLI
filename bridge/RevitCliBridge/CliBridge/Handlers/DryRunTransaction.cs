@@ -1,5 +1,6 @@
 using Autodesk.Revit.DB;
 using System;
+using System.Collections.Generic;
 
 namespace RevitCliBridge.Handlers
 {
@@ -105,13 +106,20 @@ namespace RevitCliBridge.Handlers
         }
 
         /// <summary>
+        /// Descriptions of the Revit errors the failure preprocessor
+        /// resolved during this transaction. Populated by
+        /// <see cref="ConfigureFailureHandling"/>; read after Commit.
+        /// </summary>
+        public List<string> ResolvedFailures { get; } = new List<string>();
+
+        /// <summary>
         /// Applies the CLI failure-handling options (CliFailurePreprocessor)
-        /// to the wrapped transaction. Equivalent to calling
-        /// <c>t.ConfigureFailureHandling()</c> on a raw Transaction.
+        /// to the wrapped transaction, collecting every resolved error into
+        /// <see cref="ResolvedFailures"/>.
         /// </summary>
         public void ConfigureFailureHandling()
         {
-            _transaction.ConfigureFailureHandling();
+            _transaction.ConfigureFailureHandling(ResolvedFailures);
         }
 
         public void Dispose()
