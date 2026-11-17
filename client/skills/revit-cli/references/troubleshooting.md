@@ -8,7 +8,7 @@ Symptom-first table for bridge and CLI failures, consolidated from production ru
 |---|---|---|
 | `ping` fails / no connection | Bridge not running: add-in not loaded or AI Mode toggled off | `revit-cli.exe list` to see registered instances; check the Ribbon toggle button; verify port range for the Revit version (2020 → 5021-5029); target explicitly with `--pid`/`--revit`/`--url` |
 | Connection lost mid-session | Revit restarted → bridge re-registered on a new port | Re-run `revit-cli.exe list` and reconnect; raw mode also resets to the `allow_raw_execution` config value after restart |
-| HTTP 401 / raw execution rejected | Raw execution is toggled off | `revit-cli.exe raw_mode --enable`; note the toggle is in-memory only — Revit restart resets it to `allow_raw_execution` in `cli_bridge_setting.json` (enabled by default) |
+| HTTP 401 / raw execution rejected | Raw execution is toggled off | `revit-cli.exe raw-mode --enable`; note the toggle is in-memory only — Revit restart resets it to `allow_raw_execution` in `cli_bridge_setting.json` (enabled by default) |
 | `Invalid JSON` from the bridge | `\r` (CRLF) or non-ASCII characters leaked into the payload | Enforce the ASCII + LF asserts BEFORE writing/sending the script file (constraints 1-2 in csharp-scripting.md); regenerate the file |
 | Compile errors cascade (one fix → next error) | Only the FIRST compiler error is real; the rest are fallout of the first | Read the first error only; usual roots: duplicate/unknown `using`, non-ASCII token, malformed char-code expression |
 | Garbled Chinese strings in Revit (乱码) | Chinese literals sent raw in an ASCII-only channel | Never inline Chinese; build strings with `(char)0xXXXX` expressions (`csexpr` helper) |

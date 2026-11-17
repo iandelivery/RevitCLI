@@ -28,7 +28,7 @@ Instance registry files are stored under `%AppData%\revit-cli\instances\`, one J
 | `schema <name>` | Show command parameter details |
 | `raw -j <json>` | Send raw JSON command |
 | `execute_raw --code <code>` | Execute C# code on the bridge |
-| `raw_mode [--enable\|--disable]` | Query or toggle raw execution mode |
+| `raw-mode [--enable\|--disable]` | Query or toggle raw execution mode |
 | `configure <setup\|teardown\|check\|port>` | Manage bridge installation and configuration |
 | `skill <install\|show\|update\|uninstall>` | Install and manage the AI agent skill (SKILL.md); see the Skill Installation section in SKILL.md |
 
@@ -54,7 +54,7 @@ The bridge exposes `GET /api/llms.txt`, a text index of raw Revit API elements, 
    ```
 4. To run a generated script file (PowerShell):
    ```powershell
-   revit-cli.exe raw_mode --enable
+   revit-cli.exe raw-mode --enable
    revit-cli.exe execute_raw --lang csharp --code (Get-Content rebuild.csx -Raw)
    ```
 

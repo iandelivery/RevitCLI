@@ -60,7 +60,7 @@ Related sub-commands: `skill show` (installation status), `skill update` (re-syn
 Always follow this two-tier strategy to optimize performance and maintain stability:
 
 1. **Dynamic Discovery** — run `revit-cli.exe commands` first to check available high-level commands, or inspect a command's parameters via `revit-cli.exe schema <name>`. If a high-level command exists for the task, **always use it**.
-2. **Raw Code Fallback** — only if the discovered high-level commands **cannot** solve the task, search the API reference (`revit-cli.exe llms`) and execute C# scripts directly with `revit-cli.exe execute_raw`. Toggle raw mode with `revit-cli.exe raw_mode --enable` / `revit-cli.exe raw_mode --disable` (raw execution is enabled by default; the toggle is in-memory and resets to the `allow_raw_execution` config value on Revit restart).
+2. **Raw Code Fallback** — only if the discovered high-level commands **cannot** solve the task, search the API reference (`revit-cli.exe llms`) and execute C# scripts directly with `revit-cli.exe execute_raw`. Toggle raw mode with `revit-cli.exe raw-mode --enable` / `revit-cli.exe raw-mode --disable` (raw execution is enabled by default; the toggle is in-memory and resets to the `allow_raw_execution` config value on Revit restart).
 
 Raw scripts compiled by the bridge are subject to **hard constraints** (ASCII-only payload, LF endings, no `using` directives, flat parallel arrays, single transaction, mm↔feet units). Violating any of them fails the run. Read [references/csharp-scripting.md](references/csharp-scripting.md) before writing any raw script.
 
