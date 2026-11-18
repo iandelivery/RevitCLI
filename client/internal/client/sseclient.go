@@ -167,7 +167,11 @@ func (c *SseClient) handleLegacyResponse(resp *http.Response) (int, error) {
 			if errMsg, ok := obj["error"].(string); ok && errMsg != "" {
 				fmt.Fprintln(os.Stderr, errMsg)
 			}
-			fmt.Fprintln(os.Stderr, "The bridge rejected the API key. Run 'revit-cli configure setup' to sync keys, or pick the right instance with --pid or --revit.")
+			if auth.GetAPIKey(c.baseURL) == "" {
+				fmt.Fprintln(os.Stderr, "No API key is available for this bridge. Run 'revit-cli configure setup' to sync keys, or update the bridge add-in and restart Revit so it publishes its key.")
+			} else {
+				fmt.Fprintln(os.Stderr, "The API key was rejected. Run 'revit-cli configure setup' to re-sync keys, or restart Revit if you just updated the bridge add-in.")
+			}
 			return ExitConnect, nil
 		}
 	}

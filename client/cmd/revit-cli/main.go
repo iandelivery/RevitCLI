@@ -272,13 +272,19 @@ func dispatchDynamic(args []string) int {
 }
 
 // rejectAuthError reports whether the bridge rejected a schema request with
-// 401; when it did, it prints the auth guidance and returns the exit code.
+// 401; when it did, it prints guidance that depends on whether the client
+// had a key at all, and returns the exit code.
 func rejectAuthError(baseURL string, fetcher *discovery.SchemaFetcher) (int, bool) {
 	if !fetcher.AuthRejected() {
 		return 0, false
 	}
-	fmt.Fprintf(os.Stderr, "The bridge at %s rejected the API key (401).\n", baseURL)
-	fmt.Fprintln(os.Stderr, "Run 'revit-cli configure setup' to sync keys, or pick the right instance with --pid or --revit.")
+	if auth.GetAPIKey(baseURL) == "" {
+		fmt.Fprintf(os.Stderr, "The bridge at %s rejected the request: no API key is available (401).\n", baseURL)
+		fmt.Fprintln(os.Stderr, "Run 'revit-cli configure setup' to sync keys, or update the bridge add-in and restart Revit so it publishes its key.")
+	} else {
+		fmt.Fprintf(os.Stderr, "The bridge at %s rejected the API key (401).\n", baseURL)
+		fmt.Fprintln(os.Stderr, "Run 'revit-cli configure setup' to re-sync keys, or restart Revit if you just updated the bridge add-in.")
+	}
 	return client.ExitConnect, true
 }
 
