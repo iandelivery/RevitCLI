@@ -178,7 +178,8 @@ namespace RevitCliBridge
                     Document = null,
                     StartedAt = DateTime.UtcNow,
                     Hostname = "localhost",
-                    CommandsCount = CommandRouter.GetAllHandlers().Count()
+                    CommandsCount = CommandRouter.GetAllHandlers().Count(),
+                    ApiKey = CliBridgeConfigLoader.Config.ApiKey
                 });
 
                 CliLogger.Info($"CLI Bridge enabled on port {_actualPort} (Revit {_revitVersion}, PID {pid}).");
