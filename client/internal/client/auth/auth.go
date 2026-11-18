@@ -19,10 +19,20 @@ type apiKeyEntry struct {
 var (
 	mu       sync.RWMutex
 	cache    = make(map[string]*apiKeyEntry)
-	cacheDir = defaultCacheDir()
+	override string
+	// fallback resolves keys that live outside the disk cache, e.g.
+	// in instance registry files. Wired once by the CLI entrypoint;
+	// nil (the default) disables the fallback.
+	fallback func(baseURL string) string
 )
 
+// defaultCacheDir resolves the directory that holds the per-server key
+// files. REVIT_CLI_DATA_DIR scopes it like every other cache; otherwise it
+// sits under the OS user cache dir.
 func defaultCacheDir() string {
+	if dir := os.Getenv("REVIT_CLI_DATA_DIR"); dir != "" {
+		return dir
+	}
 	dir, err := os.UserCacheDir()
 	if err != nil || dir == "" {
 		dir = filepath.Join(os.TempDir(), "revit-cli")
@@ -30,16 +40,36 @@ func defaultCacheDir() string {
 	return filepath.Join(dir, "revit-cli")
 }
 
-// SetCacheDir overrides the cache directory. Used by tests.
+// SetCacheDir overrides the cache directory. An empty string restores the
+// default. Used by tests.
 func SetCacheDir(dir string) {
 	mu.Lock()
 	defer mu.Unlock()
-	cacheDir = dir
+	override = dir
+}
+
+// SetFallbackResolver wires a port-based key lookup consulted when no disk
+// key exists for the server URL. Called once at startup by the CLI
+// entrypoint; pass nil to remove it. Used by tests.
+func SetFallbackResolver(fn func(baseURL string) string) {
+	mu.Lock()
+	defer mu.Unlock()
+	fallback = fn
+}
+
+func resolveCacheDir() string {
+	mu.RLock()
+	dir := override
+	mu.RUnlock()
+	if dir != "" {
+		return dir
+	}
+	return defaultCacheDir()
 }
 
 func apiKeyPath(baseURL string) string {
 	key := serverKey(baseURL)
-	return filepath.Join(cacheDir, "servers", "apikey_"+key+".txt")
+	return filepath.Join(resolveCacheDir(), "servers", "apikey_"+key+".txt")
 }
 
 func serverKey(serverURL string) string {
@@ -53,6 +83,7 @@ func serverKey(serverURL string) string {
 	if hostPort == "" {
 		return "default"
 	}
+	hostPort = strings.Replace(hostPort, "127.0.0.1", "localhost", 1)
 	hostPort = strings.ReplaceAll(hostPort, ".", "_")
 	hostPort = strings.ReplaceAll(hostPort, ":", "_")
 	hostPort = strings.ReplaceAll(hostPort, "[", "")
@@ -61,38 +92,47 @@ func serverKey(serverURL string) string {
 }
 
 // GetAPIKey returns the API key for the given server URL.
-// Looks up the in-memory cache first, then falls back to disk.
-// Returns "" if no key is set for this server.
+// Looks up the in-memory cache first, then the disk cache, then the
+// fallback resolver when one is wired. Returns "" if no key is set for
+// this server.
 func GetAPIKey(baseURL string) string {
 	mu.RLock()
-	if entry, ok := cache[baseURL]; ok {
-		mu.RUnlock()
+	entry, cached := cache[baseURL]
+	resolver := fallback
+	mu.RUnlock()
+	if cached {
 		return entry.key
 	}
-	mu.RUnlock()
 
 	data, err := os.ReadFile(apiKeyPath(baseURL))
-	if err != nil {
-		return ""
-	}
-	key := strings.TrimSpace(string(data))
-	if key == "" {
-		return ""
+	if err == nil {
+		if key := strings.TrimSpace(string(data)); key != "" {
+			mu.Lock()
+			cache[baseURL] = &apiKeyEntry{key: key}
+			mu.Unlock()
+			return key
+		}
 	}
 
-	mu.Lock()
-	cache[baseURL] = &apiKeyEntry{key: key}
-	mu.Unlock()
-	return key
+	if resolver != nil {
+		if key := resolver(baseURL); key != "" {
+			mu.Lock()
+			cache[baseURL] = &apiKeyEntry{key: key}
+			mu.Unlock()
+			return key
+		}
+	}
+	return ""
 }
 
 // SetAPIKey persists the API key for the given server URL to disk and
 // updates the in-memory cache. Pass an empty key to clear.
 func SetAPIKey(baseURL, apiKey string) error {
+	path := apiKeyPath(baseURL)
+
 	mu.Lock()
 	defer mu.Unlock()
 
-	path := apiKeyPath(baseURL)
 	if apiKey == "" {
 		cache[baseURL] = &apiKeyEntry{key: ""}
 		_ = os.Remove(path)

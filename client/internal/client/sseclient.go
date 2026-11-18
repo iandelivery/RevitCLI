@@ -162,6 +162,16 @@ func (c *SseClient) handleLegacyResponse(resp *http.Response) (int, error) {
 		return legacyHTTPExitCode(resp.StatusCode), nil
 	}
 
+	if resp.StatusCode == http.StatusUnauthorized {
+		if _, hasStatus := obj["status"]; !hasStatus {
+			if errMsg, ok := obj["error"].(string); ok && errMsg != "" {
+				fmt.Fprintln(os.Stderr, errMsg)
+			}
+			fmt.Fprintln(os.Stderr, "The bridge rejected the API key. Run 'revit-cli configure setup' to sync keys, or pick the right instance with --pid or --revit.")
+			return ExitConnect, nil
+		}
+	}
+
 	switch status, _ := obj["status"].(string); status {
 	case "pending":
 		if taskID, ok := obj["task_id"].(string); ok {

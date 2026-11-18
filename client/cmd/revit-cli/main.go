@@ -16,6 +16,7 @@ import (
 
 	"revit-cli/internal/abstractions"
 	"revit-cli/internal/client"
+	"revit-cli/internal/client/auth"
 	"revit-cli/internal/client/builtin"
 	"revit-cli/internal/client/discovery"
 	"revit-cli/internal/instance"
@@ -127,6 +128,7 @@ func parseGlobalOptions(args []string) globalOptions {
 }
 
 func main() {
+	auth.SetFallbackResolver(instance.APIKeyFor)
 	builtin.ClientVersion = Version
 	root := newRootCmd()
 	if err := root.Execute(); err != nil && exitCode == 0 {
@@ -232,6 +234,9 @@ func dispatchDynamic(args []string) int {
 
 	schema := fetcher.Fetch(false)
 	if schema == nil {
+		if code, handled := rejectAuthError(baseURL, fetcher); handled {
+			return code
+		}
 		fmt.Fprintf(os.Stderr, "Unknown command: %s\n", cmdName)
 		fmt.Fprintln(os.Stderr, "Run 'revit-cli commands' to see available commands.")
 		return 1
@@ -255,12 +260,26 @@ func dispatchDynamic(args []string) int {
 		return dynCmd.Handle(context.Background(), cmdArgs, send)
 	}
 
+	if code, handled := rejectAuthError(baseURL, fetcher); handled {
+		return code
+	}
 	fmt.Fprintf(os.Stderr, "Unknown command: %s\n", cmdName)
 	if suggestions := suggestFromSchema(cmdName, schema.Commands); len(suggestions) > 0 {
 		fmt.Fprintf(os.Stderr, "Did you mean: %s?\n", abstractions.JoinSuggestions(suggestions))
 	}
 	fmt.Fprintln(os.Stderr, "Run 'revit-cli commands' to see available commands.")
 	return 1
+}
+
+// rejectAuthError reports whether the bridge rejected a schema request with
+// 401; when it did, it prints the auth guidance and returns the exit code.
+func rejectAuthError(baseURL string, fetcher *discovery.SchemaFetcher) (int, bool) {
+	if !fetcher.AuthRejected() {
+		return 0, false
+	}
+	fmt.Fprintf(os.Stderr, "The bridge at %s rejected the API key (401).\n", baseURL)
+	fmt.Fprintln(os.Stderr, "Run 'revit-cli configure setup' to sync keys, or pick the right instance with --pid or --revit.")
+	return client.ExitConnect, true
 }
 
 func suggestFromSchema(typed string, defs []models.CommandDef) []string {

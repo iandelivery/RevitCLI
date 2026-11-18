@@ -16,10 +16,11 @@ import (
 // re-fetching and falls back to stale cache on network failure.
 // Mirrors C# RevitCliClient.Discovery.SchemaFetcher.
 type SchemaFetcher struct {
-	baseURL  string
-	client   *http.Client
-	cache    *SchemaCache
-	lastEtag string
+	baseURL      string
+	client       *http.Client
+	cache        *SchemaCache
+	lastEtag     string
+	authRejected bool
 }
 
 // NewSchemaFetcher creates a fetcher for the given server URL.
@@ -37,6 +38,12 @@ type commandCacheEntry struct {
 }
 
 var commandCache sync.Map
+
+// AuthRejected reports whether the bridge answered a schema request with
+// 401 Unauthorized.
+func (f *SchemaFetcher) AuthRejected() bool {
+	return f.authRejected
+}
 
 // FetchCommand fetches a single command definition via /api/commands/{name}.
 // Uses the in-process cache to avoid redundant HTTP calls within the same
@@ -60,6 +67,11 @@ func (f *SchemaFetcher) FetchCommand(name string) *models.CommandDef {
 		return nil
 	}
 	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusUnauthorized {
+		f.authRejected = true
+		return nil
+	}
 
 	if resp.StatusCode == http.StatusNotFound {
 		return nil
@@ -119,6 +131,11 @@ func (f *SchemaFetcher) Fetch(forceRefresh bool) *models.CommandSchema {
 		return f.cache.LoadStale()
 	}
 	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusUnauthorized {
+		f.authRejected = true
+		return f.cache.LoadStale()
+	}
 
 	if resp.StatusCode == http.StatusNotModified {
 		_ = f.cache.Touch()
