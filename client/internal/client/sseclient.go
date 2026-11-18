@@ -162,6 +162,20 @@ func (c *SseClient) handleLegacyResponse(resp *http.Response) (int, error) {
 		return legacyHTTPExitCode(resp.StatusCode), nil
 	}
 
+	if resp.StatusCode == http.StatusUnauthorized {
+		if _, hasStatus := obj["status"]; !hasStatus {
+			if errMsg, ok := obj["error"].(string); ok && errMsg != "" {
+				fmt.Fprintln(os.Stderr, errMsg)
+			}
+			if auth.GetAPIKey(c.baseURL) == "" {
+				fmt.Fprintln(os.Stderr, "No API key is available for this bridge. Run 'revit-cli configure setup' to sync keys, or update the bridge add-in and restart Revit so it publishes its key.")
+			} else {
+				fmt.Fprintln(os.Stderr, "The API key was rejected. Run 'revit-cli configure setup' to re-sync keys, or restart Revit if you just updated the bridge add-in.")
+			}
+			return ExitConnect, nil
+		}
+	}
+
 	switch status, _ := obj["status"].(string); status {
 	case "pending":
 		if taskID, ok := obj["task_id"].(string); ok {

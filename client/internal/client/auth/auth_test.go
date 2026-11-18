@@ -13,6 +13,8 @@ func withTempCacheDir(t *testing.T) string {
 	dir := t.TempDir()
 	SetCacheDir(dir)
 	t.Cleanup(func() {
+		SetCacheDir("")
+		SetFallbackResolver(nil)
 		for k := range cache {
 			delete(cache, k)
 		}
@@ -123,12 +125,98 @@ func TestServerKey_DerivesSafeFilename(t *testing.T) {
 		{"", "default"},
 		{"http://localhost:5041", "localhost_5041"},
 		{"https://localhost:5041", "localhost_5041"},
-		{"http://127.0.0.1:5000", "127_0_0_1_5000"},
+		{"http://127.0.0.1:5000", "localhost_5000"},
 		{"http://[::1]:5000", "__1_5000"},
 	}
 	for _, c := range cases {
 		if got := serverKey(c.input); got != c.want {
 			t.Errorf("serverKey(%q) = %q, want %q", c.input, got, c.want)
 		}
+	}
+}
+
+func TestGetAPIKey_FallsBackToResolverWhenNoDiskKey(t *testing.T) {
+	withTempCacheDir(t)
+	baseURL := "http://localhost:5012"
+
+	calls := 0
+	SetFallbackResolver(func(base string) string {
+		calls++
+		if base == baseURL {
+			return "registry-key"
+		}
+		return ""
+	})
+
+	if got := GetAPIKey(baseURL); got != "registry-key" {
+		t.Fatalf("expected 'registry-key' from the resolver, got %q", got)
+	}
+	if got := GetAPIKey(baseURL); got != "registry-key" {
+		t.Fatalf("expected cached 'registry-key', got %q", got)
+	}
+	if calls != 1 {
+		t.Fatalf("expected the resolver to run once, ran %d times", calls)
+	}
+}
+
+func TestGetAPIKey_ReturnsEmptyWhenResolverYieldsNothing(t *testing.T) {
+	withTempCacheDir(t)
+	SetFallbackResolver(func(string) string { return "" })
+
+	if got := GetAPIKey("http://localhost:5013"); got != "" {
+		t.Fatalf("expected empty key, got %q", got)
+	}
+}
+
+func TestGetAPIKey_DiskKeyWinsOverResolver(t *testing.T) {
+	dir := withTempCacheDir(t)
+	baseURL := "http://localhost:5014"
+
+	SetFallbackResolver(func(string) string { return "resolver-key" })
+	servers := filepath.Join(dir, "servers")
+	if err := os.MkdirAll(servers, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(servers, "apikey_localhost_5014.txt"), []byte("disk-key"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	if got := GetAPIKey(baseURL); got != "disk-key" {
+		t.Fatalf("expected the disk key to win, got %q", got)
+	}
+}
+
+func TestGetAPIKey_LoopbackAliasHitsSameKeyFile(t *testing.T) {
+	withTempCacheDir(t)
+	if err := SetAPIKey("http://localhost:5011", "key-11"); err != nil {
+		t.Fatal(err)
+	}
+
+	if got := GetAPIKey("http://127.0.0.1:5011"); got != "key-11" {
+		t.Fatalf("expected the loopback alias to hit the same key file, got %q", got)
+	}
+}
+
+func TestGetAPIKey_DataDirScopesTheKeyStore(t *testing.T) {
+	dataDir := t.TempDir()
+	t.Setenv("REVIT_CLI_DATA_DIR", dataDir)
+	SetCacheDir("")
+	t.Cleanup(func() {
+		SetCacheDir("")
+		for k := range cache {
+			delete(cache, k)
+		}
+	})
+
+	servers := filepath.Join(dataDir, "servers")
+	if err := os.MkdirAll(servers, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(servers, "apikey_localhost_5015.txt"), []byte("env-key"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	if got := GetAPIKey("http://localhost:5015"); got != "env-key" {
+		t.Fatalf("expected 'env-key' from the data-dir scoped key store, got %q", got)
 	}
 }

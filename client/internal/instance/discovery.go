@@ -5,6 +5,7 @@ package instance
 import (
 	"encoding/json"
 	"fmt"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -25,6 +26,27 @@ type InstanceInfo struct {
 	StartedAt     string `json:"started_at"`
 	Hostname      string `json:"hostname"`
 	CommandsCount int    `json:"commands_count"`
+	ApiKey        string `json:"api_key,omitempty"`
+}
+
+// APIKeyFor returns the API key carried by a discovered instance whose port
+// matches the port in baseURL. Registry files written by bridges without
+// api_key support, and mocks, carry no key and yield "".
+func APIKeyFor(baseURL string) string {
+	parsed, err := url.Parse(baseURL)
+	if err != nil {
+		return ""
+	}
+	port := parsed.Port()
+	if port == "" {
+		return ""
+	}
+	for _, inst := range Discover() {
+		if inst.Port > 0 && strconv.Itoa(inst.Port) == port && inst.ApiKey != "" {
+			return inst.ApiKey
+		}
+	}
+	return ""
 }
 
 // InstancesDir returns the path to the instances registry directory.

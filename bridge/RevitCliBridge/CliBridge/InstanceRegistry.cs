@@ -42,6 +42,9 @@ namespace RevitCliBridge
 
             [JsonProperty("commands_count")]
             public int CommandsCount { get; set; }
+
+            [JsonProperty("api_key", NullValueHandling = NullValueHandling.Ignore)]
+            public string? ApiKey { get; set; }
         }
 
         /// <summary>
