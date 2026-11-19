@@ -56,7 +56,7 @@ Edit `.config\cli_bridge_setting.json`:
   "auto_port": true,
   "timeout_seconds": 180,
   "max_command_queue_size": 100,
-  "allow_raw_execution": false,
+  "allow_raw_execution": true,
   "api_key": null
 }
 ```

@@ -88,6 +88,6 @@ GitHub Release with distribution packages.
 | Artifact retention | 7 days |
 | Checksums | SHA256 for all release artifacts |
 | Permissions | Top-level `contents: read`; release job `contents: write` |
-| Security default | `allow_raw_execution: false` and `allow_unsigned_plugins: false` in all generated configs |
+| Security default | `allow_raw_execution: true` and `allow_unsigned_plugins: false` in all generated configs |
 
 ← Back to [README.md](README.md).

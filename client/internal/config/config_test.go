@@ -23,8 +23,8 @@ func TestDefault_ReturnsSaneValues(t *testing.T) {
 	if cfg.MaxCommandQueueSize != 100 {
 		t.Errorf("expected MaxCommandQueueSize=100, got %d", cfg.MaxCommandQueueSize)
 	}
-	if cfg.AllowRawExecution {
-		t.Error("expected AllowRawExecution=false by default")
+	if !cfg.AllowRawExecution {
+		t.Error("expected AllowRawExecution=true by default")
 	}
 }
 
