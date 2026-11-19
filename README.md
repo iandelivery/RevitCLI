@@ -98,7 +98,6 @@ The CLI caches the command schema (fetched from `GET /api/commands`) locally wit
 2. Extract it anywhere (e.g. `C:\revit-cli\`). The zip contains the `revit-cli.exe` client, the `SKILL.md` for AI agents, and a `bridge/` folder with all four supported Revit versions. To register the skill with your AI coding agent, see [Use with AI Agents](#use-with-ai-agents).
 3. Install the bridge for every Revit on this machine:
    ```powershell
-   cd C:\revit-cli
    .\revit-cli.exe configure setup
    ```
    This scans the Windows registry, then copies the matching bridge files to each Revit version's addins folder with the correct port assignment. For uninstalling and upgrading later, see [Install, Uninstall, and Update](#install-uninstall-and-update).
@@ -363,7 +362,6 @@ If you deploy from source instead (`bridge\build.ps1 -Deploy`), the deployed API
 Every release zip ships `SKILL.md` — an [Open Skill protocol](https://github.com/open-skill/protocol) file that teaches AI coding agents (Claude Code, Cursor, Codex, Trae, Trae CN, CodeBuddy, WorkBuddy, Kimi) how to drive Revit through this CLI. Register it with the agents installed on your machine (user-level, the default) or in the current project (`--project`):
 
 ```powershell
-cd C:\revit-cli
 .\revit-cli.exe skill install --list              # 1. list detected agent directories (user-level)
 .\revit-cli.exe skill install --agent claude,codebuddy   # 2. install non-interactively
 .\revit-cli.exe skill install --agent claude --project   # or: project-level (cwd) instead
