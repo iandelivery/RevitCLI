@@ -99,7 +99,7 @@ Server-side config is read from `.config/cli_bridge_setting.json`:
 | `timeout_seconds` | 180 | Command timeout |
 | `max_command_queue_size` | 100 | Command queue limit |
 | `enabled` | true | AI Mode auto-start on Revit launch |
-| `allow_raw_execution` | false | Persistent default for raw mode |
+| `allow_raw_execution` | true | Persistent default for raw mode |
 
 Port allocation scheme (when `auto_port` is true):
 

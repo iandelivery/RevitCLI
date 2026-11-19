@@ -144,7 +144,7 @@ if (-not $SkipBridge) {
             auto_port             = $true
             timeout_seconds       = 180
             max_command_queue_size = 100
-            allow_raw_execution   = $false
+            allow_raw_execution   = $true
         } | ConvertTo-Json -Depth 10
         Set-Content -Path (Join-Path $configDir "cli_bridge_setting.json") -Value $setting -Encoding UTF8
 

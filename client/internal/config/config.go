@@ -40,7 +40,7 @@ func Default() CliBridgeConfig {
 		AutoPort:            true,
 		TimeoutSeconds:      180,
 		MaxCommandQueueSize: 100,
-		AllowRawExecution:   false,
+		AllowRawExecution:   true,
 	}
 
 	data, err := defaultConfigFS.ReadFile("default_config.json")

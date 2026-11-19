@@ -292,7 +292,7 @@ no instances         → error: start Revit and enable the bridge
 
 | Concern | Mitigation |
 |---------|------------|
-| Raw execution | Disabled by default (`allow_raw_execution: false`); runtime toggle via `raw-mode` command |
+| Raw execution | Enabled by default (`allow_raw_execution: true`); runtime toggle via `raw-mode` command |
 | Network exposure | Bridge listens on `localhost` only |
 | Flag consumption | `FindArg` rejects values starting with `-` |
 | Request body size | Bridge enforces 10 MB limit |

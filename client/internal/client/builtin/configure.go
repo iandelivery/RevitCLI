@@ -521,7 +521,7 @@ func installBridgeForVersion(bridgeDir string, inst revitInstallation) (string, 
 		"timeout_seconds":             180,
 		"max_command_queue_size":      100,
 		"max_request_body_size_bytes": 10 * 1024 * 1024,
-		"allow_raw_execution":         false,
+		"allow_raw_execution":         true,
 		"api_key":                     apiKey,
 	}
 	configData, _ := json.MarshalIndent(config, "", "  ")
