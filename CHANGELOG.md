@@ -7,6 +7,29 @@ commits — feat/fix only). Do not edit released sections. Historical
 releases before v1.12.0 live on the
 [GitHub Releases page](https://github.com/iandelivery/RevitCLI/releases).
 
+## v1.19.0 (2026-11-19)
+
+- **Raw execution on by default** — every installed bridge now ships
+  `allow_raw_execution: true`: the `configure setup` installer, local
+  builds (`build.ps1`), and release artifacts all write the enabled
+  default (previously the C# default said enabled while every generated
+  config disabled it). The `raw-mode` command still toggles it at
+  runtime, and the toggle remains in-memory — restart resets to the
+  config value.
+- **Multi-instance auth just works** — a second bridge instance of the
+  same Revit version auto-allocates the next port in the version's
+  range, and the instance registry file now carries that instance's
+  `api_key` next to its port, so the client authenticates against every
+  running instance without re-running `configure setup`.
+- **Clearer 401 errors** — auth failures no longer hide behind
+  "Unknown command": the client prints the URL plus the matching remedy
+  (no key sent → run `configure setup`; key sent and refused → re-sync
+  the rotated config; old bridge that publishes no key → restart Revit
+  after an add-in update) and exits with code 2.
+- **Docs** — install and skill-install examples no longer `cd` to a
+  fixed `C:\revit-cli` path, and every doc that claimed the raw-mode
+  default now agrees with the code.
+
 ## v1.18.0 (2026-11-17)
 
 - **Retry-safe commands** — pass `--request-id <id>` on any command and the

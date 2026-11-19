@@ -95,7 +95,6 @@ CLI 客户端会把命令 schema（通过 `GET /api/commands` 获取）在本地
 2. 解压到任意目录（例如 `C:\revit-cli\`）。压缩包内含 `revit-cli.exe` 客户端、供 AI 代理使用的 `SKILL.md`，以及包含全部 4 个 Revit 版本桥接器的 `bridge/` 文件夹。如需把 skill 注册到你的 AI 编程 Agent，参见[配合 AI 编程 Agent 使用](#配合-ai-编程-agent-使用)。
 3. 为本机所有 Revit 安装桥接器：
    ```powershell
-   cd C:\revit-cli
    .\revit-cli.exe configure setup
    ```
    命令会扫描 Windows 注册表，然后把每个版本对应的桥接器文件复制到对应 Revit 版本的插件目录，并写入正确的端口。卸载与升级参见[安装、卸载与更新](#安装卸载与更新)。
@@ -351,7 +350,6 @@ revit-cli.exe skill uninstall --target <dir>   # 自定义 skills 根目录
 每个 release 压缩包都内置 `SKILL.md` —— 一个 [Open Skill 协议](https://github.com/open-skill/protocol)文件，教会 AI 编程 Agent（Claude Code、Cursor、Codex、Trae、Trae CN、CodeBuddy、WorkBuddy、Kimi）如何通过本 CLI 驱动 Revit。默认注册到本机用户级（`~`）已安装的 Agent，加 `--project` 则注册到当前项目：
 
 ```powershell
-cd C:\revit-cli
 .\revit-cli.exe skill install --list              # 1. 列出检测到的 Agent 目录（用户级）
 .\revit-cli.exe skill install --agent claude,codebuddy   # 2. 非交互式安装
 .\revit-cli.exe skill install --agent claude --project   # 或者：项目级（当前目录）
