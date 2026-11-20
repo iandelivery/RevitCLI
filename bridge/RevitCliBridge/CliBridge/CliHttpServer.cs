@@ -36,7 +36,10 @@ namespace RevitCliBridge
         {
             _port = port;
             _listener = new HttpListener();
-            _listener.Prefixes.Add($"http://localhost:{port}/");
+            foreach (var prefix in HttpPrefixes.Compute(port))
+            {
+                _listener.Prefixes.Add(prefix);
+            }
             _cancellationTokenSource = new CancellationTokenSource();
         }
 
@@ -61,7 +64,7 @@ namespace RevitCliBridge
             _isRunning = true;
 
             _serverTask = Task.Run(() => ListenLoopAsync(_cancellationTokenSource.Token));
-            CliLogger.Info($"CLI HTTP server started on http://localhost:{_port}/");
+            CliLogger.Info($"CLI HTTP server started on http://localhost:{_port}/ and http://127.0.0.1:{_port}/");
         }
 
         public void Stop()
