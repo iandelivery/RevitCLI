@@ -7,6 +7,16 @@ commits — feat/fix only). Do not edit released sections. Historical
 releases before v1.12.0 live on the
 [GitHub Releases page](https://github.com/iandelivery/RevitCLI/releases).
 
+## v1.19.1 (2026-11-20)
+
+- **`http://127.0.0.1:{port}` no longer rejected** — the bridge bound only
+  the `http://localhost:{port}/` prefix, so requests addressed to the raw
+  loopback IP were answered by HTTP.sys with 400 "Invalid Hostname" — an
+  error indistinguishable from the bridge not being there at all, which
+  derailed troubleshooting toward discovery and auth. The listener now
+  registers both loopback prefixes (still loopback-only, nothing
+  external); `localhost` keeps working unchanged.
+
 ## v1.19.0 (2026-11-19)
 
 - **Raw execution on by default** — every installed bridge now ships
