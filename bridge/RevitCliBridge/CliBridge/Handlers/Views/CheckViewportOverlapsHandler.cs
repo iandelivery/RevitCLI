@@ -86,10 +86,13 @@ namespace RevitCliBridge.Handlers.Views
                 overlaps
             };
 
+            var pairNoun = overlaps.Count == 1 ? "pair" : "pairs";
+            var overlapVerb = overlaps.Count == 1 ? "overlaps" : "overlap";
+
             return CommandResponse.Success(cmd.TaskId, result,
                 overlaps.Count == 0
                     ? $"No viewport boxes overlap on sheet {sheet.SheetNumber}."
-                    : $"{overlaps.Count} viewport pairs overlap on sheet {sheet.SheetNumber}.").ToJson();
+                    : $"{overlaps.Count} viewport {pairNoun} {overlapVerb} on sheet {sheet.SheetNumber}.").ToJson();
         }
     }
 }
