@@ -22,8 +22,8 @@ namespace RevitCliBridge.Handlers.Views
                 Properties = new[]
                 {
                     new CommandParamSchema { Name = "view_id", Type = "int", Required = true, Description = "View element ID to place" },
-                    new CommandParamSchema { Name = "x", Type = "double", Required = false, Description = "Placement X in mm on sheet" },
-                    new CommandParamSchema { Name = "y", Type = "double", Required = false, Description = "Placement Y in mm on sheet" }
+                    new CommandParamSchema { Name = "x", Type = "double", Required = false, Description = "Placement X in mm on sheet (defaults to the sheet center)" },
+                    new CommandParamSchema { Name = "y", Type = "double", Required = false, Description = "Placement Y in mm on sheet (defaults to the sheet center)" }
                 }
             }
         };
@@ -36,59 +36,59 @@ namespace RevitCliBridge.Handlers.Views
 
         protected override string Execute(UIApplication app, Document doc, Dictionary<string, object> parameters, QueuedCommand cmd)
         {
-
-            int? viewId = HandlerUtilities.GetIntOrNull(parameters, "view_id");
             int? sheetId = HandlerUtilities.GetIntOrNull(parameters, "sheet_id");
-            double? x = HandlerUtilities.GetDoubleOrNull(parameters, "x");
-            double? y = HandlerUtilities.GetDoubleOrNull(parameters, "y");
-            int? viewportTypeId = HandlerUtilities.GetIntOrNull(parameters, "viewport_type_id");
-
-            if (!viewId.HasValue)
-                return CommandResponse.Error(cmd.TaskId, "Missing 'view_id' parameter.").ToJson();
-
             if (!sheetId.HasValue)
                 return CommandResponse.Error(cmd.TaskId, "Missing 'sheet_id' parameter.").ToJson();
-
-            var view = doc.GetElement(new ElementId(viewId.Value)) as View;
-            if (view is null)
-                return CommandResponse.Error(cmd.TaskId, $"View with ID {viewId.Value} not found.").ToJson();
 
             var sheet = doc.GetElement(new ElementId(sheetId.Value)) as ViewSheet;
             if (sheet is null)
                 return CommandResponse.Error(cmd.TaskId, $"Sheet with ID {sheetId.Value} not found.").ToJson();
 
-            XYZ location;
-            if (x.HasValue && y.HasValue)
+            if (!SheetPlacementParser.TryParse(
+                    parameters.TryGetValue("views", out var rawViews) ? rawViews : null,
+                    "views", "view_id", false, out var items, out var parseError))
+                return CommandResponse.Error(cmd.TaskId, parseError!).ToJson();
+
+            var views = new View?[items.Count];
+            for (var i = 0; i < items.Count; i++)
             {
-                location = new XYZ(x.Value.MillimeterToFeet(), y.Value.MillimeterToFeet(), 0);
-            }
-            else
-            {
-                location = sheet.Origin;
+                var item = items[i];
+                var view = doc.GetElement(new ElementId((int)item.Id)) as View;
+                if (view is null)
+                    return CommandResponse.Error(cmd.TaskId, $"View with ID {item.Id} not found.").ToJson();
+                if (!Viewport.CanAddViewToSheet(doc, sheet.Id, view.Id))
+                    return CommandResponse.Error(cmd.TaskId,
+                        $"View {item.Id} cannot be placed on sheet {sheet.SheetNumber}. A view can sit on one sheet only, and schedules are placed as ScheduleSheetInstance, not viewports.").ToJson();
+                views[i] = view;
             }
 
-            Viewport? viewport = null;
-
+            var placed = new List<object>();
             List<string> resolvedFailures;
 
-            using (var t = new DryRunTransaction(doc, "CLI Place View on Sheet", cmd.DryRun))
+            using (var t = new DryRunTransaction(doc, "CLI Place Views on Sheet", cmd.DryRun))
             {
                 t.ConfigureFailureHandling();
 
                 try
                 {
-                    if (viewportTypeId.HasValue && viewportTypeId.Value > 0)
+                    for (var i = 0; i < items.Count; i++)
                     {
-                        var vpType = doc.GetElement(new ElementId(viewportTypeId.Value)) as ElementType;
-                        if (vpType is not null)
-                            viewport = Viewport.Create(doc, sheet.Id, view.Id, location);
-                        else
-                            viewport = Viewport.Create(doc, sheet.Id, view.Id, location);
+                        var item = items[i];
+                        var location = item.X.HasValue && item.Y.HasValue
+                            ? new XYZ(item.X.Value.MillimeterToFeet(), item.Y.Value.MillimeterToFeet(), 0)
+                            : sheet.Origin;
+
+                        var viewport = Viewport.Create(doc, sheet.Id, views[i]!.Id, location);
+                        placed.Add(new
+                        {
+                            view_id = item.Id,
+                            viewport_id = viewport.Id.IntegerValue,
+                            location_x = location.X.FeetToMillimeter(),
+                            location_y = location.Y.FeetToMillimeter()
+                        });
                     }
-                    else
-                    {
-                        viewport = Viewport.Create(doc, sheet.Id, view.Id, location);
-                    }
+
+                    doc.Regenerate();
                 }
                 catch (Exception ex)
                 {
@@ -100,19 +100,15 @@ namespace RevitCliBridge.Handlers.Views
                 resolvedFailures = t.ResolvedFailures;
             }
 
-            if (viewport is null)
-                return CommandResponse.Error(cmd.TaskId, "Failed to create viewport.").ToJson();
-
             var result = new
             {
-                viewport_id = viewport.Id.IntegerValue,
-                view_id = viewId.Value,
                 sheet_id = sheetId.Value,
-                location_x = location.X.FeetToMillimeter(),
-                location_y = location.Y.FeetToMillimeter()
+                count = placed.Count,
+                placed
             };
 
-            return CommandResponse.SuccessWithResolvedFailures(cmd.TaskId, result, "View placed on sheet successfully.", resolvedFailures).ToJson();
+            return CommandResponse.SuccessWithResolvedFailures(
+                cmd.TaskId, result, $"Placed {placed.Count} views on sheet {sheet.SheetNumber}.", resolvedFailures).ToJson();
         }
     }
 }
