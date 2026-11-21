@@ -41,11 +41,19 @@ namespace RevitCliBridge.Handlers.Views
         /// </summary>
         internal static SheetRect ToRect(Outline outline)
         {
+            return ToRect(outline.MinimumPoint, outline.MaximumPoint);
+        }
+
+        /// <summary>
+        /// Converts a sheet-space corner pair to a millimeter SheetRect, dropping Z.
+        /// </summary>
+        internal static SheetRect ToRect(XYZ min, XYZ max)
+        {
             return new SheetRect(
-                outline.MinimumPoint.X.FeetToMillimeter(),
-                outline.MinimumPoint.Y.FeetToMillimeter(),
-                outline.MaximumPoint.X.FeetToMillimeter(),
-                outline.MaximumPoint.Y.FeetToMillimeter());
+                min.X.FeetToMillimeter(),
+                min.Y.FeetToMillimeter(),
+                max.X.FeetToMillimeter(),
+                max.Y.FeetToMillimeter());
         }
 
         /// <summary>
