@@ -16,11 +16,19 @@ namespace RevitCliBridge.Handlers.Piping
     /// </summary>
     public class CreateTransitionFittingHandler : DocumentCommandBase
     {
+        private static readonly IReadOnlyDictionary<string, string> FieldKinds =
+            new Dictionary<string, string>
+            {
+                ["diameter_1"] = UnitKinds.Length,
+                ["diameter_2"] = UnitKinds.Length
+            };
+
         public override string CommandName => "create_pipe_transition_fitting";
         public override string Description => "Creates a transition fitting between two collinear pipes of differing diameter";
         public override string Category => "Create";
         public override string[] Aliases => new[] { "pipe_transition_fitting" };
         public override bool SupportsDryRun => true;
+        public override IReadOnlyDictionary<string, string> ResponseFieldKinds => FieldKinds;
 
         public override CommandParamSchema[] Parameters => new[]
         {
@@ -51,10 +59,10 @@ namespace RevitCliBridge.Handlers.Piping
 
             var pipe1 = (Pipe)c1!.Owner;
             var pipe2 = (Pipe)c2!.Owner;
-            double dia1 = PipeUtils.Default.GetDiameterMm(pipe1);
-            double dia2 = PipeUtils.Default.GetDiameterMm(pipe2);
+            double dia1 = PipeUtils.Default.GetDiameter(pipe1);
+            double dia2 = PipeUtils.Default.GetDiameter(pipe2);
 
-            if (Math.Abs(dia1 - dia2) < 0.01)
+            if (Math.Abs(dia1 - dia2) < 0.01.MillimeterToFeet())
                 return CommandResponse.Error(cmd.TaskId,
                     $"Both pipes have the same diameter. Use create_pipe_union_fitting for same-size joining.").ToJson();
 
@@ -69,8 +77,8 @@ namespace RevitCliBridge.Handlers.Piping
                     new
                     {
                         fitting_id = fitting.Id.IntegerValue,
-                        diameter_1_mm = dia1,
-                        diameter_2_mm = dia2
+                        diameter_1 = dia1,
+                        diameter_2 = dia2
                     },
                     "Transition fitting created successfully.", tx.ResolvedFailures).ToJson();
             }

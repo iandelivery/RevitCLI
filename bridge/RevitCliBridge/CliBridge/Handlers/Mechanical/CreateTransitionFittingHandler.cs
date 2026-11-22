@@ -17,11 +17,23 @@ namespace RevitCliBridge.Handlers.Mechanical
     /// </summary>
     public class CreateTransitionFittingHandler : DocumentCommandBase
     {
+        private static readonly IReadOnlyDictionary<string, string> FieldKinds =
+            new Dictionary<string, string>
+            {
+                ["diameter_1"] = UnitKinds.Length,
+                ["width_1"] = UnitKinds.Length,
+                ["height_1"] = UnitKinds.Length,
+                ["diameter_2"] = UnitKinds.Length,
+                ["width_2"] = UnitKinds.Length,
+                ["height_2"] = UnitKinds.Length
+            };
+
         public override string CommandName => "create_duct_transition_fitting";
         public override string Description => "Creates a transition fitting between two collinear ducts of differing sizes";
         public override string Category => "Create";
         public override string[] Aliases => new[] { "duct_transition_fitting" };
         public override bool SupportsDryRun => true;
+        public override IReadOnlyDictionary<string, string> ResponseFieldKinds => FieldKinds;
 
         public override CommandParamSchema[] Parameters => new[]
         {
@@ -52,10 +64,12 @@ namespace RevitCliBridge.Handlers.Mechanical
 
             var duct1 = (Duct)c1!.Owner;
             var duct2 = (Duct)c2!.Owner;
-            var (dia1, w1, h1) = DuctUtils.Default.GetSize(duct1);
-            var (dia2, w2, h2) = DuctUtils.Default.GetSize(duct2);
+            var (dia1, w1, h1) = DuctUtils.Default.GetSizeInternal(duct1);
+            var (dia2, w2, h2) = DuctUtils.Default.GetSizeInternal(duct2);
 
-            bool sameSize = (Math.Abs(dia1 - dia2) < 0.01 && Math.Abs(w1 - w2) < 0.01 && Math.Abs(h1 - h2) < 0.01);
+            bool sameSize = (Math.Abs(dia1 - dia2) < 0.01.MillimeterToFeet() &&
+                             Math.Abs(w1 - w2) < 0.01.MillimeterToFeet() &&
+                             Math.Abs(h1 - h2) < 0.01.MillimeterToFeet());
             if (sameSize)
                 return CommandResponse.Error(cmd.TaskId,
                     $"Both ducts have the same size. Use create_union_fitting for same-size joining.").ToJson();
@@ -71,8 +85,12 @@ namespace RevitCliBridge.Handlers.Mechanical
                     new
                     {
                         fitting_id = fitting.Id.IntegerValue,
-                        size_1 = new { diameter_mm = dia1, width_mm = w1, height_mm = h1 },
-                        size_2 = new { diameter_mm = dia2, width_mm = w2, height_mm = h2 }
+                        diameter_1 = dia1,
+                        width_1 = w1,
+                        height_1 = h1,
+                        diameter_2 = dia2,
+                        width_2 = w2,
+                        height_2 = h2
                     },
                     "Transition fitting created successfully.", tx.ResolvedFailures).ToJson();
             }

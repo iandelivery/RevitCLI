@@ -48,24 +48,23 @@ namespace RevitCliBridge.Handlers.Piping
         }
 
         /// <summary>
-        /// Read the diameter of a pipe in millimeters from its instance
-        /// parameter (pipes are round; the size is stored on the pipe rather
-        /// than its type the way duct size is).
+        /// Read the diameter of a pipe in Revit internal units (feet) from
+        /// its instance parameter (pipes are round; the size is stored on the
+        /// pipe rather than its type the way duct size is).
         /// </summary>
-        public double GetDiameterMm(Pipe pipe)
+        public double GetDiameter(Pipe pipe)
         {
-            double diameterFt = pipe.get_Parameter(BuiltInParameter.RBS_PIPE_DIAMETER_PARAM)?.AsDouble() ?? 0.0;
-            return diameterFt.FeetToMillimeter();
+            return pipe.get_Parameter(BuiltInParameter.RBS_PIPE_DIAMETER_PARAM)?.AsDouble() ?? 0.0;
         }
 
         /// <summary>
-        /// Project a pipe into a serializable snapshot with all coordinates
-        /// converted to millimeters.
+        /// Project a pipe into a serializable snapshot with length fields in
+        /// Revit internal units.
         /// </summary>
         public object Snapshot(Pipe pipe, Document doc)
         {
             var curve = (pipe.Location as LocationCurve)?.Curve;
-            double diameterMm = GetDiameterMm(pipe);
+            double diameter = pipe.get_Parameter(BuiltInParameter.RBS_PIPE_DIAMETER_PARAM)?.AsDouble() ?? 0.0;
             var typeName = (doc.GetElement(pipe.GetTypeId()) as PipeType)?.Name ?? "";
             var systemType = doc.GetElement(pipe.get_Parameter(BuiltInParameter.RBS_PIPING_SYSTEM_TYPE_PARAM)?.AsElementId()) as PipingSystemType;
 
@@ -74,8 +73,8 @@ namespace RevitCliBridge.Handlers.Piping
             {
                 var p1 = curve.GetEndPoint(0);
                 var p2 = curve.GetEndPoint(1);
-                start = new { x = p1.X.FeetToMillimeter(), y = p1.Y.FeetToMillimeter(), z = p1.Z.FeetToMillimeter() };
-                end = new { x = p2.X.FeetToMillimeter(), y = p2.Y.FeetToMillimeter(), z = p2.Z.FeetToMillimeter() };
+                start = new { x = p1.X, y = p1.Y, z = p1.Z };
+                end = new { x = p2.X, y = p2.Y, z = p2.Z };
             }
 
             return new
@@ -89,8 +88,8 @@ namespace RevitCliBridge.Handlers.Piping
                 level_id = pipe.LevelId.IntegerValue,
                 start,
                 end,
-                diameter_mm = diameterMm,
-                length_mm = curve?.Length.FeetToMillimeter() ?? 0.0
+                diameter,
+                length = curve?.Length ?? 0.0
             };
         }
 

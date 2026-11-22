@@ -10,14 +10,28 @@ namespace RevitCliBridge.Handlers.Mechanical
     /// <summary>
     /// Queries duct instances in the active document. Supports optional
     /// filtering by level, system type, and/or shape. Returns paginated
-    /// results with coordinates in millimeters.
+    /// results with lengths and coordinates in the request length unit
+    /// (default mm).
     /// </summary>
     public class GetDuctsHandler : PaginatedQueryHandler<object>
     {
+        private static readonly IReadOnlyDictionary<string, string> FieldKinds =
+            new Dictionary<string, string>
+            {
+                ["x"] = UnitKinds.Length,
+                ["y"] = UnitKinds.Length,
+                ["z"] = UnitKinds.Length,
+                ["diameter"] = UnitKinds.Length,
+                ["width"] = UnitKinds.Length,
+                ["height"] = UnitKinds.Length,
+                ["length"] = UnitKinds.Length
+            };
+
         public override string CommandName => "get_ducts";
         public override string Description => "Retrieves duct instances, optionally filtered by level, system type, or shape";
         public override string Category => "Query";
         public override string[] Aliases => new[] { "ducts", "list_ducts" };
+        public override IReadOnlyDictionary<string, string> ResponseFieldKinds => FieldKinds;
 
         protected override string ItemsProperty => "ducts";
         protected override string SuccessMessage(int count) => $"Retrieved {count} duct(s).";

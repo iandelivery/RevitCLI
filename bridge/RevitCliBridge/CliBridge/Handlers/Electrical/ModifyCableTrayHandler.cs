@@ -12,36 +12,48 @@ namespace RevitCliBridge.Handlers.Electrical
 {
     /// <summary>
     /// Modifies an existing cable tray: endpoints, type, and/or width/height.
-    /// At least one optional field must be provided. Coordinates are in
-    /// millimeters; width/height updates take effect immediately on the
-    /// instance parameters.
+    /// At least one optional field must be provided. Coordinates use the
+    /// request length unit (default mm); width/height updates take effect
+    /// immediately on the instance parameters.
     /// </summary>
     public class ModifyCableTrayHandler : DocumentCommandBase
     {
+        private static readonly IReadOnlyDictionary<string, string> FieldKinds =
+            new Dictionary<string, string>
+            {
+                ["x"] = UnitKinds.Length,
+                ["y"] = UnitKinds.Length,
+                ["z"] = UnitKinds.Length,
+                ["width"] = UnitKinds.Length,
+                ["height"] = UnitKinds.Length,
+                ["length"] = UnitKinds.Length
+            };
+
         public override string CommandName => "modify_cable_tray";
         public override string Description => "Modifies an existing cable tray (endpoints, type, width, height)";
         public override string Category => "Modify";
         public override string[] Aliases => new[] { "cabletray_modify" };
         public override bool SupportsDryRun => true;
+        public override IReadOnlyDictionary<string, string> ResponseFieldKinds => FieldKinds;
 
         public override CommandParamSchema[] Parameters => new[]
         {
             new CommandParamSchema { Name = "element_id", Type = "int", Required = true, Description = "Cable tray element ID to modify" },
-            new CommandParamSchema { Name = "start_x", Type = "double", Required = false, Description = "New start X in millimeters" },
-            new CommandParamSchema { Name = "start_y", Type = "double", Required = false, Description = "New start Y in millimeters" },
-            new CommandParamSchema { Name = "start_z", Type = "double", Required = false, Description = "New start Z in millimeters" },
-            new CommandParamSchema { Name = "end_x", Type = "double", Required = false, Description = "New end X in millimeters" },
-            new CommandParamSchema { Name = "end_y", Type = "double", Required = false, Description = "New end Y in millimeters" },
-            new CommandParamSchema { Name = "end_z", Type = "double", Required = false, Description = "New end Z in millimeters" },
+            new CommandParamSchema { Name = "start_x", Type = "double", Required = false, UnitKind = UnitKinds.Length, Description = "New start X (request length unit, default mm)" },
+            new CommandParamSchema { Name = "start_y", Type = "double", Required = false, UnitKind = UnitKinds.Length, Description = "New start Y (request length unit, default mm)" },
+            new CommandParamSchema { Name = "start_z", Type = "double", Required = false, UnitKind = UnitKinds.Length, Description = "New start Z (request length unit, default mm)" },
+            new CommandParamSchema { Name = "end_x", Type = "double", Required = false, UnitKind = UnitKinds.Length, Description = "New end X (request length unit, default mm)" },
+            new CommandParamSchema { Name = "end_y", Type = "double", Required = false, UnitKind = UnitKinds.Length, Description = "New end Y (request length unit, default mm)" },
+            new CommandParamSchema { Name = "end_z", Type = "double", Required = false, UnitKind = UnitKinds.Length, Description = "New end Z (request length unit, default mm)" },
             new CommandParamSchema { Name = "type_id", Type = "int", Required = false, Description = "New cable tray type ID" },
-            new CommandParamSchema { Name = "width_mm", Type = "double", Required = false, Description = "New width in millimeters" },
-            new CommandParamSchema { Name = "height_mm", Type = "double", Required = false, Description = "New height in millimeters" }
+            new CommandParamSchema { Name = "width", Type = "double", Required = false, UnitKind = UnitKinds.Length, Description = "New width (request length unit, default mm)" },
+            new CommandParamSchema { Name = "height", Type = "double", Required = false, UnitKind = UnitKinds.Length, Description = "New height (request length unit, default mm)" }
         };
 
         public override string[] Examples => new[]
         {
             "{ \"command\": \"modify_cable_tray\", \"parameters\": { \"element_id\": 12345, \"end_x\": 6000 } }",
-            "{ \"command\": \"modify_cable_tray\", \"parameters\": { \"element_id\": 12345, \"width_mm\": 300, \"height_mm\": 150 } }",
+            "{ \"command\": \"modify_cable_tray\", \"parameters\": { \"element_id\": 12345, \"width\": 300, \"height\": 150 } }",
             "{ \"command\": \"modify_cable_tray\", \"parameters\": { \"element_id\": 12345, \"type_id\": 67890 } }"
         };
 
@@ -51,7 +63,7 @@ namespace RevitCliBridge.Handlers.Electrical
             if (p is null) return error!;
 
             if (!HasAnyChange(p))
-                return CommandResponse.Error(cmd.TaskId, "At least one of start/end coordinates, type_id, width_mm, or height_mm must be provided.").ToJson();
+                return CommandResponse.Error(cmd.TaskId, "At least one of start/end coordinates, type_id, width, or height must be provided.").ToJson();
 
             var tray = doc.GetElement(new ElementId(p.ElementId)) as CableTray;
             if (tray is null)
@@ -81,14 +93,14 @@ namespace RevitCliBridge.Handlers.Electrical
                         var oldEnd = line.GetEndPoint(1);
 
                         var newStart = new XYZ(
-                            (p.StartX ?? oldStart.X.FeetToMillimeter()).MillimeterToFeet(),
-                            (p.StartY ?? oldStart.Y.FeetToMillimeter()).MillimeterToFeet(),
-                            (p.StartZ ?? oldStart.Z.FeetToMillimeter()).MillimeterToFeet());
+                            p.StartX ?? oldStart.X,
+                            p.StartY ?? oldStart.Y,
+                            p.StartZ ?? oldStart.Z);
 
                         var newEnd = new XYZ(
-                            (p.EndX ?? oldEnd.X.FeetToMillimeter()).MillimeterToFeet(),
-                            (p.EndY ?? oldEnd.Y.FeetToMillimeter()).MillimeterToFeet(),
-                            (p.EndZ ?? oldEnd.Z.FeetToMillimeter()).MillimeterToFeet());
+                            p.EndX ?? oldEnd.X,
+                            p.EndY ?? oldEnd.Y,
+                            p.EndZ ?? oldEnd.Z);
 
                         if (newStart.DistanceTo(newEnd) < MepCurveGeometry.MinSegmentLengthFeet)
                             return CommandResponse.Error(cmd.TaskId, "New endpoints are too close; segment must be at least ~8.5 mm long.").ToJson();
@@ -101,11 +113,11 @@ namespace RevitCliBridge.Handlers.Electrical
                     }
                 }
 
-                if (p.WidthMm.HasValue && p.WidthMm.Value > 0)
-                    tray.get_Parameter(BuiltInParameter.RBS_CABLETRAY_WIDTH_PARAM)?.Set(p.WidthMm.Value.MillimeterToFeet());
+                if (p.Width.HasValue && p.Width.Value > 0)
+                    tray.get_Parameter(BuiltInParameter.RBS_CABLETRAY_WIDTH_PARAM)?.Set(p.Width.Value);
 
-                if (p.HeightMm.HasValue && p.HeightMm.Value > 0)
-                    tray.get_Parameter(BuiltInParameter.RBS_CABLETRAY_HEIGHT_PARAM)?.Set(p.HeightMm.Value.MillimeterToFeet());
+                if (p.Height.HasValue && p.Height.Value > 0)
+                    tray.get_Parameter(BuiltInParameter.RBS_CABLETRAY_HEIGHT_PARAM)?.Set(p.Height.Value);
 
                 tx.Commit();
 
@@ -122,8 +134,8 @@ namespace RevitCliBridge.Handlers.Electrical
             p.StartX.HasValue || p.StartY.HasValue || p.StartZ.HasValue ||
             p.EndX.HasValue || p.EndY.HasValue || p.EndZ.HasValue ||
             (p.TypeId.HasValue && p.TypeId.Value > 0) ||
-            (p.WidthMm.HasValue && p.WidthMm.Value > 0) ||
-            (p.HeightMm.HasValue && p.HeightMm.Value > 0);
+            (p.Width.HasValue && p.Width.Value > 0) ||
+            (p.Height.HasValue && p.Height.Value > 0);
     }
 
     public class ModifyCableTrayParams
@@ -152,10 +164,10 @@ namespace RevitCliBridge.Handlers.Electrical
         [Param("type_id")]
         public int? TypeId { get; set; }
 
-        [Param("width_mm")]
-        public double? WidthMm { get; set; }
+        [Param("width")]
+        public double? Width { get; set; }
 
-        [Param("height_mm")]
-        public double? HeightMm { get; set; }
+        [Param("height")]
+        public double? Height { get; set; }
     }
 }

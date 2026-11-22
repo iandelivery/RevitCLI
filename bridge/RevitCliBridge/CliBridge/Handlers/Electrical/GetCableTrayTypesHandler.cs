@@ -14,10 +14,18 @@ namespace RevitCliBridge.Handlers.Electrical
     /// </summary>
     public class GetCableTrayTypesHandler : PaginatedQueryHandler<object>
     {
+        private static readonly IReadOnlyDictionary<string, string> FieldKinds =
+            new Dictionary<string, string>
+            {
+                ["default_width"] = UnitKinds.Length,
+                ["default_height"] = UnitKinds.Length
+            };
+
         public override string CommandName => "get_cable_tray_types";
         public override string Description => "Lists all cable tray types available in the active document";
         public override string Category => "Query";
         public override string[] Aliases => new[] { "cabletray_types", "list_cable_tray_types" };
+        public override IReadOnlyDictionary<string, string> ResponseFieldKinds => FieldKinds;
 
         protected override string ItemsProperty => "types";
         protected override string SuccessMessage(int count) => $"Retrieved {count} cable tray type(s).";
@@ -44,8 +52,8 @@ namespace RevitCliBridge.Handlers.Electrical
                     {
                         type_id = t.Id.IntegerValue,
                         name = t.Name,
-                        default_width_mm = widthFt.FeetToMillimeter(),
-                        default_height_mm = heightFt.FeetToMillimeter()
+                        default_width = widthFt,
+                        default_height = heightFt
                     };
                 });
         }

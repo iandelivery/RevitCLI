@@ -153,7 +153,8 @@ public class MyCommandHandler : DocumentCommandBase
 ## Cable Tray & Fittings
 
 The Electrical category provides 9 commands for cable tray management. All
-coordinates are in millimeters. Fitting handlers auto-select the closest
+coordinates and sizes use the request length unit (default millimeters).
+Fitting handlers auto-select the closest
 connector pair when explicit indices are not provided.
 
 ### Query
@@ -181,13 +182,13 @@ revit-cli.exe create_cable_tray \
 revit-cli.exe create_cable_tray \
   --start-x 0 --start-y 0 --start-z 3000 \
   --end-x 5000 --end-y 0 --end-z 3000 \
-  --level-id 3001 --type-id 12345 --width-mm 200 --height-mm 100
+  --level-id 3001 --type-id 12345 --width 200 --height 100
 
 # Modify endpoints (partial update — only provided fields change)
 revit-cli.exe modify_cable_tray --element-id 12345 --end-x 6000
 
 # Change type and dimensions
-revit-cli.exe modify_cable_tray --element-id 12345 --width-mm 300 --height-mm 150
+revit-cli.exe modify_cable_tray --element-id 12345 --width 300 --height 150
 ```
 
 ### Fittings
@@ -228,7 +229,8 @@ revit-cli.exe create_cross_fitting \
 ## Ducts & Fittings
 
 The Mechanical category provides 11 commands for HVAC duct management. All
-coordinates are in millimeters. Like cable trays, fitting handlers auto-select
+coordinates and sizes use the request length unit (default millimeters). Like
+cable trays, fitting handlers auto-select
 the closest connector pair when explicit indices are not provided. Duct
 commands are prefixed with `duct_` to avoid clashing with the cable tray
 fitting handlers (the command registry keys by `CommandName`).
@@ -252,29 +254,29 @@ revit-cli.exe get_ducts --system-type-id 4 --shape round
 
 `create_duct` requires a `system_type_id` (resolve it via
 `get_duct_system_types`). Shape-specific size params are applied only when
-they match the duct type's shape — `diameter_mm` for round, `width_mm` /
-`height_mm` for rectangular or oval. Mismatched params are silently ignored
+they match the duct type's shape — `diameter` for round, `width` /
+`height` for rectangular or oval. Mismatched params are silently ignored
 at create time but rejected at modify time.
 
 ```bash
-# Round duct: diameter_mm applies
+# Round duct: diameter applies
 revit-cli.exe create_duct \
   --start-x 0 --start-y 0 --start-z 3000 \
   --end-x 5000 --end-y 0 --end-z 3000 \
-  --level-id 3001 --system-type-id 4 --diameter-mm 200
+  --level-id 3001 --system-type-id 4 --diameter 200
 
-# Rectangular duct: width_mm / height_mm apply
+# Rectangular duct: width / height apply
 revit-cli.exe create_duct \
   --start-x 0 --start-y 0 --start-z 3000 \
   --end-x 5000 --end-y 0 --end-z 3000 \
   --level-id 3001 --system-type-id 4 --duct-type-id 12345 \
-  --width-mm 400 --height-mm 200
+  --width 400 --height 200
 
 # Partial update — only provided fields change
 revit-cli.exe modify_duct --element-id 12345 --end-x 6000
 
-# Change size (shape-aware: rejects diameter_mm on a rectangular duct)
-revit-cli.exe modify_duct --element-id 12345 --width-mm 500 --height-mm 250
+# Change size (shape-aware: rejects diameter on a rectangular duct)
+revit-cli.exe modify_duct --element-id 12345 --width 500 --height 250
 ```
 
 ### Fittings
@@ -320,8 +322,9 @@ revit-cli.exe create_duct_takeoff_fitting --branch-element-id 12346 --main-eleme
 ## Pipes & Fittings
 
 The Piping category provides 11 commands for water (pipe) management, plus the
-cross-discipline `create_mep_fitting` broker. All coordinates are in
-millimeters. Pipes are round, so only `diameter_mm` applies (there is no
+cross-discipline `create_mep_fitting` broker. All coordinates and sizes use
+the request length unit (default millimeters). Pipes are round, so only
+`diameter` applies (there is no
 width/height). A **piping system type** is required at creation time — resolve
 it via `get_pipe_system_types`. Fitting handlers auto-select the closest
 connector pair when explicit indices are not provided; all fitting commands
@@ -340,13 +343,13 @@ revit-cli.exe get_pipe_system_types --system-class Sanitary
 # List pipe instances (optionally filtered by level, system type, or diameter)
 revit-cli.exe get_pipes
 revit-cli.exe get_pipes --level-id 3001
-revit-cli.exe get_pipes --diameter-mm 100 --limit 100
+revit-cli.exe get_pipes --diameter 100 --limit 100
 ```
 
 ### Create & Modify
 
 `create_pipe` requires a `system_type_id` (resolve it via
-`get_pipe_system_types`) and uses the optional `diameter_mm` to override the
+`get_pipe_system_types`) and uses the optional `diameter` to override the
 nominal size.
 
 ```bash
@@ -360,13 +363,13 @@ revit-cli.exe create_pipe \
 revit-cli.exe create_pipe \
   --start-x 0 --start-y 0 --start-z 3000 \
   --end-x 5000 --end-y 0 --end-z 3000 \
-  --level-id 3001 --system-type-id 12345 --pipe-type-id 6789 --diameter-mm 100
+  --level-id 3001 --system-type-id 12345 --pipe-type-id 6789 --diameter 100
 
 # Partial update — only provided fields change
 revit-cli.exe modify_pipe --element-id 12345 --end-x 6000
 
 # Change pipe type and diameter
-revit-cli.exe modify_pipe --element-id 12345 --pipe-type-id 6789 --diameter-mm 150
+revit-cli.exe modify_pipe --element-id 12345 --pipe-type-id 6789 --diameter 150
 ```
 
 ### Fittings

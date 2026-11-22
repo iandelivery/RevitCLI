@@ -11,36 +11,48 @@ namespace RevitCliBridge.Handlers.Electrical
 {
     /// <summary>
     /// Creates a straight cable tray segment between two 3D points.
-    /// Coordinates are accepted in millimeters and converted to internal
-    /// feet. Width and height are optional — when omitted, the type's
-    /// default dimensions are used.
+    /// Coordinates use the request length unit (default mm). Width and
+    /// height are optional — when omitted, the type's default dimensions
+    /// are used.
     /// </summary>
     public class CreateCableTrayHandler : DocumentCommandBase
     {
+        private static readonly IReadOnlyDictionary<string, string> FieldKinds =
+            new Dictionary<string, string>
+            {
+                ["x"] = UnitKinds.Length,
+                ["y"] = UnitKinds.Length,
+                ["z"] = UnitKinds.Length,
+                ["width"] = UnitKinds.Length,
+                ["height"] = UnitKinds.Length,
+                ["length"] = UnitKinds.Length
+            };
+
         public override string CommandName => "create_cable_tray";
         public override string Description => "Creates a straight cable tray segment between two 3D points";
         public override string Category => "Create";
         public override string[] Aliases => new[] { "cabletray_create" };
         public override bool SupportsDryRun => true;
+        public override IReadOnlyDictionary<string, string> ResponseFieldKinds => FieldKinds;
 
         public override CommandParamSchema[] Parameters => new[]
         {
-            new CommandParamSchema { Name = "start_x", Type = "double", Required = true, Description = "Start X in millimeters" },
-            new CommandParamSchema { Name = "start_y", Type = "double", Required = true, Description = "Start Y in millimeters" },
-            new CommandParamSchema { Name = "start_z", Type = "double", Required = true, Description = "Start Z in millimeters" },
-            new CommandParamSchema { Name = "end_x", Type = "double", Required = true, Description = "End X in millimeters" },
-            new CommandParamSchema { Name = "end_y", Type = "double", Required = true, Description = "End Y in millimeters" },
-            new CommandParamSchema { Name = "end_z", Type = "double", Required = true, Description = "End Z in millimeters" },
+            new CommandParamSchema { Name = "start_x", Type = "double", Required = true, UnitKind = UnitKinds.Length, Description = "Start X (request length unit, default mm)" },
+            new CommandParamSchema { Name = "start_y", Type = "double", Required = true, UnitKind = UnitKinds.Length, Description = "Start Y (request length unit, default mm)" },
+            new CommandParamSchema { Name = "start_z", Type = "double", Required = true, UnitKind = UnitKinds.Length, Description = "Start Z (request length unit, default mm)" },
+            new CommandParamSchema { Name = "end_x", Type = "double", Required = true, UnitKind = UnitKinds.Length, Description = "End X (request length unit, default mm)" },
+            new CommandParamSchema { Name = "end_y", Type = "double", Required = true, UnitKind = UnitKinds.Length, Description = "End Y (request length unit, default mm)" },
+            new CommandParamSchema { Name = "end_z", Type = "double", Required = true, UnitKind = UnitKinds.Length, Description = "End Z (request length unit, default mm)" },
             new CommandParamSchema { Name = "level_id", Type = "int", Required = true, Description = "Level element ID to place the tray on" },
             new CommandParamSchema { Name = "type_id", Type = "int", Required = false, Description = "Cable tray type ID (defaults to first available)" },
-            new CommandParamSchema { Name = "width_mm", Type = "double", Required = false, Description = "Width in millimeters (defaults to type default)" },
-            new CommandParamSchema { Name = "height_mm", Type = "double", Required = false, Description = "Height in millimeters (defaults to type default)" }
+            new CommandParamSchema { Name = "width", Type = "double", Required = false, UnitKind = UnitKinds.Length, Description = "Width (request length unit, default mm; defaults to type default)" },
+            new CommandParamSchema { Name = "height", Type = "double", Required = false, UnitKind = UnitKinds.Length, Description = "Height (request length unit, default mm; defaults to type default)" }
         };
 
         public override string[] Examples => new[]
         {
             "{ \"command\": \"create_cable_tray\", \"parameters\": { \"start_x\": 0, \"start_y\": 0, \"start_z\": 3000, \"end_x\": 5000, \"end_y\": 0, \"end_z\": 3000, \"level_id\": 3001 } }",
-            "{ \"command\": \"create_cable_tray\", \"parameters\": { \"start_x\": 0, \"start_y\": 0, \"start_z\": 3000, \"end_x\": 5000, \"end_y\": 0, \"end_z\": 3000, \"level_id\": 3001, \"type_id\": 12345, \"width_mm\": 200, \"height_mm\": 100 } }"
+            "{ \"command\": \"create_cable_tray\", \"parameters\": { \"start_x\": 0, \"start_y\": 0, \"start_z\": 3000, \"end_x\": 5000, \"end_y\": 0, \"end_z\": 3000, \"level_id\": 3001, \"type_id\": 12345, \"width\": 200, \"height\": 100 } }"
         };
 
         protected override string Execute(UIApplication app, Document doc, Dictionary<string, object> parameters, QueuedCommand cmd)
@@ -52,8 +64,8 @@ namespace RevitCliBridge.Handlers.Electrical
             if (trayType is null)
                 return CommandResponse.Error(cmd.TaskId, "No cable tray type found in the document.").ToJson();
 
-            var start = new XYZ(p.StartX.MillimeterToFeet(), p.StartY.MillimeterToFeet(), p.StartZ.MillimeterToFeet());
-            var end = new XYZ(p.EndX.MillimeterToFeet(), p.EndY.MillimeterToFeet(), p.EndZ.MillimeterToFeet());
+            var start = new XYZ(p.StartX, p.StartY, p.StartZ);
+            var end = new XYZ(p.EndX, p.EndY, p.EndZ);
 
             if (start.DistanceTo(end) < MepCurveGeometry.MinSegmentLengthFeet)
                 return CommandResponse.Error(cmd.TaskId, "Start and end points are too close; segment must be at least ~8.5 mm long.").ToJson();
@@ -64,15 +76,15 @@ namespace RevitCliBridge.Handlers.Electrical
                 tx.ConfigureFailureHandling();
                 var tray = CableTray.Create(doc, trayType.Id, start, end, new ElementId(p.LevelId));
 
-                if (p.WidthMm > 0)
+                if (p.Width > 0)
                 {
                     var w = tray.get_Parameter(BuiltInParameter.RBS_CABLETRAY_WIDTH_PARAM);
-                    w?.Set(p.WidthMm.MillimeterToFeet());
+                    w?.Set(p.Width);
                 }
-                if (p.HeightMm > 0)
+                if (p.Height > 0)
                 {
                     var h = tray.get_Parameter(BuiltInParameter.RBS_CABLETRAY_HEIGHT_PARAM);
-                    h?.Set(p.HeightMm.MillimeterToFeet());
+                    h?.Set(p.Height);
                 }
 
                 tx.Commit();
@@ -113,10 +125,10 @@ namespace RevitCliBridge.Handlers.Electrical
         [Param("type_id")]
         public int? TypeId { get; set; }
 
-        [Param("width_mm")]
-        public double WidthMm { get; set; }
+        [Param("width")]
+        public double Width { get; set; }
 
-        [Param("height_mm")]
-        public double HeightMm { get; set; }
+        [Param("height")]
+        public double Height { get; set; }
     }
 }

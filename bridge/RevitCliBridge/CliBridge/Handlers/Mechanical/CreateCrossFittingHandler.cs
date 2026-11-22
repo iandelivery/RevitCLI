@@ -18,11 +18,20 @@ namespace RevitCliBridge.Handlers.Mechanical
     /// </summary>
     public class CreateCrossFittingHandler : DocumentCommandBase
     {
+        private static readonly IReadOnlyDictionary<string, string> FieldKinds =
+            new Dictionary<string, string>
+            {
+                ["x"] = UnitKinds.Length,
+                ["y"] = UnitKinds.Length,
+                ["z"] = UnitKinds.Length
+            };
+
         public override string CommandName => "create_duct_cross_fitting";
         public override string Description => "Creates a cross fitting at the meeting point of two main halves and two branch ducts";
         public override string Category => "Create";
         public override string[] Aliases => new[] { "duct_cross_fitting" };
         public override bool SupportsDryRun => true;
+        public override IReadOnlyDictionary<string, string> ResponseFieldKinds => FieldKinds;
 
         public override CommandParamSchema[] Parameters => new[]
         {
@@ -109,9 +118,9 @@ namespace RevitCliBridge.Handlers.Mechanical
                         fitting_id = fitting.Id.IntegerValue,
                         junction = new
                         {
-                            x = junction.X.FeetToMillimeter(),
-                            y = junction.Y.FeetToMillimeter(),
-                            z = junction.Z.FeetToMillimeter()
+                            x = junction.X,
+                            y = junction.Y,
+                            z = junction.Z
                         }
                     },
                     "Cross fitting created successfully.", tx.ResolvedFailures).ToJson();

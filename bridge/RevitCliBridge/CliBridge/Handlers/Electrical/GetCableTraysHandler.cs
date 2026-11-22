@@ -10,14 +10,26 @@ namespace RevitCliBridge.Handlers.Electrical
     /// <summary>
     /// Queries cable tray instances in the active document. Supports optional
     /// filtering by level and/or type, and returns paginated results with
-    /// coordinates in millimeters.
+    /// lengths and coordinates in the request length unit (default mm).
     /// </summary>
     public class GetCableTraysHandler : PaginatedQueryHandler<object>
     {
+        private static readonly IReadOnlyDictionary<string, string> FieldKinds =
+            new Dictionary<string, string>
+            {
+                ["x"] = UnitKinds.Length,
+                ["y"] = UnitKinds.Length,
+                ["z"] = UnitKinds.Length,
+                ["width"] = UnitKinds.Length,
+                ["height"] = UnitKinds.Length,
+                ["length"] = UnitKinds.Length
+            };
+
         public override string CommandName => "get_cable_trays";
         public override string Description => "Retrieves cable tray instances, optionally filtered by level or type";
         public override string Category => "Query";
         public override string[] Aliases => new[] { "cabletrays", "list_cable_trays" };
+        public override IReadOnlyDictionary<string, string> ResponseFieldKinds => FieldKinds;
 
         protected override string ItemsProperty => "cable_trays";
         protected override string SuccessMessage(int count) => $"Retrieved {count} cable tray(s).";

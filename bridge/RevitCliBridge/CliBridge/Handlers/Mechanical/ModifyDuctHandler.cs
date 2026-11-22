@@ -11,40 +11,53 @@ namespace RevitCliBridge.Handlers.Mechanical
 {
     /// <summary>
     /// Modifies an existing duct: endpoints, type, and/or size. At least
-    /// one optional field must be provided. Coordinates are in millimeters.
-    /// Size parameters are shape-aware: round ducts accept
-    /// <c>diameter_mm</c>; rectangular/oval ducts accept <c>width_mm</c>
-    /// and <c>height_mm</c>. Setting a shape-mismatched parameter returns
-    /// an error.
+    /// one optional field must be provided. Coordinates use the request
+    /// length unit (default mm). Size parameters are shape-aware: round
+    /// ducts accept <c>diameter</c>; rectangular/oval ducts accept
+    /// <c>width</c> and <c>height</c>. Setting a shape-mismatched parameter
+    /// returns an error.
     /// </summary>
     public class ModifyDuctHandler : DocumentCommandBase
     {
+        private static readonly IReadOnlyDictionary<string, string> FieldKinds =
+            new Dictionary<string, string>
+            {
+                ["x"] = UnitKinds.Length,
+                ["y"] = UnitKinds.Length,
+                ["z"] = UnitKinds.Length,
+                ["diameter"] = UnitKinds.Length,
+                ["width"] = UnitKinds.Length,
+                ["height"] = UnitKinds.Length,
+                ["length"] = UnitKinds.Length
+            };
+
         public override string CommandName => "modify_duct";
         public override string Description => "Modifies an existing duct (endpoints, type, size)";
         public override string Category => "Modify";
         public override string[] Aliases => new[] { "duct_modify" };
         public override bool SupportsDryRun => true;
+        public override IReadOnlyDictionary<string, string> ResponseFieldKinds => FieldKinds;
 
         public override CommandParamSchema[] Parameters => new[]
         {
             new CommandParamSchema { Name = "element_id", Type = "int", Required = true, Description = "Duct element ID to modify" },
-            new CommandParamSchema { Name = "start_x", Type = "double", Required = false, Description = "New start X in millimeters" },
-            new CommandParamSchema { Name = "start_y", Type = "double", Required = false, Description = "New start Y in millimeters" },
-            new CommandParamSchema { Name = "start_z", Type = "double", Required = false, Description = "New start Z in millimeters" },
-            new CommandParamSchema { Name = "end_x", Type = "double", Required = false, Description = "New end X in millimeters" },
-            new CommandParamSchema { Name = "end_y", Type = "double", Required = false, Description = "New end Y in millimeters" },
-            new CommandParamSchema { Name = "end_z", Type = "double", Required = false, Description = "New end Z in millimeters" },
+            new CommandParamSchema { Name = "start_x", Type = "double", Required = false, UnitKind = UnitKinds.Length, Description = "New start X (request length unit, default mm)" },
+            new CommandParamSchema { Name = "start_y", Type = "double", Required = false, UnitKind = UnitKinds.Length, Description = "New start Y (request length unit, default mm)" },
+            new CommandParamSchema { Name = "start_z", Type = "double", Required = false, UnitKind = UnitKinds.Length, Description = "New start Z (request length unit, default mm)" },
+            new CommandParamSchema { Name = "end_x", Type = "double", Required = false, UnitKind = UnitKinds.Length, Description = "New end X (request length unit, default mm)" },
+            new CommandParamSchema { Name = "end_y", Type = "double", Required = false, UnitKind = UnitKinds.Length, Description = "New end Y (request length unit, default mm)" },
+            new CommandParamSchema { Name = "end_z", Type = "double", Required = false, UnitKind = UnitKinds.Length, Description = "New end Z (request length unit, default mm)" },
             new CommandParamSchema { Name = "duct_type_id", Type = "int", Required = false, Description = "New duct type ID" },
-            new CommandParamSchema { Name = "diameter_mm", Type = "double", Required = false, Description = "New diameter in millimeters (round ducts only)" },
-            new CommandParamSchema { Name = "width_mm", Type = "double", Required = false, Description = "New width in millimeters (rectangular/oval only)" },
-            new CommandParamSchema { Name = "height_mm", Type = "double", Required = false, Description = "New height in millimeters (rectangular/oval only)" }
+            new CommandParamSchema { Name = "diameter", Type = "double", Required = false, UnitKind = UnitKinds.Length, Description = "New diameter (request length unit, default mm; round ducts only)" },
+            new CommandParamSchema { Name = "width", Type = "double", Required = false, UnitKind = UnitKinds.Length, Description = "New width (request length unit, default mm; rectangular/oval only)" },
+            new CommandParamSchema { Name = "height", Type = "double", Required = false, UnitKind = UnitKinds.Length, Description = "New height (request length unit, default mm; rectangular/oval only)" }
         };
 
         public override string[] Examples => new[]
         {
             "{ \"command\": \"modify_duct\", \"parameters\": { \"element_id\": 12345, \"end_x\": 6000 } }",
-            "{ \"command\": \"modify_duct\", \"parameters\": { \"element_id\": 12345, \"diameter_mm\": 250 } }",
-            "{ \"command\": \"modify_duct\", \"parameters\": { \"element_id\": 12345, \"width_mm\": 400, \"height_mm\": 200 } }"
+            "{ \"command\": \"modify_duct\", \"parameters\": { \"element_id\": 12345, \"diameter\": 250 } }",
+            "{ \"command\": \"modify_duct\", \"parameters\": { \"element_id\": 12345, \"width\": 400, \"height\": 200 } }"
         };
 
         protected override string Execute(UIApplication app, Document doc, Dictionary<string, object> parameters, QueuedCommand cmd)
@@ -53,7 +66,7 @@ namespace RevitCliBridge.Handlers.Mechanical
             if (p is null) return error!;
 
             if (!HasAnyChange(p))
-                return CommandResponse.Error(cmd.TaskId, "At least one of start/end coordinates, duct_type_id, diameter_mm, width_mm, or height_mm must be provided.").ToJson();
+                return CommandResponse.Error(cmd.TaskId, "At least one of start/end coordinates, duct_type_id, diameter, width, or height must be provided.").ToJson();
 
             var duct = doc.GetElement(new ElementId(p.ElementId)) as Duct;
             if (duct is null)
@@ -83,14 +96,14 @@ namespace RevitCliBridge.Handlers.Mechanical
                         var oldEnd = line.GetEndPoint(1);
 
                         var newStart = new XYZ(
-                            (p.StartX ?? oldStart.X.FeetToMillimeter()).MillimeterToFeet(),
-                            (p.StartY ?? oldStart.Y.FeetToMillimeter()).MillimeterToFeet(),
-                            (p.StartZ ?? oldStart.Z.FeetToMillimeter()).MillimeterToFeet());
+                            p.StartX ?? oldStart.X,
+                            p.StartY ?? oldStart.Y,
+                            p.StartZ ?? oldStart.Z);
 
                         var newEnd = new XYZ(
-                            (p.EndX ?? oldEnd.X.FeetToMillimeter()).MillimeterToFeet(),
-                            (p.EndY ?? oldEnd.Y.FeetToMillimeter()).MillimeterToFeet(),
-                            (p.EndZ ?? oldEnd.Z.FeetToMillimeter()).MillimeterToFeet());
+                            p.EndX ?? oldEnd.X,
+                            p.EndY ?? oldEnd.Y,
+                            p.EndZ ?? oldEnd.Z);
 
                         if (newStart.DistanceTo(newEnd) < MepCurveGeometry.MinSegmentLengthFeet)
                             return CommandResponse.Error(cmd.TaskId, "New endpoints are too close; segment must be at least ~8.5 mm long.").ToJson();
@@ -106,21 +119,21 @@ namespace RevitCliBridge.Handlers.Mechanical
                 var shape = duct.DuctType?.Shape ?? ConnectorProfileType.Round;
                 if (shape == ConnectorProfileType.Round)
                 {
-                    if (p.DiameterMm.HasValue && p.DiameterMm.Value > 0)
-                        duct.get_Parameter(BuiltInParameter.RBS_CURVE_DIAMETER_PARAM)?.Set(p.DiameterMm.Value.MillimeterToFeet());
+                    if (p.Diameter.HasValue && p.Diameter.Value > 0)
+                        duct.get_Parameter(BuiltInParameter.RBS_CURVE_DIAMETER_PARAM)?.Set(p.Diameter.Value);
 
-                    if ((p.WidthMm.HasValue && p.WidthMm.Value > 0) || (p.HeightMm.HasValue && p.HeightMm.Value > 0))
-                        return CommandResponse.Error(cmd.TaskId, "Cannot set width_mm/height_mm on a round duct; use diameter_mm instead.").ToJson();
+                    if ((p.Width.HasValue && p.Width.Value > 0) || (p.Height.HasValue && p.Height.Value > 0))
+                        return CommandResponse.Error(cmd.TaskId, "Cannot set width/height on a round duct; use diameter instead.").ToJson();
                 }
                 else
                 {
-                    if (p.WidthMm.HasValue && p.WidthMm.Value > 0)
-                        duct.get_Parameter(BuiltInParameter.RBS_CURVE_WIDTH_PARAM)?.Set(p.WidthMm.Value.MillimeterToFeet());
-                    if (p.HeightMm.HasValue && p.HeightMm.Value > 0)
-                        duct.get_Parameter(BuiltInParameter.RBS_CURVE_HEIGHT_PARAM)?.Set(p.HeightMm.Value.MillimeterToFeet());
+                    if (p.Width.HasValue && p.Width.Value > 0)
+                        duct.get_Parameter(BuiltInParameter.RBS_CURVE_WIDTH_PARAM)?.Set(p.Width.Value);
+                    if (p.Height.HasValue && p.Height.Value > 0)
+                        duct.get_Parameter(BuiltInParameter.RBS_CURVE_HEIGHT_PARAM)?.Set(p.Height.Value);
 
-                    if (p.DiameterMm.HasValue && p.DiameterMm.Value > 0)
-                        return CommandResponse.Error(cmd.TaskId, "Cannot set diameter_mm on a rectangular/oval duct; use width_mm/height_mm instead.").ToJson();
+                    if (p.Diameter.HasValue && p.Diameter.Value > 0)
+                        return CommandResponse.Error(cmd.TaskId, "Cannot set diameter on a rectangular/oval duct; use width/height instead.").ToJson();
                 }
 
                 tx.Commit();
@@ -138,9 +151,9 @@ namespace RevitCliBridge.Handlers.Mechanical
             p.StartX.HasValue || p.StartY.HasValue || p.StartZ.HasValue ||
             p.EndX.HasValue || p.EndY.HasValue || p.EndZ.HasValue ||
             (p.DuctTypeId.HasValue && p.DuctTypeId.Value > 0) ||
-            (p.DiameterMm.HasValue && p.DiameterMm.Value > 0) ||
-            (p.WidthMm.HasValue && p.WidthMm.Value > 0) ||
-            (p.HeightMm.HasValue && p.HeightMm.Value > 0);
+            (p.Diameter.HasValue && p.Diameter.Value > 0) ||
+            (p.Width.HasValue && p.Width.Value > 0) ||
+            (p.Height.HasValue && p.Height.Value > 0);
     }
 
     public class ModifyDuctParams
@@ -169,13 +182,13 @@ namespace RevitCliBridge.Handlers.Mechanical
         [Param("duct_type_id")]
         public int? DuctTypeId { get; set; }
 
-        [Param("diameter_mm")]
-        public double? DiameterMm { get; set; }
+        [Param("diameter")]
+        public double? Diameter { get; set; }
 
-        [Param("width_mm")]
-        public double? WidthMm { get; set; }
+        [Param("width")]
+        public double? Width { get; set; }
 
-        [Param("height_mm")]
-        public double? HeightMm { get; set; }
+        [Param("height")]
+        public double? Height { get; set; }
     }
 }

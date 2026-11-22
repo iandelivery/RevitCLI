@@ -16,11 +16,20 @@ namespace RevitCliBridge.Handlers.Mechanical
     /// </summary>
     public class CreateUnionFittingHandler : DocumentCommandBase
     {
+        private static readonly IReadOnlyDictionary<string, string> FieldKinds =
+            new Dictionary<string, string>
+            {
+                ["diameter"] = UnitKinds.Length,
+                ["width"] = UnitKinds.Length,
+                ["height"] = UnitKinds.Length
+            };
+
         public override string CommandName => "create_duct_union_fitting";
         public override string Description => "Creates a union fitting between two collinear ducts of identical size";
         public override string Category => "Create";
         public override string[] Aliases => new[] { "duct_union_fitting" };
         public override bool SupportsDryRun => true;
+        public override IReadOnlyDictionary<string, string> ResponseFieldKinds => FieldKinds;
 
         public override CommandParamSchema[] Parameters => new[]
         {
@@ -51,10 +60,12 @@ namespace RevitCliBridge.Handlers.Mechanical
 
             var duct1 = (Duct)c1!.Owner;
             var duct2 = (Duct)c2!.Owner;
-            var (dia1, w1, h1) = DuctUtils.Default.GetSize(duct1);
-            var (dia2, w2, h2) = DuctUtils.Default.GetSize(duct2);
+            var (dia1, w1, h1) = DuctUtils.Default.GetSizeInternal(duct1);
+            var (dia2, w2, h2) = DuctUtils.Default.GetSizeInternal(duct2);
 
-            bool differentSize = (Math.Abs(dia1 - dia2) >= 0.01 || Math.Abs(w1 - w2) >= 0.01 || Math.Abs(h1 - h2) >= 0.01);
+            bool differentSize = (Math.Abs(dia1 - dia2) >= 0.01.MillimeterToFeet() ||
+                                  Math.Abs(w1 - w2) >= 0.01.MillimeterToFeet() ||
+                                  Math.Abs(h1 - h2) >= 0.01.MillimeterToFeet());
             if (differentSize)
                 return CommandResponse.Error(cmd.TaskId,
                     $"Duct sizes differ. Use create_transition_fitting for size changes.").ToJson();
@@ -70,7 +81,9 @@ namespace RevitCliBridge.Handlers.Mechanical
                     new
                     {
                         fitting_id = fitting.Id.IntegerValue,
-                        size = new { diameter_mm = dia1, width_mm = w1, height_mm = h1 }
+                        diameter = dia1,
+                        width = w1,
+                        height = h1
                     },
                     "Union fitting created successfully.", tx.ResolvedFailures).ToJson();
             }

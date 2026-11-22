@@ -16,11 +16,19 @@ namespace RevitCliBridge.Handlers.Electrical
     /// </summary>
     public class CreateUnionFittingHandler : DocumentCommandBase
     {
+        private static readonly IReadOnlyDictionary<string, string> FieldKinds =
+            new Dictionary<string, string>
+            {
+                ["width"] = UnitKinds.Length,
+                ["height"] = UnitKinds.Length
+            };
+
         public override string CommandName => "create_union_fitting";
         public override string Description => "Creates a union fitting between two collinear cable trays of identical size";
         public override string Category => "Create";
         public override string[] Aliases => new[] { "union_fitting" };
         public override bool SupportsDryRun => true;
+        public override IReadOnlyDictionary<string, string> ResponseFieldKinds => FieldKinds;
 
         public override CommandParamSchema[] Parameters => new[]
         {
@@ -51,11 +59,11 @@ namespace RevitCliBridge.Handlers.Electrical
 
             var tray1 = (CableTray)c1!.Owner;
             var tray2 = (CableTray)c2!.Owner;
-            var (w1, h1) = CableTrayUtils.Default.GetSize(tray1);
-            var (w2, h2) = CableTrayUtils.Default.GetSize(tray2);
-            if (Math.Abs(w1 - w2) >= 0.01 || Math.Abs(h1 - h2) >= 0.01)
+            var (w1, h1) = CableTrayUtils.Default.GetSizeInternal(tray1);
+            var (w2, h2) = CableTrayUtils.Default.GetSizeInternal(tray2);
+            if (Math.Abs(w1 - w2) >= 0.01.MillimeterToFeet() || Math.Abs(h1 - h2) >= 0.01.MillimeterToFeet())
                 return CommandResponse.Error(cmd.TaskId,
-                    $"Tray sizes differ ({w1:F0}×{h1:F0} vs {w2:F0}×{h2:F0} mm). Use create_transition_fitting for size changes.").ToJson();
+                    $"Tray sizes differ ({w1.FeetToMillimeter():F0}×{h1.FeetToMillimeter():F0} vs {w2.FeetToMillimeter():F0}×{h2.FeetToMillimeter():F0} mm). Use create_transition_fitting for size changes.").ToJson();
 
             using var tx = new DryRunTransaction(doc, "CLI Create Union Fitting", cmd.DryRun);
             try
@@ -68,7 +76,8 @@ namespace RevitCliBridge.Handlers.Electrical
                     new
                     {
                         fitting_id = fitting.Id.IntegerValue,
-                        size = new { width_mm = w1, height_mm = h1 }
+                        width = w1,
+                        height = h1
                     },
                     "Union fitting created successfully.", tx.ResolvedFailures).ToJson();
             }
