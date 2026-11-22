@@ -62,6 +62,7 @@ namespace RevitCliBridge
             }
 
             prepared.Effective = ResolveEffective(selection, doc);
+            cmd.ResolvedUnits = prepared.Effective;
             return prepared;
         }
 
