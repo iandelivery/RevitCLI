@@ -184,7 +184,7 @@ namespace RevitCliBridge.Tests
                 var ok = UnitsRequestParser.TryParse(raw, out _, out var error);
 
                 Assert.False(ok);
-                Assert.Equal("Unknown unit kind 'mass' in 'units'.", error);
+                Assert.Equal("Unknown unit kind 'mass' in 'units'. Allowed kinds: length, area, volume, angle.", error);
             }
 
             [Fact]
@@ -195,7 +195,7 @@ namespace RevitCliBridge.Tests
                 var ok = UnitsRequestParser.TryParse(raw, out _, out var error);
 
                 Assert.False(ok);
-                Assert.Equal("Unit 'mm' is not allowed for kind 'angle'.", error);
+                Assert.Equal("Unit 'mm' is not allowed for kind 'angle'. Allowed units: deg, rad.", error);
             }
 
             [Fact]
