@@ -1,5 +1,6 @@
 using Newtonsoft.Json;
 using System;
+using System.Collections.Generic;
 
 namespace RevitCliBridge.Abstractions
 {
@@ -54,6 +55,16 @@ namespace RevitCliBridge.Abstractions
         /// </summary>
         [JsonProperty("units", NullValueHandling = NullValueHandling.Ignore)]
         public object? Units { get; set; }
+
+        /// <summary>
+        /// The effective unit per kind, resolved by the units middleware
+        /// (explicit map, then project, then canonical) before the handler
+        /// runs. Handlers that convert by element spec rather than schema,
+        /// such as the parameter commands, read this instead of reparsing
+        /// the raw field. Never serialized.
+        /// </summary>
+        [JsonIgnore]
+        public IReadOnlyDictionary<string, string>? ResolvedUnits { get; set; }
 
         /// <summary>
         /// Report execution progress (0-100) with an optional human-readable

@@ -95,7 +95,7 @@ namespace RevitCliBridge.Handlers.Parameters
                         continue;
                     }
 
-                    bool ok = SetParameterValue(parameter, value);
+                    bool ok = SetParameterValue(parameter, value, cmd.ResolvedUnits);
                     if (ok)
                     {
                         results.Add(new { element_id = eid.IntegerValue, success = true, error = (string?)null });
@@ -170,7 +170,7 @@ namespace RevitCliBridge.Handlers.Parameters
             return null;
         }
 
-        private bool SetParameterValue(Parameter p, object value)
+        private bool SetParameterValue(Parameter p, object value, System.Collections.Generic.IReadOnlyDictionary<string, string>? resolvedUnits)
         {
             try
             {
@@ -178,7 +178,9 @@ namespace RevitCliBridge.Handlers.Parameters
                 {
                     case StorageType.Double:
                         if (value is null) return false;
-                        p.Set(Convert.ToDouble(value));
+                        if (!ParameterUnits.TryToInternalDouble(p, resolvedUnits, value, out var internalValue))
+                            return false;
+                        p.Set(internalValue);
                         return true;
                     case StorageType.Integer:
                         if (value is null) return false;

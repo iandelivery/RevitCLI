@@ -17,7 +17,7 @@ namespace RevitCliBridge.Handlers.Parameters
         {
             new CommandParamSchema { Name = "element_id", Type = "int", Required = true, Description = "Element ID" },
             new CommandParamSchema { Name = "parameter_name", Type = "string", Required = true, Description = "Parameter name to set" },
-            new CommandParamSchema { Name = "value", Type = "string", Required = true, Description = "Value to set (auto-converted to match parameter storage type)" }
+            new CommandParamSchema { Name = "value", Type = "string", Required = true, Description = "Value to set (auto-converted to match parameter storage type; doubles convert from the request units by the parameter's spec kind, default mm/m2/m3/deg)" }
         };
 
         public override string[] Examples => new[]
@@ -56,7 +56,7 @@ namespace RevitCliBridge.Handlers.Parameters
             {
                 t.ConfigureFailureHandling();
 
-                bool success = SetParameterValue(parameter, value);
+                bool success = SetParameterValue(parameter, value, cmd.ResolvedUnits);
                 if (!success)
                 {
                     t.RollBack();
@@ -74,7 +74,7 @@ namespace RevitCliBridge.Handlers.Parameters
                 "Parameter set successfully.", resolvedFailures).ToJson();
         }
 
-        private bool SetParameterValue(Parameter p, object value)
+        private bool SetParameterValue(Parameter p, object value, System.Collections.Generic.IReadOnlyDictionary<string, string>? resolvedUnits)
         {
             try
             {
@@ -82,7 +82,9 @@ namespace RevitCliBridge.Handlers.Parameters
                 {
                     case StorageType.Double:
                         if (value is null) return false;
-                        p.Set(Convert.ToDouble(value));
+                        if (!ParameterUnits.TryToInternalDouble(p, resolvedUnits, value, out var internalValue))
+                            return false;
+                        p.Set(internalValue);
                         return true;
                     case StorageType.Integer:
                         if (value is null) return false;
