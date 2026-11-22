@@ -1,6 +1,7 @@
 using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
 using RevitCliBridge.Abstractions;
+using RevitCliBridge.Handlers.Parameters;
 using System;
 using System.Collections.Generic;
 
@@ -50,10 +51,12 @@ namespace RevitCliBridge.Handlers.Query
             {
                 if (p.Definition.Name is null) continue;
 
+                var kind = ParameterUnits.KindFor(p);
                 var entry = new
                 {
                     name = p.Definition.Name,
-                    value = GetParameterValue(p),
+                    value = ParameterUnits.ToCliValue(p, cmd.ResolvedUnits),
+                    unit_kind = kind,
                     storage_type = p.StorageType.ToString(),
                     is_read_only = p.IsReadOnly,
                     is_shared = p.IsShared
@@ -72,30 +75,6 @@ namespace RevitCliBridge.Handlers.Query
 
             return CommandResponse.Success(cmd.TaskId, result,
                 $"Retrieved {paramList.Count} parameters.").ToJson();
-        }
-
-        private object? GetParameterValue(Parameter p)
-        {
-            try
-            {
-                switch (p.StorageType)
-                {
-                    case StorageType.Double:
-                        return p.AsDouble();
-                    case StorageType.Integer:
-                        return p.AsInteger();
-                    case StorageType.String:
-                        return p.AsString();
-                    case StorageType.ElementId:
-                        return p.AsElementId().IntegerValue;
-                    default:
-                        return null;
-                }
-            }
-            catch
-            {
-                return null;
-            }
         }
     }
 }
