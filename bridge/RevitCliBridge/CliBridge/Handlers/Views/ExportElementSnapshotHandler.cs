@@ -10,9 +10,21 @@ namespace RevitCliBridge.Handlers.Views
 {
     public class ExportElementSnapshotHandler : DocumentCommandBase
     {
+        private static readonly IReadOnlyDictionary<string, string> FieldKinds =
+            new Dictionary<string, string>
+            {
+                ["min_x"] = UnitKinds.Length,
+                ["min_y"] = UnitKinds.Length,
+                ["min_z"] = UnitKinds.Length,
+                ["max_x"] = UnitKinds.Length,
+                ["max_y"] = UnitKinds.Length,
+                ["max_z"] = UnitKinds.Length
+            };
+
         public override string CommandName => "export_element_snapshot";
         public override string Description => "Exports an image of the given elements (or the current selection) by temporarily isolating them, tightening the section box on 3D views, and restoring the view state afterwards";
         public override string Category => "Export";
+        public override IReadOnlyDictionary<string, string> ResponseFieldKinds => FieldKinds;
 
         public override CommandParamSchema[] Parameters => new[]
         {
@@ -313,12 +325,12 @@ namespace RevitCliBridge.Handlers.Views
                     ? null
                     : new
                     {
-                        min_x = appliedBounds.Min.X.FeetToMillimeter(),
-                        min_y = appliedBounds.Min.Y.FeetToMillimeter(),
-                        min_z = appliedBounds.Min.Z.FeetToMillimeter(),
-                        max_x = appliedBounds.Max.X.FeetToMillimeter(),
-                        max_y = appliedBounds.Max.Y.FeetToMillimeter(),
-                        max_z = appliedBounds.Max.Z.FeetToMillimeter()
+                        min_x = appliedBounds.Min.X,
+                        min_y = appliedBounds.Min.Y,
+                        min_z = appliedBounds.Min.Z,
+                        max_x = appliedBounds.Max.X,
+                        max_y = appliedBounds.Max.Y,
+                        max_z = appliedBounds.Max.Z
                     }
             };
 

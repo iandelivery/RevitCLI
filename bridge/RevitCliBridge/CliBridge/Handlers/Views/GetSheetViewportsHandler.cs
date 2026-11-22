@@ -7,10 +7,22 @@ namespace RevitCliBridge.Handlers.Views
 {
     public class GetSheetViewportsHandler : DocumentCommandBase
     {
+        private static readonly IReadOnlyDictionary<string, string> FieldKinds =
+            new Dictionary<string, string>
+            {
+                ["x"] = UnitKinds.Length,
+                ["y"] = UnitKinds.Length,
+                ["min_x"] = UnitKinds.Length,
+                ["min_y"] = UnitKinds.Length,
+                ["max_x"] = UnitKinds.Length,
+                ["max_y"] = UnitKinds.Length
+            };
+
         public override string CommandName => "get_sheet_viewports";
-        public override string Description => "Lists the viewports placed on a sheet with their box and label outlines in millimeters";
+        public override string Description => "Lists the viewports placed on a sheet with their box and label outlines in the request length unit (default mm)";
         public override string Category => "Query";
         public override string[] Aliases => new[] { "list_sheet_viewports" };
+        public override IReadOnlyDictionary<string, string> ResponseFieldKinds => FieldKinds;
 
         public override CommandParamSchema[] Parameters => new[]
         {
@@ -49,9 +61,9 @@ namespace RevitCliBridge.Handlers.Views
                     view_name = view?.Name,
                     view_type = view?.ViewType.ToString(),
                     pinned = viewport.Pinned,
-                    center = new { x = center.X.FeetToMillimeter(), y = center.Y.FeetToMillimeter() },
-                    box = SheetViewportHelpers.RectJson(SheetViewportHelpers.BoxRect(viewport)),
-                    label = label.HasValue ? SheetViewportHelpers.RectJson(label!.Value) : null
+                    center = new { x = center.X, y = center.Y },
+                    box = SheetViewportHelpers.RectJsonToInternal(SheetViewportHelpers.BoxRect(viewport)),
+                    label = label.HasValue ? SheetViewportHelpers.RectJsonToInternal(label!.Value) : null
                 });
             }
 

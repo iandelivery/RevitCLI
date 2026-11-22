@@ -7,21 +7,33 @@ namespace RevitCliBridge.Handlers.Views
 {
     public class SetSectionBoxHandler : DocumentCommandBase
     {
+        private static readonly IReadOnlyDictionary<string, string> FieldKinds =
+            new Dictionary<string, string>
+            {
+                ["min_x"] = UnitKinds.Length,
+                ["min_y"] = UnitKinds.Length,
+                ["min_z"] = UnitKinds.Length,
+                ["max_x"] = UnitKinds.Length,
+                ["max_y"] = UnitKinds.Length,
+                ["max_z"] = UnitKinds.Length
+            };
+
         public override string CommandName => "set_section_box";
         public override string Description => "Sets the section box bounds on a 3D view, either explicitly or computed from elements";
         public override string Category => "Modify";
         public override bool SupportsDryRun => true;
+        public override IReadOnlyDictionary<string, string> ResponseFieldKinds => FieldKinds;
 
         public override CommandParamSchema[] Parameters => new[]
         {
             new CommandParamSchema { Name = "view_id", Type = "int", Required = false, Description = "3D view element ID (defaults to the active view)" },
             new CommandParamSchema { Name = "element_ids", Type = "int[]", Required = false, ShortFlag = "ids", Description = "Element IDs to compute the section box from (union of their bounding boxes)" },
-            new CommandParamSchema { Name = "min_x", Type = "double", Required = false, Description = "Minimum X coordinate of the section box in millimeters (required when element_ids is omitted)" },
-            new CommandParamSchema { Name = "min_y", Type = "double", Required = false, Description = "Minimum Y coordinate of the section box in millimeters (required when element_ids is omitted)" },
-            new CommandParamSchema { Name = "min_z", Type = "double", Required = false, Description = "Minimum Z coordinate of the section box in millimeters (required when element_ids is omitted)" },
-            new CommandParamSchema { Name = "max_x", Type = "double", Required = false, Description = "Maximum X coordinate of the section box in millimeters (required when element_ids is omitted)" },
-            new CommandParamSchema { Name = "max_y", Type = "double", Required = false, Description = "Maximum Y coordinate of the section box in millimeters (required when element_ids is omitted)" },
-            new CommandParamSchema { Name = "max_z", Type = "double", Required = false, Description = "Maximum Z coordinate of the section box in millimeters (required when element_ids is omitted)" }
+            new CommandParamSchema { Name = "min_x", Type = "double", Required = false, UnitKind = UnitKinds.Length, Description = "Minimum X coordinate of the section box (request length unit, default mm; required when element_ids is omitted)" },
+            new CommandParamSchema { Name = "min_y", Type = "double", Required = false, UnitKind = UnitKinds.Length, Description = "Minimum Y coordinate of the section box (request length unit, default mm; required when element_ids is omitted)" },
+            new CommandParamSchema { Name = "min_z", Type = "double", Required = false, UnitKind = UnitKinds.Length, Description = "Minimum Z coordinate of the section box (request length unit, default mm; required when element_ids is omitted)" },
+            new CommandParamSchema { Name = "max_x", Type = "double", Required = false, UnitKind = UnitKinds.Length, Description = "Maximum X coordinate of the section box (request length unit, default mm; required when element_ids is omitted)" },
+            new CommandParamSchema { Name = "max_y", Type = "double", Required = false, UnitKind = UnitKinds.Length, Description = "Maximum Y coordinate of the section box (request length unit, default mm; required when element_ids is omitted)" },
+            new CommandParamSchema { Name = "max_z", Type = "double", Required = false, UnitKind = UnitKinds.Length, Description = "Maximum Z coordinate of the section box (request length unit, default mm; required when element_ids is omitted)" }
         };
 
         public override string[] Examples => new[]
@@ -63,8 +75,8 @@ namespace RevitCliBridge.Handlers.Views
 
                 bounds = new BoundingBoxXYZ
                 {
-                    Min = new XYZ(p.MinX.Value.MillimeterToFeet(), p.MinY.Value.MillimeterToFeet(), p.MinZ.Value.MillimeterToFeet()),
-                    Max = new XYZ(p.MaxX.Value.MillimeterToFeet(), p.MaxY.Value.MillimeterToFeet(), p.MaxZ.Value.MillimeterToFeet())
+                    Min = new XYZ(p.MinX.Value, p.MinY.Value, p.MinZ.Value),
+                    Max = new XYZ(p.MaxX.Value, p.MaxY.Value, p.MaxZ.Value)
                 };
                 source = "explicit";
             }
@@ -87,12 +99,12 @@ namespace RevitCliBridge.Handlers.Views
                 view_name = view.Name,
                 active = true,
                 source,
-                min_x = bounds.Min.X.FeetToMillimeter(),
-                min_y = bounds.Min.Y.FeetToMillimeter(),
-                min_z = bounds.Min.Z.FeetToMillimeter(),
-                max_x = bounds.Max.X.FeetToMillimeter(),
-                max_y = bounds.Max.Y.FeetToMillimeter(),
-                max_z = bounds.Max.Z.FeetToMillimeter()
+                min_x = bounds.Min.X,
+                min_y = bounds.Min.Y,
+                min_z = bounds.Min.Z,
+                max_x = bounds.Max.X,
+                max_y = bounds.Max.Y,
+                max_z = bounds.Max.Z
             };
             return CommandResponse.SuccessWithResolvedFailures(cmd.TaskId, result, "Section box set successfully.", resolvedFailures).ToJson();
         }
