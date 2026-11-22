@@ -7,6 +7,38 @@ commits — feat/fix only). Do not edit released sections. Historical
 releases before v1.12.0 live on the
 [GitHub Releases page](https://github.com/iandelivery/RevitCLI/releases).
 
+## v2.0.0 (2026-11-22)
+
+- **The units contract — an agent never sees a Revit internal unit.** Every
+  dimensional value a command takes or returns is expressed in the request
+  unit of its kind, and every response carries a `units` echo naming the
+  units used. Canonical defaults: `length=mm`, `area=m2`, `volume=m3`,
+  `angle=deg`; a request may choose any allowed unit per kind or the string
+  `project` to follow the active document's decimal display units. Outputs
+  round to 3 decimals; inputs are never rounded. Conversion happens at one
+  middleware choke point (schema `unit_kind` inputs, `ResponseFieldKinds`
+  outputs, `ParameterUnits` for spec-driven parameter commands); raw C#
+  scripts via `execute_raw` are unchanged.
+- **Client `--units` flag** — `--units length=ft --units angle=rad`
+  (repeatable kind=unit pairs) or `--units project` selects the units of an
+  invocation; invalid specs fail with a usage error before connecting.
+- **`get_units`** — new Query command returning the document's unit matrix
+  (what `project` resolves to), the canonical defaults, and the units
+  allowed per kind.
+- **`get_parameters` reports `unit_kind` per parameter** and converts double
+  values through the request units; `set_parameter`/`batch_set_param`
+  convert double inputs from the request units — the parameter commands no
+  longer leak bare internal feet.
+- **Suffixed field names removed** — `diameter_mm`, `width_mm`, `height_mm`,
+  `offset_mm`, `length_mm`, `base_offset_mm`, `rotation_deg`,
+  `overlap_area_mm2` and their kin rename to unsuffixed names; the `units`
+  echo replaces suffixes as the contract. **Breaking:** update any parser
+  that keyed on the old names or assumed raw feet.
+- **Handlers are unit-blind** — geometry, modification, structural, MEP
+  (piping, mechanical, electrical, fittings), and view/sheet commands
+  declare kinds instead of converting by hand; `create_walls`-style nested
+  arrays and JSON-string payloads convert the same as scalars.
+
 ## v1.19.1 (2026-11-20)
 
 - **`http://127.0.0.1:{port}` no longer rejected** — the bridge bound only
