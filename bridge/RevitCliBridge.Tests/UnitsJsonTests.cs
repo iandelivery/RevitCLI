@@ -146,6 +146,63 @@ namespace RevitCliBridge.Tests
 
                 Assert.False(parameters.ContainsKey("height"));
             }
+
+            [Fact]
+            public void NestedProperties_FromStringEncodedArray_Converts()
+            {
+                var parameters = new Dictionary<string, object>
+                {
+                    ["moves"] = "[{\"viewport_id\": 7, \"x\": 1000.0, \"y\": 2000.0}]"
+                };
+                var schemas = new[]
+                {
+                    new CommandParamSchema
+                    {
+                        Name = "moves", Type = "object", UnitKind = UnitKinds.Length,
+                        Properties = new[]
+                        {
+                            new CommandParamSchema { Name = "viewport_id", Type = "int" },
+                            new CommandParamSchema { Name = "x", Type = "double", UnitKind = UnitKinds.Length },
+                            new CommandParamSchema { Name = "y", Type = "double", UnitKind = UnitKinds.Length }
+                        }
+                    }
+                };
+
+                UnitsJson.ApplyToParameters(parameters, schemas, Canonical);
+
+                var converted = (JArray)parameters["moves"];
+                Assert.Equal(1000.0 / 304.8, converted[0]["x"]!.Value<double>(), 9);
+                Assert.Equal(2000.0 / 304.8, converted[0]["y"]!.Value<double>(), 9);
+                Assert.Equal(7, converted[0]["viewport_id"]!.Value<int>());
+            }
+
+            [Fact]
+            public void UnconvertibleScalar_PassesThroughUntouched()
+            {
+                var parameters = new Dictionary<string, object> { ["x"] = "not-a-number" };
+                var schemas = new[]
+                {
+                    new CommandParamSchema { Name = "x", Type = "double", UnitKind = UnitKinds.Length }
+                };
+
+                UnitsJson.ApplyToParameters(parameters, schemas, Canonical);
+
+                Assert.Equal("not-a-number", parameters["x"]);
+            }
+
+            [Fact]
+            public void NumericStringScalar_Converts()
+            {
+                var parameters = new Dictionary<string, object> { ["x"] = "500" };
+                var schemas = new[]
+                {
+                    new CommandParamSchema { Name = "x", Type = "double", UnitKind = UnitKinds.Length }
+                };
+
+                UnitsJson.ApplyToParameters(parameters, schemas, Canonical);
+
+                Assert.Equal(500.0 / 304.8, Convert.ToDouble(parameters["x"]), 9);
+            }
         }
 
         public class RewriteData

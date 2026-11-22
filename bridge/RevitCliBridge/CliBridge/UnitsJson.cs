@@ -46,29 +46,43 @@ namespace RevitCliBridge
         private static object ConvertValue(
             object value, CommandParamSchema schema, Func<string, string> unitForKind)
         {
-            if (schema.Properties is { Length: > 0 } && value is IEnumerable items && value is not string)
+            if (schema.Properties is { Length: > 0 })
             {
-                var converted = new JArray();
-                foreach (var item in items)
+                IEnumerable? items;
+                if (value is string json)
                 {
-                    if (item is JObject obj)
-                    {
-                        foreach (var sub in schema.Properties)
-                        {
-                            var subKind = sub.UnitKind;
-                            if (string.IsNullOrEmpty(subKind) || subKind == UnitKinds.Raw)
-                                continue;
-                            if (obj[sub.Name] is { } token && token.Type != JTokenType.Null)
-                                obj[sub.Name] = new JValue(ToInternal(token, subKind!, unitForKind));
-                        }
-                        converted.Add(obj);
-                    }
-                    else
-                    {
-                        converted.Add(item);
-                    }
+                    try { items = JToken.Parse(json) as IEnumerable; }
+                    catch { items = null; }
                 }
-                return converted;
+                else
+                {
+                    items = value as IEnumerable;
+                }
+
+                if (items is not null)
+                {
+                    var converted = new JArray();
+                    foreach (var item in items)
+                    {
+                        if (item is JObject obj)
+                        {
+                            foreach (var sub in schema.Properties)
+                            {
+                                var subKind = sub.UnitKind;
+                                if (string.IsNullOrEmpty(subKind) || subKind == UnitKinds.Raw)
+                                    continue;
+                                if (obj[sub.Name] is { } token && token.Type != JTokenType.Null)
+                                    obj[sub.Name] = new JValue(ToInternal(token, subKind!, unitForKind));
+                            }
+                            converted.Add(obj);
+                        }
+                        else
+                        {
+                            converted.Add(item);
+                        }
+                    }
+                    return converted;
+                }
             }
 
             if (value is IEnumerable array && value is not string)
@@ -79,7 +93,14 @@ namespace RevitCliBridge
                 return list.ToArray();
             }
 
-            return ToInternal(value, schema.UnitKind!, unitForKind);
+            try
+            {
+                return ToInternal(value, schema.UnitKind!, unitForKind);
+            }
+            catch (Exception ex) when (ex is FormatException or InvalidCastException or ArgumentException)
+            {
+                return value;
+            }
         }
 
         private static double ToInternal(object token, string kind, Func<string, string> unitForKind)
