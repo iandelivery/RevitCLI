@@ -43,6 +43,7 @@ type CommandParamSchema struct {
 	Name        string               `json:"name"`
 	Type        string               `json:"type"`
 	Required    bool                 `json:"required"`
+	UnitKind    string               `json:"unit_kind,omitempty"`
 	Description string               `json:"description,omitempty"`
 	Default     interface{}          `json:"default,omitempty"`
 	ShortFlag   string               `json:"short_flag,omitempty"`

@@ -217,13 +217,13 @@ namespace RevitCliBridge
 
                 if (!UnitContracts.IsKnownKind(kind))
                 {
-                    error = $"Unknown unit kind '{kind}' in 'units'.";
+                    error = $"Unknown unit kind '{kind}' in 'units'. Allowed kinds: {string.Join(", ", UnitContracts.CanonicalUnits.Keys)}.";
                     return false;
                 }
 
                 if (unit is null || !UnitContracts.IsAllowedUnit(kind, unit))
                 {
-                    error = $"Unit '{unit}' is not allowed for kind '{kind}'.";
+                    error = $"Unit '{unit}' is not allowed for kind '{kind}'. Allowed units: {string.Join(", ", UnitContracts.AllowedUnits(kind))}.";
                     return false;
                 }
 
