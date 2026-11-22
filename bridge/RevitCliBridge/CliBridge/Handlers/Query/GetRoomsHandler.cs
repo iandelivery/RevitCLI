@@ -2,6 +2,7 @@ using Autodesk.Revit.DB;
 using Autodesk.Revit.DB.Architecture;
 using Autodesk.Revit.UI;
 using RevitCliBridge.Abstractions;
+using RevitCliBridge.Handlers.Parameters;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -50,7 +51,8 @@ namespace RevitCliBridge.Handlers.Query
                     name = r.get_Parameter(BuiltInParameter.ROOM_NAME)?.AsString() ?? r.Name,
                     number = r.Number,
                     level_id = r.LevelId.IntegerValue,
-                    area = r.Area
+                    area = UnitContracts.FromInternal(UnitKinds.Area,
+                        ParameterUnits.UnitFor(cmd.ResolvedUnits, UnitKinds.Area), r.Area)
                 })
                 .ToList();
 
