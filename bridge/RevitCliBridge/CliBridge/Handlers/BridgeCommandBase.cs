@@ -58,6 +58,19 @@ namespace RevitCliBridge.Handlers
         /// </summary>
         public virtual string[] Examples => Array.Empty<string>();
 
+        /// <summary>
+        /// Response field names mapped to their unit kinds, such as
+        /// ["diameter"] = "length". The units middleware rewrites these
+        /// fields from internal units to the request units and stamps the
+        /// units echo. Handlers serialize internal-unit doubles and stay
+        /// unit-blind. Empty by default, so a handler that declares nothing
+        /// keeps the canonical units in its response.
+        /// </summary>
+        public virtual IReadOnlyDictionary<string, string> ResponseFieldKinds => EmptyFieldKinds;
+
+        private static readonly IReadOnlyDictionary<string, string> EmptyFieldKinds =
+            new Dictionary<string, string>();
+
         public string Handle(object uiApplication, QueuedCommand cmd)
         {
             if (uiApplication is not UIApplication app)
@@ -68,7 +81,13 @@ namespace RevitCliBridge.Handlers
                 return CommandResponse.Error(cmd.TaskId,
                     $"Command '{CommandName}' does not support --dry-run").ToJson();
 
-            return Execute(app, cmd);
+            var units = UnitsContext.Prepare(app, cmd);
+            if (units.ErrorJson is not null)
+                return units.ErrorJson;
+
+            UnitsContext.ApplyInputs(cmd, units, Parameters);
+
+            return UnitsContext.Finish(this, units, Execute(app, cmd));
         }
 
         /// <summary>

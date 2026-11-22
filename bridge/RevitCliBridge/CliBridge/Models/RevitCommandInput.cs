@@ -40,5 +40,13 @@ namespace RevitCliBridge.Models
         /// </summary>
         [JsonProperty("dry_run")]
         public bool DryRun { get; set; }
+
+        /// <summary>
+        /// Units-contract selection: a kind-to-unit map, the string
+        /// "project", or null for canonical units. Carried onto the queued
+        /// command and applied by the middleware.
+        /// </summary>
+        [JsonProperty("units", NullValueHandling = NullValueHandling.Ignore)]
+        public object? Units { get; set; }
     }
 }

@@ -78,5 +78,16 @@ namespace RevitCliBridge.Abstractions
         /// </summary>
         [JsonProperty("sensitive")]
         public bool Sensitive { get; set; }
+
+        /// <summary>
+        /// The units-contract kind this parameter belongs to, such as
+        /// "length", "area", "volume", or "angle". When set, the middleware
+        /// converts the incoming value from the request unit of that kind to
+        /// the Revit internal unit before the handler runs, so handlers work
+        /// in internal units and never convert by hand. Null or "raw" leaves
+        /// the value untouched.
+        /// </summary>
+        [JsonProperty("unit_kind", NullValueHandling = NullValueHandling.Ignore)]
+        public string? UnitKind { get; set; }
     }
 }
