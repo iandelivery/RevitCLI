@@ -90,11 +90,28 @@ namespace RevitCliBridge.Handlers.Views
         }
 
         /// <summary>
-        /// The rectangle JSON shape shared by the sheet commands.
+        /// The rectangle JSON shape in millimeters, for responses outside
+        /// the units contract.
         /// </summary>
         internal static object RectJson(SheetRect rect)
         {
             return new { min_x = rect.MinX, min_y = rect.MinY, max_x = rect.MaxX, max_y = rect.MaxY };
+        }
+
+        /// <summary>
+        /// The rectangle JSON shape for units-contract responses: the pure
+        /// helpers' millimeter rect converts back to internal units here,
+        /// and the middleware rewrites the fields to the request unit.
+        /// </summary>
+        internal static object RectJsonToInternal(SheetRect rect)
+        {
+            return new
+            {
+                min_x = rect.MinX.MillimeterToFeet(),
+                min_y = rect.MinY.MillimeterToFeet(),
+                max_x = rect.MaxX.MillimeterToFeet(),
+                max_y = rect.MaxY.MillimeterToFeet()
+            };
         }
 
         /// <summary>

@@ -8,22 +8,30 @@ namespace RevitCliBridge.Handlers.Views
 {
     public class MoveViewportHandler : DocumentCommandBase
     {
+        private static readonly IReadOnlyDictionary<string, string> FieldKinds =
+            new Dictionary<string, string>
+            {
+                ["x"] = UnitKinds.Length,
+                ["y"] = UnitKinds.Length
+            };
+
         public override string CommandName => "move_viewport";
         public override string Description => "Moves viewports on a sheet to new box centers";
         public override string Category => "Modify";
         public override bool SupportsDryRun => true;
         public override string[] Aliases => new[] { "viewport_move" };
+        public override IReadOnlyDictionary<string, string> ResponseFieldKinds => FieldKinds;
 
         public override CommandParamSchema[] Parameters => new[]
         {
             new CommandParamSchema
             {
-                Name = "moves", Type = "object", Required = true, Description = "Array of moves",
+                Name = "moves", Type = "object", Required = true, UnitKind = UnitKinds.Length, Description = "Array of moves",
                 Properties = new[]
                 {
                     new CommandParamSchema { Name = "viewport_id", Type = "int", Required = true, Description = "Viewport element ID (list with get_sheet_viewports)" },
-                    new CommandParamSchema { Name = "x", Type = "double", Required = true, Description = "New box center X in mm on sheet" },
-                    new CommandParamSchema { Name = "y", Type = "double", Required = true, Description = "New box center Y in mm on sheet" }
+                    new CommandParamSchema { Name = "x", Type = "double", Required = true, UnitKind = UnitKinds.Length, Description = "New box center X on sheet (request length unit, default mm)" },
+                    new CommandParamSchema { Name = "y", Type = "double", Required = true, UnitKind = UnitKinds.Length, Description = "New box center Y on sheet (request length unit, default mm)" }
                 }
             }
         };
@@ -64,8 +72,8 @@ namespace RevitCliBridge.Handlers.Views
                     {
                         var move = moves[i];
                         viewports[i].SetBoxCenter(new XYZ(
-                            move.X!.Value.MillimeterToFeet(),
-                            move.Y!.Value.MillimeterToFeet(),
+                            move.X!.Value,
+                            move.Y!.Value,
                             0));
                     }
 
@@ -88,8 +96,8 @@ namespace RevitCliBridge.Handlers.Views
                 moved.Add(new
                 {
                     viewport_id = viewport.Id.IntegerValue,
-                    x = center.X.FeetToMillimeter(),
-                    y = center.Y.FeetToMillimeter()
+                    x = center.X,
+                    y = center.Y
                 });
             }
 

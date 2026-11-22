@@ -8,9 +8,20 @@ namespace RevitCliBridge.Handlers.Views
 {
     public class CheckViewportOverlapsHandler : DocumentCommandBase
     {
+        private static readonly IReadOnlyDictionary<string, string> FieldKinds =
+            new Dictionary<string, string>
+            {
+                ["min_x"] = UnitKinds.Length,
+                ["min_y"] = UnitKinds.Length,
+                ["max_x"] = UnitKinds.Length,
+                ["max_y"] = UnitKinds.Length,
+                ["overlap_area"] = UnitKinds.Area
+            };
+
         public override string CommandName => "check_viewport_overlaps";
-        public override string Description => "Reports which viewports on a sheet overlap each other; box overlap does not prove the drawn contents overlap";
+        public override string Description => "Reports which viewports on a sheet overlap each other, with the overlap rectangle and area in the request units; box overlap does not prove the drawn contents overlap";
         public override string Category => "Query";
+        public override IReadOnlyDictionary<string, string> ResponseFieldKinds => FieldKinds;
 
         public override CommandParamSchema[] Parameters => new[]
         {
@@ -70,8 +81,9 @@ namespace RevitCliBridge.Handlers.Views
                         viewport_b = boxes[j].Viewport.Id.IntegerValue,
                         view_name_a = viewA?.Name,
                         view_name_b = viewB?.Name,
-                        overlap = SheetViewportHelpers.RectJson(intersection.Value),
-                        overlap_area_mm2 = SheetBoundsCalculator.Area(intersection.Value)
+                        overlap = SheetViewportHelpers.RectJsonToInternal(intersection.Value),
+                        overlap_area = UnitContracts.ToInternal(UnitKinds.Area, "mm2",
+                            SheetBoundsCalculator.Area(intersection.Value))
                     });
                 }
             }

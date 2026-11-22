@@ -8,22 +8,30 @@ namespace RevitCliBridge.Handlers.Views
 {
     public class PlaceOnSheetHandler : DocumentCommandBase
     {
+        private static readonly IReadOnlyDictionary<string, string> FieldKinds =
+            new Dictionary<string, string>
+            {
+                ["location_x"] = UnitKinds.Length,
+                ["location_y"] = UnitKinds.Length
+            };
+
         public override string CommandName => "place_on_sheet";
         public override string Description => "Places views on a sheet at specified locations";
         public override string Category => "Modify";
         public override bool SupportsDryRun => true;
+        public override IReadOnlyDictionary<string, string> ResponseFieldKinds => FieldKinds;
 
         public override CommandParamSchema[] Parameters => new[]
         {
             new CommandParamSchema { Name = "sheet_id", Type = "int", Required = true, Description = "Sheet element ID" },
             new CommandParamSchema
             {
-                Name = "views", Type = "object", Required = true, Description = "Array of view placements",
+                Name = "views", Type = "object", Required = true, UnitKind = UnitKinds.Length, Description = "Array of view placements",
                 Properties = new[]
                 {
                     new CommandParamSchema { Name = "view_id", Type = "int", Required = true, Description = "View element ID to place" },
-                    new CommandParamSchema { Name = "x", Type = "double", Required = false, Description = "Placement X in mm on sheet (defaults to the sheet center)" },
-                    new CommandParamSchema { Name = "y", Type = "double", Required = false, Description = "Placement Y in mm on sheet (defaults to the sheet center)" }
+                    new CommandParamSchema { Name = "x", Type = "double", Required = false, UnitKind = UnitKinds.Length, Description = "Placement X on sheet (request length unit, default mm; defaults to the sheet center)" },
+                    new CommandParamSchema { Name = "y", Type = "double", Required = false, UnitKind = UnitKinds.Length, Description = "Placement Y on sheet (request length unit, default mm; defaults to the sheet center)" }
                 }
             }
         };
@@ -75,7 +83,7 @@ namespace RevitCliBridge.Handlers.Views
                     {
                         var item = items[i];
                         var location = item.X.HasValue && item.Y.HasValue
-                            ? new XYZ(item.X.Value.MillimeterToFeet(), item.Y.Value.MillimeterToFeet(), 0)
+                            ? new XYZ(item.X.Value, item.Y.Value, 0)
                             : sheet.Origin;
 
                         var viewport = Viewport.Create(doc, sheet.Id, views[i]!.Id, location);
@@ -83,8 +91,8 @@ namespace RevitCliBridge.Handlers.Views
                         {
                             view_id = item.Id,
                             viewport_id = viewport.Id.IntegerValue,
-                            location_x = location.X.FeetToMillimeter(),
-                            location_y = location.Y.FeetToMillimeter()
+                            location_x = location.X,
+                            location_y = location.Y
                         });
                     }
 

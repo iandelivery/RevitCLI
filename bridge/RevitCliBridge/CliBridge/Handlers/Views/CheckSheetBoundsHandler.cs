@@ -8,20 +8,36 @@ namespace RevitCliBridge.Handlers.Views
 {
     public class CheckSheetBoundsHandler : DocumentCommandBase
     {
+        private static readonly IReadOnlyDictionary<string, string> FieldKinds =
+            new Dictionary<string, string>
+            {
+                ["x"] = UnitKinds.Length,
+                ["y"] = UnitKinds.Length,
+                ["min_x"] = UnitKinds.Length,
+                ["min_y"] = UnitKinds.Length,
+                ["max_x"] = UnitKinds.Length,
+                ["max_y"] = UnitKinds.Length,
+                ["left"] = UnitKinds.Length,
+                ["right"] = UnitKinds.Length,
+                ["top"] = UnitKinds.Length,
+                ["bottom"] = UnitKinds.Length
+            };
+
         public override string CommandName => "check_sheet_bounds";
         public override string Description => "Reports whether each viewport on a sheet sits inside the drawable area of the title block";
         public override string Category => "Query";
+        public override IReadOnlyDictionary<string, string> ResponseFieldKinds => FieldKinds;
 
         public override CommandParamSchema[] Parameters => new[]
         {
             new CommandParamSchema { Name = "sheet_id", Type = "int", Required = true, Description = "Sheet element ID" },
             new CommandParamSchema { Name = "titleblock_id", Type = "int", Required = false, Description = "Title block instance on the sheet (defaults to the sheet's single title block)" },
             new CommandParamSchema { Name = "viewport_ids", Type = "int[]", Required = false, Description = "Viewport element IDs to check (defaults to every viewport on the sheet)" },
-            new CommandParamSchema { Name = "margin", Type = "double", Required = false, Description = "Uniform inset in mm applied to all four edges of the title block box (default 0)", Default = 0 },
-            new CommandParamSchema { Name = "margin_left", Type = "double", Required = false, Description = "Left inset in mm (defaults to margin)" },
-            new CommandParamSchema { Name = "margin_right", Type = "double", Required = false, Description = "Right inset in mm (defaults to margin)" },
-            new CommandParamSchema { Name = "margin_top", Type = "double", Required = false, Description = "Top inset in mm (defaults to margin)" },
-            new CommandParamSchema { Name = "margin_bottom", Type = "double", Required = false, Description = "Bottom inset in mm (defaults to margin)" },
+            new CommandParamSchema { Name = "margin", Type = "double", Required = false, UnitKind = UnitKinds.Length, Description = "Uniform inset applied to all four edges of the title block box (request length unit, default mm; default 0)", Default = 0 },
+            new CommandParamSchema { Name = "margin_left", Type = "double", Required = false, UnitKind = UnitKinds.Length, Description = "Left inset (request length unit, default mm; defaults to margin)" },
+            new CommandParamSchema { Name = "margin_right", Type = "double", Required = false, UnitKind = UnitKinds.Length, Description = "Right inset (request length unit, default mm; defaults to margin)" },
+            new CommandParamSchema { Name = "margin_top", Type = "double", Required = false, UnitKind = UnitKinds.Length, Description = "Top inset (request length unit, default mm; defaults to margin)" },
+            new CommandParamSchema { Name = "margin_bottom", Type = "double", Required = false, UnitKind = UnitKinds.Length, Description = "Bottom inset (request length unit, default mm; defaults to margin)" },
             new CommandParamSchema { Name = "include_label", Type = "bool", Required = false, Description = "Also check the viewport label outline (default true)", Default = true }
         };
 
@@ -62,7 +78,8 @@ namespace RevitCliBridge.Handlers.Views
 
             var region = SheetBoundsCalculator.Shrink(
                 SheetViewportHelpers.ToRect(bbox.Min, bbox.Max),
-                marginLeft, marginRight, marginTop, marginBottom);
+                marginLeft.FeetToMillimeter(), marginRight.FeetToMillimeter(),
+                marginTop.FeetToMillimeter(), marginBottom.FeetToMillimeter());
 
             var viewports = SheetViewportHelpers.GetViewports(doc, sheet);
             var filterError = FilterViewports(parameters, viewports, out var selected);
@@ -96,17 +113,17 @@ namespace RevitCliBridge.Handlers.Views
                     viewport_id = viewport.Id.IntegerValue,
                     view_id = viewport.ViewId.IntegerValue,
                     view_name = view?.Name,
-                    center = new { x = center.X.FeetToMillimeter(), y = center.Y.FeetToMillimeter() },
-                    box = SheetViewportHelpers.RectJson(box),
-                    label = label.HasValue ? SheetViewportHelpers.RectJson(label!.Value) : null,
+                    center = new { x = center.X, y = center.Y },
+                    box = SheetViewportHelpers.RectJsonToInternal(box),
+                    label = label.HasValue ? SheetViewportHelpers.RectJsonToInternal(label!.Value) : null,
                     box_in_bounds = boxInBounds,
                     label_in_bounds = labelInBounds,
                     overflow = new
                     {
-                        left = overflow.Left,
-                        right = overflow.Right,
-                        top = overflow.Top,
-                        bottom = overflow.Bottom
+                        left = overflow.Left.MillimeterToFeet(),
+                        right = overflow.Right.MillimeterToFeet(),
+                        top = overflow.Top.MillimeterToFeet(),
+                        bottom = overflow.Bottom.MillimeterToFeet()
                     }
                 });
             }
@@ -116,7 +133,7 @@ namespace RevitCliBridge.Handlers.Views
                 sheet_id = sheetId.Value,
                 sheet_number = sheet.SheetNumber,
                 title_block_id = titleBlock.Id.IntegerValue,
-                allowed_region = SheetViewportHelpers.RectJson(region),
+                allowed_region = SheetViewportHelpers.RectJsonToInternal(region),
                 count = entries.Count,
                 viewports = entries,
                 out_of_bounds_count = outOfBoundsCount,
