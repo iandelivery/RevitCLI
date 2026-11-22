@@ -274,9 +274,26 @@ revit-cli.exe create_pipe_elbow_fitting --element-id-1 12345 --element-id-2 1234
 revit-cli.exe llms
 ```
 
+### 单位契约
+
+命令遵循**单位契约（units contract）**：Agent 永远不会接触到 Revit 内部单位。命令接收和返回的每一个带量纲的数值，都以请求所指定单位的种类（kind）表达；每个响应都携带 `units` 回显字段，标明所用的单位。规范默认值：`length=mm`、`area=m2`、`volume=m3`、`angle=deg`；各 kind 允许的单位：长度 `mm cm m ft in`、面积 `m2 mm2 ft2`、体积 `m3 mm3 ft3 l`、角度 `deg rad`。
+
+通过 `--units` 按次调用选择单位：可重复的 kind=unit 键值对（`--units length=ft --units angle=rad`），或 `--units project` 跟随当前文档的十进制显示单位（用 `get_units` 查询）。输出四舍五入到 3 位小数；输入永不取整。命令 schema 为每个带量纲的参数声明 `unit_kind`，`get_parameters` 逐参数报告其 `unit_kind`（契约暂不换算的 spec 报告为 `raw`，例如流量、压力）。`execute_raw` 脚本不经过契约，直接以内部英尺与 Revit API 交互。
+
+```bash
+# 以英尺查询包围盒
+revit-cli.exe --units length=ft get_element_boxes --element-ids 12345
+
+# 跟随项目单位查询房间
+revit-cli.exe --units project get_rooms
+
+# 查看当前文档的单位矩阵
+revit-cli.exe get_units
+```
+
 ### 全局参数、退出码与输出流
 
-所有命令都接受全局参数：`--timeout <秒>`（单命令预算，默认 120）、`--no-wait`（提交后打印 `task_id` 立即退出，稍后用 `task -ti <id>` 轮询）、`--request-id <id>`（稳定重试键——桥接器遇到相同 ID 时返回已有任务，不会重复执行）。
+所有命令都接受全局参数：`--timeout <秒>`（单命令预算，默认 120）、`--no-wait`（提交后打印 `task_id` 立即退出，稍后用 `task -ti <id>` 轮询）、`--request-id <id>`（稳定重试键——桥接器遇到相同 ID 时返回已有任务，不会重复执行）、`--units <kind=unit | project>`（为本次调用选择请求单位，可重复——见上文「单位契约」）。
 
 退出码：`0` 成功，`1` 用法错误，`2` 无法连接或认证被拒，`3` 超时，`4` 命令执行失败。超时的任务仍可能已提交 Revit 事务；把 `3` 视为"结果未知"。
 
@@ -371,6 +388,7 @@ revit-cli.exe skill uninstall --target <dir>   # 自定义 skills 根目录
 ## 功能特性
 
 - **70+ 内置命令** — 创建墙体/门/窗、管理电缆桥架、风管和水管、查询元素、修改参数、导出视图、管理文档
+- **单位契约** — Agent 永远接触不到 Revit 内部单位：`--units` 按次选择单位、`project` 哨兵、`get_units` 查询、每个响应携带 `units` 回显
 - **SSE 实时流** — 长时间运行操作的实时进度更新
 - **Schema 发现** — 客户端自动从桥接器发现可用命令
 - **多实例支持** — 同时运行多个 Revit 版本，自动端口分配

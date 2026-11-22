@@ -282,17 +282,30 @@ revit-cli.exe set_section_box -ids 12345,12346,12347
 # Toggle the section box off on a specific view
 revit-cli.exe toggle_section_box --view-id 12345 --enable false
 
+# Choose the request units per invocation (defaults: mm/m2/m3/deg)
+revit-cli.exe --units length=ft get_element_boxes --element-ids 12345
+revit-cli.exe --units project get_rooms
+
+# Inspect the active document's unit matrix
+revit-cli.exe get_units
+
 # View the Revit API reference for uncovered operations
 revit-cli.exe llms
 ```
 
 ### Global flags, exit codes, and streams
 
-Global flags work on every command: `--timeout <seconds>` (per-command budget, default 120), `--no-wait` (submit, print `task_id`, exit immediately; poll later with `task -ti <id>`), and `--request-id <id>` (stable retry key — the bridge returns the existing task instead of running the command twice).
+Global flags work on every command: `--timeout <seconds>` (per-command budget, default 120), `--no-wait` (submit, print `task_id`, exit immediately; poll later with `task -ti <id>`), `--request-id <id>` (stable retry key — the bridge returns the existing task instead of running the command twice), and `--units <kind=unit | project>` (request units for the invocation, repeatable — see Units below).
 
 Exit codes: `0` success, `1` usage error, `2` bridge unreachable or auth rejected, `3` timed out, `4` command failed. A timed-out task may still have committed its Revit transaction; treat `3` as "outcome unknown".
 
 stdout carries the result JSON only. Progress lines, `task_id`, and error payloads go to stderr, so piping stderr away yields parseable JSON. Dynamic commands answer `--help` from their schema, and unknown names get up to three "Did you mean" suggestions.
+
+### Units
+
+Commands speak the **units contract**: an agent never sees a Revit internal unit. Every dimensional value a command takes or returns is expressed in the request unit of its kind, and every response carries a `units` echo naming the units used. Canonical defaults: `length=mm`, `area=m2`, `volume=m3`, `angle=deg`; allowed per kind: length `mm cm m ft in`, area `m2 mm2 ft2`, volume `m3 mm3 ft3 l`, angle `deg rad`.
+
+Choose per invocation with `--units`: repeatable kind=unit pairs (`--units length=ft --units angle=rad`) or `--units project` to follow the active document's decimal display units (query them with `get_units`). Outputs round to 3 decimals; inputs are never rounded. Command schemas declare `unit_kind` per dimensional parameter, and `get_parameters` reports each parameter's `unit_kind` (`raw` when the contract does not convert that spec yet, e.g. flow or pressure). `execute_raw` scripts bypass the contract and talk to the Revit API directly in internal feet.
 
 ### Raw Execution Mode
 
@@ -383,6 +396,7 @@ Run without flags in a terminal for an interactive multi-select. For `skill show
 ## Features
 
 - **70+ built-in commands** — create walls/doors/windows, manage cable trays, ducts, and pipes, query elements, modify parameters, export views, manage documents
+- **Units contract** — an agent never sees a Revit internal unit: per-invocation units via `--units`, the `project` sentinel, `get_units`, and a `units` echo on every response
 - **SSE real-time streaming** — live progress updates for long-running operations
 - **Schema discovery** — the client auto-discovers available commands from the bridge
 - **Multi-instance support** — run multiple Revit versions simultaneously with auto port allocation
