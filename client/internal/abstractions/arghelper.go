@@ -62,7 +62,7 @@ func HasFlag(args []string, flags ...string) bool {
 // argument ("--flag value" or inline "--flag=value"). main's argument
 // scanner and FirstPositional share this list so every caller skips the
 // same flags regardless of position.
-var GlobalValueFlags = []string{"--url", "--pid", "--revit", "--timeout", "--request-id"}
+var GlobalValueFlags = []string{"--url", "--pid", "--revit", "--timeout", "--request-id", "--units"}
 
 // IsGlobalValueFlag reports whether arg is one of GlobalValueFlags, in
 // either the "--flag" or the inline "--flag=value" form.

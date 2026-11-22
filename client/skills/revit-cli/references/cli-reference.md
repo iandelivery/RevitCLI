@@ -36,7 +36,18 @@ Beyond these, the bridge exposes **70+ high-level commands** (walls/doors/window
 
 ## Units
 
-The client uses **millimeters**: every distance, coordinate, and size argument passed to a high-level command — and every such value it returns — is in mm. The bridge converts mm to Revit internal units (`1 ft = 304.8 mm`) and back transparently. This conversion applies ONLY to high-level commands; raw scripts via `execute_raw` deal with the Revit API directly in internal feet. In raw scripts, convert with `Autodesk.Revit.DB.UnitUtils.ConvertToInternalUnits` / `ConvertFromInternalUnits` — the unit-argument type changed in Revit 2021: `DisplayUnitType.DUT_MILLIMETERS` (≤2020, obsolete since 2021) vs `UnitTypeId.Millimeters` (≥2021) (see constraint 7 in [csharp-scripting.md](csharp-scripting.md)).
+The units contract: an agent never sees a Revit internal unit. Every dimensional argument and response value of a high-level command is expressed in the request unit of its kind, and every response carries a `units` echo naming the units used. Canonical defaults: `length=mm`, `area=m2`, `volume=m3`, `angle=deg`; allowed per kind: length `mm cm m ft in`, area `m2 mm2 ft2`, volume `m3 mm3 ft3 l`, angle `deg rad`.
+
+Choose units per invocation with the `--units` global flag: repeatable `kind=unit` pairs (`--units length=ft --units angle=rad`) or `--units project` to follow the active document's decimal display units (query them with `get_units`). Without the flag, canonical units apply. Outputs round to 3 decimals; inputs are never rounded. Command schemas declare `unit_kind` per dimensional parameter, and `get_parameters` reports each parameter's `unit_kind` (`raw` when the contract does not convert that spec yet).
+
+```bash
+revit-cli.exe get_element_boxes --element-ids 12345                      # mm
+revit-cli.exe --units length=ft get_element_boxes --element-ids 12345    # ft
+revit-cli.exe --units project get_rooms                                  # document units
+revit-cli.exe get_units                                                  # project/canonical/allowed matrices
+```
+
+This conversion applies ONLY to high-level commands; raw scripts via `execute_raw` deal with the Revit API directly in internal feet. In raw scripts, convert with `Autodesk.Revit.DB.UnitUtils.ConvertToInternalUnits` / `ConvertFromInternalUnits` — the unit-argument type changed in Revit 2021: `DisplayUnitType.DUT_MILLIMETERS` (≤2020, obsolete since 2021) vs `UnitTypeId.Millimeters` (≥2021) (see constraint 7 in [csharp-scripting.md](csharp-scripting.md)).
 
 ## Dynamic Command Discovery
 

@@ -17,8 +17,23 @@
 
 ## Unit Convention
 
-Dimension parameters use **millimeters (mm)**, auto-converted to Revit's feet
-internally. Returns convert feet → mm.
+Commands speak the **units contract**: a caller never receives a Revit
+internal unit. Every dimensional parameter and response field carries the
+request unit of its kind, and every response echoes the effective units in
+its `units` envelope field.
+
+- Canonical units: `length=mm`, `area=m2`, `volume=m3`, `angle=deg`.
+  Allowed per kind: length `mm cm m ft in`, area `m2 mm2 ft2`, volume
+  `m3 mm3 ft3 l`, angle `deg rad`.
+- A request chooses units with the top-level `units` field: a kind-to-unit
+  map, or the string `project` to follow the active document's decimal
+  display units (`get_units` reports them).
+- Handlers declare `unit_kind` on schema parameters (converted inputs) and
+  `ResponseFieldKinds` (rewritten outputs), or use `ParameterUnits` when the
+  spec belongs to the element's parameter. Handlers stay unit-blind and emit
+  internal-unit values; the middleware converts at the choke point.
+- Outputs round to 3 decimals; inputs are never rounded. Specs the contract
+  does not convert yet report `unit_kind: "raw"`.
 
 ## Command Versioning
 
