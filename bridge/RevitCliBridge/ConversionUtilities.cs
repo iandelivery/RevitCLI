@@ -1,5 +1,4 @@
-﻿using Autodesk.Revit.DB;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -31,37 +30,48 @@ namespace RevitCliBridge
             return result;
         }
 
+        /// <summary>
+        /// Feet to millimeters. Output-side conversion: rounds to the
+        /// units-contract precision (three decimals) through
+        /// <see cref="UnitContracts"/>, which kills conversion noise such as
+        /// 832.4999999998686. The factors are exact definitions, so no Revit
+        /// version branch is needed.
+        /// </summary>
         public static double FeetToMillimeter(this double feet)
         {
-#if (R19 || R20)
-            return UnitUtils.Convert(feet, DisplayUnitType.DUT_DECIMAL_FEET, DisplayUnitType.DUT_MILLIMETERS);
-#elif (R21 || R22)
-            return  UnitUtils.ConvertFromInternalUnits(feet, UnitTypeId.Millimeters);
-#else
-            throw new NotImplementedException("Unsupported Revit version");
-#endif
+            return UnitContracts.FromInternal(UnitKinds.Length, "mm", feet);
         }
 
+        /// <summary>
+        /// Millimeters to feet. Input-side conversion: never rounds.
+        /// </summary>
         public static double MillimeterToFeet(this double millimeter)
         {
-#if (R19 || R20)
-            return UnitUtils.Convert(millimeter, DisplayUnitType.DUT_MILLIMETERS, DisplayUnitType.DUT_DECIMAL_FEET);
-#elif (R21 || R22)
-            return UnitUtils.ConvertToInternalUnits(millimeter, UnitTypeId.Millimeters);
-#else
-            throw new NotImplementedException("Unsupported Revit version");
-#endif
+            return UnitContracts.ToInternal(UnitKinds.Length, "mm", millimeter);
         }
 
-        public static double SquareFeetToSquareMeters(this double millimeter)
+        /// <summary>
+        /// Square feet to square meters, rounded to contract precision.
+        /// </summary>
+        public static double SquareFeetToSquareMeters(this double squareFeet)
         {
-#if (R19 || R20)
-            return UnitUtils.Convert(millimeter, DisplayUnitType.DUT_SQUARE_FEET, DisplayUnitType.DUT_SQUARE_METERS);
-#elif (R21 || R22)
-            return UnitUtils.ConvertToInternalUnits(millimeter, UnitTypeId.Millimeters);
-#else
-            throw new NotImplementedException("Unsupported Revit version");
-#endif
+            return UnitContracts.FromInternal(UnitKinds.Area, "m2", squareFeet);
+        }
+
+        /// <summary>
+        /// Radians to degrees, rounded to contract precision.
+        /// </summary>
+        public static double RadiansToDegrees(this double radians)
+        {
+            return UnitContracts.FromInternal(UnitKinds.Angle, "deg", radians);
+        }
+
+        /// <summary>
+        /// Degrees to radians. Input-side conversion: never rounds.
+        /// </summary>
+        public static double DegreesToRadians(this double degrees)
+        {
+            return UnitContracts.ToInternal(UnitKinds.Angle, "deg", degrees);
         }
     }
 }
