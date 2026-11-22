@@ -17,11 +17,21 @@ namespace RevitCliBridge.Handlers.Electrical
     /// </summary>
     public class CreateTransitionFittingHandler : DocumentCommandBase
     {
+        private static readonly IReadOnlyDictionary<string, string> FieldKinds =
+            new Dictionary<string, string>
+            {
+                ["width_1"] = UnitKinds.Length,
+                ["height_1"] = UnitKinds.Length,
+                ["width_2"] = UnitKinds.Length,
+                ["height_2"] = UnitKinds.Length
+            };
+
         public override string CommandName => "create_transition_fitting";
         public override string Description => "Creates a transition fitting between two collinear cable trays of differing sizes";
         public override string Category => "Create";
         public override string[] Aliases => new[] { "transition_fitting" };
         public override bool SupportsDryRun => true;
+        public override IReadOnlyDictionary<string, string> ResponseFieldKinds => FieldKinds;
 
         public override CommandParamSchema[] Parameters => new[]
         {
@@ -52,11 +62,11 @@ namespace RevitCliBridge.Handlers.Electrical
 
             var tray1 = (CableTray)c1!.Owner;
             var tray2 = (CableTray)c2!.Owner;
-            var (w1, h1) = CableTrayUtils.Default.GetSize(tray1);
-            var (w2, h2) = CableTrayUtils.Default.GetSize(tray2);
-            if (Math.Abs(w1 - w2) < 0.01 && Math.Abs(h1 - h2) < 0.01)
+            var (w1, h1) = CableTrayUtils.Default.GetSizeInternal(tray1);
+            var (w2, h2) = CableTrayUtils.Default.GetSizeInternal(tray2);
+            if (Math.Abs(w1 - w2) < 0.01.MillimeterToFeet() && Math.Abs(h1 - h2) < 0.01.MillimeterToFeet())
                 return CommandResponse.Error(cmd.TaskId,
-                    $"Both trays have the same size ({w1:F0}×{h1:F0} mm). Use create_union_fitting for same-size joining.").ToJson();
+                    $"Both trays have the same size ({w1.FeetToMillimeter():F0}×{h1.FeetToMillimeter():F0} mm). Use create_union_fitting for same-size joining.").ToJson();
 
             using var tx = new DryRunTransaction(doc, "CLI Create Transition Fitting", cmd.DryRun);
             try
@@ -69,8 +79,10 @@ namespace RevitCliBridge.Handlers.Electrical
                     new
                     {
                         fitting_id = fitting.Id.IntegerValue,
-                        size_1 = new { width_mm = w1, height_mm = h1 },
-                        size_2 = new { width_mm = w2, height_mm = h2 }
+                        width_1 = w1,
+                        height_1 = h1,
+                        width_2 = w2,
+                        height_2 = h2
                     },
                     "Transition fitting created successfully.", tx.ResolvedFailures).ToJson();
             }

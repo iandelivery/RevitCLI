@@ -35,26 +35,27 @@ namespace RevitCliBridge.Handlers.Electrical
         }
 
         /// <summary>
-        /// Read the width and height of a cable tray in millimeters. Reads
-        /// from the instance parameters (RBS_CABLETRAY_WIDTH_PARAM /
-        /// RBS_CABLETRAY_HEIGHT_PARAM), which reflect either the type default
-        /// or any instance override.
+        /// Read the width and height of a cable tray in Revit internal units
+        /// (feet). Reads from the instance parameters
+        /// (RBS_CABLETRAY_WIDTH_PARAM / RBS_CABLETRAY_HEIGHT_PARAM), which
+        /// reflect either the type default or any instance override.
         /// </summary>
-        public (double widthMm, double heightMm) GetSize(CableTray ct)
+        public (double width, double height) GetSizeInternal(CableTray ct)
         {
-            double widthFt = ct.get_Parameter(BuiltInParameter.RBS_CABLETRAY_WIDTH_PARAM)?.AsDouble() ?? 0.0;
-            double heightFt = ct.get_Parameter(BuiltInParameter.RBS_CABLETRAY_HEIGHT_PARAM)?.AsDouble() ?? 0.0;
-            return (widthFt.FeetToMillimeter(), heightFt.FeetToMillimeter());
+            double width = ct.get_Parameter(BuiltInParameter.RBS_CABLETRAY_WIDTH_PARAM)?.AsDouble() ?? 0.0;
+            double height = ct.get_Parameter(BuiltInParameter.RBS_CABLETRAY_HEIGHT_PARAM)?.AsDouble() ?? 0.0;
+            return (width, height);
         }
 
         /// <summary>
-        /// Project a cable tray into a serializable snapshot with all
-        /// coordinates converted to millimeters.
+        /// Project a cable tray into a serializable snapshot with length
+        /// fields in Revit internal units.
         /// </summary>
         public object Snapshot(CableTray ct, Document doc)
         {
             var curve = (ct.Location as LocationCurve)?.Curve;
-            var (widthMm, heightMm) = GetSize(ct);
+            double width = ct.get_Parameter(BuiltInParameter.RBS_CABLETRAY_WIDTH_PARAM)?.AsDouble() ?? 0.0;
+            double height = ct.get_Parameter(BuiltInParameter.RBS_CABLETRAY_HEIGHT_PARAM)?.AsDouble() ?? 0.0;
             var typeName = (doc.GetElement(ct.GetTypeId()) as CableTrayType)?.Name ?? "";
 
             object? start = null, end = null;
@@ -62,8 +63,8 @@ namespace RevitCliBridge.Handlers.Electrical
             {
                 var p1 = curve.GetEndPoint(0);
                 var p2 = curve.GetEndPoint(1);
-                start = new { x = p1.X.FeetToMillimeter(), y = p1.Y.FeetToMillimeter(), z = p1.Z.FeetToMillimeter() };
-                end = new { x = p2.X.FeetToMillimeter(), y = p2.Y.FeetToMillimeter(), z = p2.Z.FeetToMillimeter() };
+                start = new { x = p1.X, y = p1.Y, z = p1.Z };
+                end = new { x = p2.X, y = p2.Y, z = p2.Z };
             }
 
             return new
@@ -75,9 +76,9 @@ namespace RevitCliBridge.Handlers.Electrical
                 level_id = ct.LevelId.IntegerValue,
                 start,
                 end,
-                width_mm = widthMm,
-                height_mm = heightMm,
-                length_mm = curve?.Length.FeetToMillimeter() ?? 0.0
+                width,
+                height,
+                length = curve?.Length ?? 0.0
             };
         }
 
