@@ -10,27 +10,39 @@ namespace RevitCliBridge.Handlers.Structural
     /// <summary>
     /// Creates a beam between two points on a level. The family type is
     /// optional — when omitted, the first loaded structural framing type is
-    /// used. Coordinates are in millimeters.
+    /// used. Coordinates use the request length unit (default mm).
     /// </summary>
     public class CreateBeamHandler : DocumentCommandBase
     {
+        private static readonly IReadOnlyDictionary<string, string> FieldKinds =
+            new Dictionary<string, string>
+            {
+                ["x"] = UnitKinds.Length,
+                ["y"] = UnitKinds.Length,
+                ["z"] = UnitKinds.Length,
+                ["length"] = UnitKinds.Length,
+                ["start_level_offset"] = UnitKinds.Length,
+                ["end_level_offset"] = UnitKinds.Length
+            };
+
         public override string CommandName => "create_beam";
         public override string Description => "Creates a beam between two points on a level (type optional, falls back to the first loaded structural framing type)";
         public override string Category => "Create";
         public override string[] Aliases => new[] { "beam_create" };
         public override bool SupportsDryRun => true;
+        public override IReadOnlyDictionary<string, string> ResponseFieldKinds => FieldKinds;
 
         public override CommandParamSchema[] Parameters => new[]
         {
             new CommandParamSchema { Name = "level_id", Type = "int", Required = true, Description = "Reference level element ID for the beam" },
-            new CommandParamSchema { Name = "start_x", Type = "double", Required = true, Description = "Start point X in millimeters" },
-            new CommandParamSchema { Name = "start_y", Type = "double", Required = true, Description = "Start point Y in millimeters" },
-            new CommandParamSchema { Name = "start_z", Type = "double", Required = true, Description = "Start point Z in millimeters" },
-            new CommandParamSchema { Name = "end_x", Type = "double", Required = true, Description = "End point X in millimeters" },
-            new CommandParamSchema { Name = "end_y", Type = "double", Required = true, Description = "End point Y in millimeters" },
-            new CommandParamSchema { Name = "end_z", Type = "double", Required = true, Description = "End point Z in millimeters" },
-            new CommandParamSchema { Name = "start_level_offset", Type = "double", Required = false, Description = "Start level offset in millimeters", Default = 0 },
-            new CommandParamSchema { Name = "end_level_offset", Type = "double", Required = false, Description = "End level offset in millimeters", Default = 0 },
+            new CommandParamSchema { Name = "start_x", Type = "double", Required = true, UnitKind = UnitKinds.Length, Description = "Start point X (request length unit, default mm)" },
+            new CommandParamSchema { Name = "start_y", Type = "double", Required = true, UnitKind = UnitKinds.Length, Description = "Start point Y (request length unit, default mm)" },
+            new CommandParamSchema { Name = "start_z", Type = "double", Required = true, UnitKind = UnitKinds.Length, Description = "Start point Z (request length unit, default mm)" },
+            new CommandParamSchema { Name = "end_x", Type = "double", Required = true, UnitKind = UnitKinds.Length, Description = "End point X (request length unit, default mm)" },
+            new CommandParamSchema { Name = "end_y", Type = "double", Required = true, UnitKind = UnitKinds.Length, Description = "End point Y (request length unit, default mm)" },
+            new CommandParamSchema { Name = "end_z", Type = "double", Required = true, UnitKind = UnitKinds.Length, Description = "End point Z (request length unit, default mm)" },
+            new CommandParamSchema { Name = "start_level_offset", Type = "double", Required = false, UnitKind = UnitKinds.Length, Description = "Start level offset (request length unit, default mm)", Default = 0 },
+            new CommandParamSchema { Name = "end_level_offset", Type = "double", Required = false, UnitKind = UnitKinds.Length, Description = "End level offset (request length unit, default mm)", Default = 0 },
             new CommandParamSchema { Name = "symbol_id", Type = "int", Required = false, Description = "FamilySymbol ID of the beam type; defaults to the first loaded structural framing type (list via get_family_symbols --category OST_StructuralFraming)" }
         };
 
@@ -59,8 +71,8 @@ namespace RevitCliBridge.Handlers.Structural
                     "No structural framing family types are loaded in the document.").ToJson();
             }
 
-            var start = new XYZ(p.StartX.MillimeterToFeet(), p.StartY.MillimeterToFeet(), p.StartZ.MillimeterToFeet());
-            var end = new XYZ(p.EndX.MillimeterToFeet(), p.EndY.MillimeterToFeet(), p.EndZ.MillimeterToFeet());
+            var start = new XYZ(p.StartX, p.StartY, p.StartZ);
+            var end = new XYZ(p.EndX, p.EndY, p.EndZ);
 
             if (start.DistanceTo(end) < StructuralUtils.MinSegmentLengthFeet)
                 return CommandResponse.Error(cmd.TaskId,
@@ -79,7 +91,7 @@ namespace RevitCliBridge.Handlers.Structural
                 if (p.StartLevelOffset.HasValue)
                 {
                     var off = beam.get_Parameter(BuiltInParameter.STRUCTURAL_BEAM_END0_ELEVATION);
-                    if (off is null || !off.Set(p.StartLevelOffset.Value.MillimeterToFeet()))
+                    if (off is null || !off.Set(p.StartLevelOffset.Value))
                         return CommandResponse.Error(cmd.TaskId,
                             "The created beam does not support the Start Level Offset parameter.").ToJson();
                 }
@@ -87,7 +99,7 @@ namespace RevitCliBridge.Handlers.Structural
                 if (p.EndLevelOffset.HasValue)
                 {
                     var off = beam.get_Parameter(BuiltInParameter.STRUCTURAL_BEAM_END1_ELEVATION);
-                    if (off is null || !off.Set(p.EndLevelOffset.Value.MillimeterToFeet()))
+                    if (off is null || !off.Set(p.EndLevelOffset.Value))
                         return CommandResponse.Error(cmd.TaskId,
                             "The created beam does not support the End Level Offset parameter.").ToJson();
                 }

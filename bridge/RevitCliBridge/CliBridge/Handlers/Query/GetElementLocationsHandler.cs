@@ -1,4 +1,3 @@
-using System;
 using System.Collections.Generic;
 using System.Linq;
 using Autodesk.Revit.DB;
@@ -9,9 +8,20 @@ namespace RevitCliBridge.Handlers.Query
 {
     public class GetElementLocationsHandler : DocumentCommandBase
     {
+        private static readonly IReadOnlyDictionary<string, string> FieldKinds =
+            new Dictionary<string, string>
+            {
+                ["x"] = UnitKinds.Length,
+                ["y"] = UnitKinds.Length,
+                ["z"] = UnitKinds.Length,
+                ["rotation"] = UnitKinds.Angle,
+                ["length"] = UnitKinds.Length
+            };
+
         public override string CommandName => "get_element_locations";
-        public override string Description => "Resolves a representative location for each element (location point, curve midpoint, or bounding box center) in millimeters; point-based elements include their rotation";
+        public override string Description => "Resolves a representative location for each element (location point, curve midpoint, or bounding box center) in the request length unit (default mm); point-based elements include their rotation";
         public override string Category => "Query";
+        public override IReadOnlyDictionary<string, string> ResponseFieldKinds => FieldKinds;
 
         public override CommandParamSchema[] Parameters => new[]
         {
@@ -42,8 +52,8 @@ namespace RevitCliBridge.Handlers.Query
 
                 double x, y, z;
                 string locationType;
-                double? rotationDeg = null;
-                double? lengthMm = null;
+                double? rotation = null;
+                double? length = null;
 
                 switch (element.Location)
                 {
@@ -52,7 +62,7 @@ namespace RevitCliBridge.Handlers.Query
                         y = point.Point.Y;
                         z = point.Point.Z;
                         locationType = "point";
-                        rotationDeg = point.Rotation * 180.0 / Math.PI;
+                        rotation = point.Rotation;
                         break;
 
                     case LocationCurve curve:
@@ -61,7 +71,7 @@ namespace RevitCliBridge.Handlers.Query
                         y = mid.Y;
                         z = mid.Z;
                         locationType = "curve_midpoint";
-                        lengthMm = curve.Curve.Length.FeetToMillimeter();
+                        length = curve.Curve.Length;
                         break;
 
                     default:
@@ -83,11 +93,11 @@ namespace RevitCliBridge.Handlers.Query
                     id,
                     found = true,
                     location_type = locationType,
-                    x = x.FeetToMillimeter(),
-                    y = y.FeetToMillimeter(),
-                    z = z.FeetToMillimeter(),
-                    rotation_deg = rotationDeg,
-                    length_mm = lengthMm
+                    x,
+                    y,
+                    z,
+                    rotation,
+                    length
                 });
             }
 

@@ -475,13 +475,14 @@ revit-cli.exe modify_beam --element-id 12345 \
 
 For columns, `--level-id` is the **base level**; the top constraint and both
 offsets are optional. For beams, `--level-id` is the **reference level** and
-both per-end offsets are optional. All offsets are millimeters and map to the
+both per-end offsets are optional. All offsets are lengths in the request
+unit (default mm) and map to the
 Revit parameters `FAMILY_BASE_LEVEL_PARAM` / `FAMILY_BASE_LEVEL_OFFSET_PARAM` /
 `FAMILY_TOP_LEVEL_PARAM` / `FAMILY_TOP_LEVEL_OFFSET_PARAM` (columns) and
 `INSTANCE_REFERENCE_LEVEL_PARAM` / `START_Z_OFFSET_VALUE` / `END_Z_OFFSET_VALUE`
 (beams). The create/modify responses echo these back as `base_level_id`,
-`top_level_id`, `base_offset_mm`, `top_offset_mm` (columns) and
-`start_level_offset_mm`, `end_level_offset_mm` (beams).
+`top_level_id`, `base_offset`, `top_offset` (columns) and
+`start_level_offset`, `end_level_offset` (beams).
 
 `modify_beam` only accepts elements with `StructuralType.Beam` — braces are
 rejected with a typed error.
