@@ -7,6 +7,18 @@ commits — feat/fix only). Do not edit released sections. Historical
 releases before v1.12.0 live on the
 [GitHub Releases page](https://github.com/iandelivery/RevitCLI/releases).
 
+## v2.0.1 (2026-11-22)
+
+- **`get_units` answers without a document** — a cold-start agent (no RVT
+  open) no longer gets "No active document."; the command returns the
+  canonical and allowed matrices with `project: null` until a document
+  opens.
+- **Unit errors list what is valid** — an unknown kind or unit in the
+  `units` field now names the allowed values in the error message, so an
+  agent can self-correct in one round trip.
+- **Client help shows unit kinds** — dynamic `--help` annotates every
+  dimensional parameter with `[unit kind: <kind>]`.
+
 ## v2.0.0 (2026-11-22)
 
 - **The units contract — an agent never sees a Revit internal unit.** Every
