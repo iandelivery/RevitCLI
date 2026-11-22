@@ -148,7 +148,7 @@ namespace RevitCliBridge
         }
 
 #if (R19 || R20)
-        private static IReadOnlyDictionary<string, string> ReadProjectUnits(Document doc)
+        internal static IReadOnlyDictionary<string, string> ReadProjectUnits(Document doc)
         {
             var units = doc.GetUnits();
             return new Dictionary<string, string>(StringComparer.Ordinal)
@@ -184,7 +184,7 @@ namespace RevitCliBridge
             };
         }
 #else
-        private static IReadOnlyDictionary<string, string> ReadProjectUnits(Document doc)
+        internal static IReadOnlyDictionary<string, string> ReadProjectUnits(Document doc)
         {
             var units = doc.GetUnits();
             return new Dictionary<string, string>(StringComparer.Ordinal)
