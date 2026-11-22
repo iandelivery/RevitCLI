@@ -129,6 +129,9 @@ func (d *DynamicCommand) buildHelp() string {
 			} else if p.Default != nil {
 				line += fmt.Sprintf(" (default: %v)", p.Default)
 			}
+			if p.UnitKind != "" {
+				line += fmt.Sprintf("  [unit kind: %s]", p.UnitKind)
+			}
 			if p.ShortFlag != "" {
 				line += fmt.Sprintf("  [-%s]", p.ShortFlag)
 			}
