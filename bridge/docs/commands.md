@@ -49,7 +49,7 @@ resolve to `create_wall@v2`.
 |------|------|:------------:|
 | **General** | `ping`, `undo` | No |
 | **Documents** | `document_info`, `doc_list`, `doc_open`, `doc_close`, `doc_save`, `doc_save_as`, `doc_sync` | save/save_as/sync: Yes |
-| **Query** | `get_links`, `get_elements`, `get_element_by_id`, `get_element_locations`, `get_element_boxes`, `get_element_types`, `get_family_symbols`, `get_family_symbol`, `get_symbol_instances`, `get_levels`, `get_parameters`, `get_views`, `get_sheets`, `get_sheet_viewports`, `check_sheet_bounds`, `check_viewport_overlaps`, `get_rooms`, `get_selected_elements`, `search_elements` | No |
+| **Query** | `get_links`, `get_elements`, `get_element_by_id`, `get_element_locations`, `get_element_boxes`, `get_element_types`, `get_family_symbols`, `get_family_symbol`, `get_symbol_instances`, `get_levels`, `get_parameters`, `get_units`, `get_views`, `get_sheets`, `get_sheet_viewports`, `check_sheet_bounds`, `check_viewport_overlaps`, `get_rooms`, `get_selected_elements`, `search_elements` | No |
 | **Creation** | `create_wall`, `create_walls`, `create_door`, `create_window`, `create_grid`, `create_family_instance`, `create_view`, `create_dimensions`, `create_sheet`, `create_room` | Yes |
 | **Modification** | `move_element`, `copy_element`, `rotate_element`, `mirror_element`, `delete_element`, `hide_elements`, `isolate_elements`, `clear_temporary_isolate`, `select_elements`, `set_offset` | most: Yes |
 | **Parameters** | `set_parameter`, `set_parameter_by_id`, `batch_set_param` | Yes |
