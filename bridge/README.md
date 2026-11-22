@@ -171,6 +171,17 @@ The reference includes:
 - Project/shared parameters (dynamic, requires active document)
 - Registered bridge commands
 
+## Units
+
+Commands speak the **units contract**: a caller never receives a Revit internal unit. Every dimensional parameter and response field carries the request unit of its kind, and every response echoes the effective units in its `units` envelope field. Canonical units: `length=mm`, `area=m2`, `volume=m3`, `angle=deg`; a request chooses units with the top-level `units` field (a kind-to-unit map, or the string `project` to follow the active document's decimal display units — `get_units` reports them). Outputs round to 3 decimals; inputs are never rounded.
+
+Handler-side mechanics (see [docs/commands.md](docs/commands.md) for the full contract):
+
+- Schema parameters declare `unit_kind` — the middleware converts them from the request unit to Revit internal units before the handler runs
+- `ResponseFieldKinds` maps response field names to kinds — the middleware rewrites them from internal units to the request units
+- `ParameterUnits` serves the parameter commands, where the spec belongs to the element's parameter rather than the schema
+- Handlers stay unit-blind and emit internal-unit values; conversion happens at one choke point
+
 ## Available Commands
 
 The bridge auto-discovers all `IBridgeCommand` implementations. Built-in commands include:
@@ -184,8 +195,9 @@ The bridge auto-discovers all `IBridgeCommand` implementations. Built-in command
 ### Query
 - `get_elements` — Query elements by category
 - `get_element_by_id` — Get element by ID
-- `get_all_levels` — List all levels
-- `get_parameters` — Get element parameters
+- `get_levels` — List all levels
+- `get_parameters` — Get element parameters (with per-parameter `unit_kind`)
+- `get_units` — The active document's unit matrix (project / canonical / allowed)
 - `get_views`, `get_sheets`, `get_rooms` — List views/sheets/rooms
 - `get_family_symbols` — List family symbols
 - `search_elements` — Search elements by name

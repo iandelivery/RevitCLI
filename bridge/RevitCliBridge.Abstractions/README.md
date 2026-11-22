@@ -9,7 +9,7 @@ Plugin SDK for [RevitCliBridge](https://github.com/iandelivery/RevitCLI) — imp
 | `IBridgeCommand` | Implement this interface to expose a command. The bridge's plugin loader discovers implementations via reflection — no registration code needed. |
 | `QueuedCommand` | Request model: task ID, command name, parameters, `DryRun` flag, `RequestId`, progress reporting (`ReportProgress`). |
 | `CommandResponse` | Response model with `Success`/`Error` factories and `ToJson()`. |
-| `CommandParamSchema` | Parameter metadata (type, required, default, enum values, deprecation, sensitive) published via the schema endpoint. |
+| `CommandParamSchema` | Parameter metadata (type, required, default, enum values, deprecation, sensitive, unit kind) published via the schema endpoint. |
 | `CommandDef` / `CommandSchema` | Models of the `GET /api/commands` schema response. |
 | `ParamAttribute` + `ParameterBinder` | Typed binding from the raw parameters dictionary to a POCO (`Bind<T>`); throws `MissingParameterException` / `ParameterTypeException`. |
 | `PagedResult<T>` + `PagedResultBuilder` | Paging helper (`limit`/`offset` parsing, clamping, `has_more`). |
@@ -87,6 +87,17 @@ public class DoThingParams
 ```
 
 > `ParameterBinder` supports `int`, `double`, `string`, `bool`, `int[]` and their nullable forms. For manual access, cast `cmd.Parameters` to `Dictionary<string, object>` (the bridge deserializes JSON objects that way).
+
+### Units contract (2.0.0)
+
+Since 2.0.0 the bridge speaks the units contract: a caller never receives a Revit internal unit. Declare `UnitKind` on every dimensional parameter of your schema (added in 2.0.0):
+
+```csharp
+new CommandParamSchema { Name = "height", Type = "double", Required = false,
+    UnitKind = "length", Default = 3000 }
+```
+
+The bridge's middleware converts declared parameters from the request unit (canonical `length=mm`, `area=m2`, `volume=m3`, `angle=deg`, chosen per request via the top-level `units` field) to Revit internal units before your `Handle` runs, so you read internal-unit values and never convert by hand. `get_parameters` reports each parameter's `unit_kind`; specs the contract does not convert yet report `raw` and pass through unchanged. Response-side rewriting (`ResponseFieldKinds`) lives in the bridge assembly — plugin commands that emit dimensional values can read the request's raw `Units` field on `QueuedCommand` to convert on the way out, or emit canonical units and say so in the response.
 
 ## Reporting progress
 

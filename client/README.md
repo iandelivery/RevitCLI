@@ -98,6 +98,22 @@ revit-cli.exe elements -c OST_Walls
 revit-cli.exe create_wall --start-x 0 --start-y 0 --end-x 5000 --end-y 0 -l 3001
 ```
 
+## Units
+
+Commands speak the **units contract**: an agent never sees a Revit internal unit. Every dimensional argument and response value is expressed in the request unit of its kind, and every response carries a `units` echo naming the units used. Canonical defaults: `length=mm`, `area=m2`, `volume=m3`, `angle=deg`; allowed per kind: length `mm cm m ft in`, area `m2 mm2 ft2`, volume `m3 mm3 ft3 l`, angle `deg rad`.
+
+Choose units per invocation with the `--units` flag — repeatable `kind=unit` pairs, or `project` to follow the active document's decimal display units (`get_units` reports them):
+
+```bash
+revit-cli.exe get_element_boxes --element-ids 12345                      # mm
+revit-cli.exe --units length=ft get_element_boxes --element-ids 12345    # ft
+revit-cli.exe --units length=m --units angle=rad get_element_locations --element-ids 12345
+revit-cli.exe --units project get_rooms                                  # document units
+revit-cli.exe get_units                                                  # project/canonical/allowed matrices
+```
+
+Invalid specs (`--units bogus`) and mixing `project` with pairs fail with a usage error before connecting. Outputs round to 3 decimals; inputs are never rounded. Command schemas declare `unit_kind` per dimensional parameter, and `get_parameters` reports each parameter's `unit_kind` (`raw` when the contract does not convert that spec yet). `execute_raw` scripts bypass the contract and talk to the Revit API directly in internal feet.
+
 ## Multi-Instance Usage
 
 When multiple Revit instances are running, use instance discovery to target a specific one:
@@ -128,6 +144,7 @@ If only one Revit instance is running, it is auto-selected. If multiple instance
 | `--timeout <seconds>` | 120 | Per-command budget sent as `timeout_seconds` |
 | `--no-wait` | off | Submit, print `task_id`, exit 0; poll later with `task -ti <id>` |
 | `--request-id <id>` | random | Stable retry key; the bridge returns the existing task on a repeat |
+| `--units <kind=unit \| project>` | canonical | Request units for the invocation, repeatable (`--units length=ft`); see [Units](#units) |
 | `--help`, `-h` | — | Show help (dynamic commands answer from their schema) |
 
 Exit codes: `0` success, `1` usage error, `2` bridge unreachable or auth rejected, `3` timed out, `4` command failed. stdout carries the result JSON only; progress, `task_id`, and errors go to stderr.
