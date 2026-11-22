@@ -9,10 +9,19 @@ namespace RevitCliBridge.Handlers.Modification
 {
     public class MirrorElementHandler : DocumentCommandBase
     {
+        private static readonly IReadOnlyDictionary<string, string> FieldKinds =
+            new Dictionary<string, string>
+            {
+                ["x"] = UnitKinds.Length,
+                ["y"] = UnitKinds.Length,
+                ["z"] = UnitKinds.Length
+            };
+
         public override string CommandName => "mirror_element";
         public override string Description => "Mirrors an element across a plane defined by origin and normal";
         public override string Category => "Modify";
         public override bool SupportsDryRun => true;
+        public override IReadOnlyDictionary<string, string> ResponseFieldKinds => FieldKinds;
 
         public override CommandParamSchema[] Parameters => new[]
         {
@@ -20,9 +29,9 @@ namespace RevitCliBridge.Handlers.Modification
             new CommandParamSchema { Name = "normal_x", Type = "double", Required = false, Description = "Mirror plane normal X" },
             new CommandParamSchema { Name = "normal_y", Type = "double", Required = false, Description = "Mirror plane normal Y" },
             new CommandParamSchema { Name = "normal_z", Type = "double", Required = false, Description = "Mirror plane normal Z" },
-            new CommandParamSchema { Name = "origin_x", Type = "double", Required = false, Description = "Mirror plane origin X in mm (defaults to element location)" },
-            new CommandParamSchema { Name = "origin_y", Type = "double", Required = false, Description = "Mirror plane origin Y in mm (defaults to element location)" },
-            new CommandParamSchema { Name = "origin_z", Type = "double", Required = false, Description = "Mirror plane origin Z in mm (defaults to 0)" }
+            new CommandParamSchema { Name = "origin_x", Type = "double", Required = false, UnitKind = UnitKinds.Length, Description = "Mirror plane origin X (request length unit, default mm; defaults to element location)" },
+            new CommandParamSchema { Name = "origin_y", Type = "double", Required = false, UnitKind = UnitKinds.Length, Description = "Mirror plane origin Y (request length unit, default mm; defaults to element location)" },
+            new CommandParamSchema { Name = "origin_z", Type = "double", Required = false, UnitKind = UnitKinds.Length, Description = "Mirror plane origin Z (request length unit, default mm; defaults to 0)" }
         };
 
         public override string[] Examples => new[]
@@ -70,15 +79,15 @@ namespace RevitCliBridge.Handlers.Modification
                     element_id = elementId.Value,
                     plane_origin = new
                     {
-                        x = origin.X.FeetToMillimeter(),
-                        y = origin.Y.FeetToMillimeter(),
-                        z = origin.Z.FeetToMillimeter()
+                        x = origin.X,
+                        y = origin.Y,
+                        z = origin.Z
                     },
                     plane_normal = new
                     {
-                        x = normal.X,
-                        y = normal.Y,
-                        z = normal.Z
+                        i = normal.X,
+                        j = normal.Y,
+                        k = normal.Z
                     }
                 };
 
@@ -90,7 +99,7 @@ namespace RevitCliBridge.Handlers.Modification
         {
             if (originX is not null && originY is not null)
             {
-                return new XYZ(originX.Value.MillimeterToFeet(), originY.Value.MillimeterToFeet(), (originZ ?? 0).MillimeterToFeet());
+                return new XYZ(originX.Value, originY.Value, originZ ?? 0);
             }
 
             if (element.Location is LocationPoint point)

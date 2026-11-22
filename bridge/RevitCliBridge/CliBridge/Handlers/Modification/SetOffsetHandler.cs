@@ -9,16 +9,26 @@ namespace RevitCliBridge.Handlers.Modification
 {
     public class SetOffsetHandler : DocumentCommandBase
     {
+        private static readonly IReadOnlyDictionary<string, string> FieldKinds =
+            new Dictionary<string, string>
+            {
+                ["base_offset"] = UnitKinds.Length,
+                ["top_offset"] = UnitKinds.Length,
+                ["old_base_offset"] = UnitKinds.Length,
+                ["old_top_offset"] = UnitKinds.Length
+            };
+
         public override string CommandName => "set_offset";
         public override string Description => "Sets base and/or top offset on a wall or family instance";
         public override string Category => "Modify";
         public override bool SupportsDryRun => true;
+        public override IReadOnlyDictionary<string, string> ResponseFieldKinds => FieldKinds;
 
         public override CommandParamSchema[] Parameters => new[]
         {
             new CommandParamSchema { Name = "element_id", Type = "int", Required = true, Description = "Element ID (wall or family instance)" },
-            new CommandParamSchema { Name = "base_offset", Type = "double", Required = false, Description = "Base offset in millimeters" },
-            new CommandParamSchema { Name = "top_offset", Type = "double", Required = false, Description = "Top offset in millimeters" }
+            new CommandParamSchema { Name = "base_offset", Type = "double", Required = false, UnitKind = UnitKinds.Length, Description = "Base offset (request length unit, default mm)" },
+            new CommandParamSchema { Name = "top_offset", Type = "double", Required = false, UnitKind = UnitKinds.Length, Description = "Top offset (request length unit, default mm)" }
         };
 
         public override string[] Examples => new[]
@@ -63,13 +73,13 @@ namespace RevitCliBridge.Handlers.Modification
                 if (baseOffsetParam is not null && baseOffset is not null)
                 {
                     oldBaseOffset = baseOffsetParam.AsDouble();
-                    baseOffsetParam.Set(baseOffset.Value.MillimeterToFeet());
+                    baseOffsetParam.Set(baseOffset.Value);
                 }
 
                 if (topOffsetParam is not null && topOffset is not null)
                 {
                     oldTopOffset = topOffsetParam.AsDouble();
-                    topOffsetParam.Set(topOffset.Value.MillimeterToFeet());
+                    topOffsetParam.Set(topOffset.Value);
                 }
 
                 t.Commit();
@@ -82,13 +92,13 @@ namespace RevitCliBridge.Handlers.Modification
                 if (baseOffset is not null)
                 {
                     result["base_offset"] = baseOffset.Value;
-                    result["old_base_offset"] = (oldBaseOffset ?? 0.0).FeetToMillimeter();
+                    result["old_base_offset"] = oldBaseOffset ?? 0.0;
                 }
 
                 if (topOffset is not null)
                 {
                     result["top_offset"] = topOffset.Value;
-                    result["old_top_offset"] = (oldTopOffset ?? 0.0).FeetToMillimeter();
+                    result["old_top_offset"] = oldTopOffset ?? 0.0;
                 }
 
                 return CommandResponse.SuccessWithResolvedFailures(cmd.TaskId, result, "Offset set successfully.", t.ResolvedFailures).ToJson();
