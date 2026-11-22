@@ -118,6 +118,34 @@ namespace RevitCliBridge.Tests
                 Assert.Equal(1000.0 / 304.8, converted[0], 9);
                 Assert.Equal(2000.0 / 304.8, converted[1], 9);
             }
+
+            [Fact]
+            public void MissingParameterWithDefault_ConvertsTheDefault()
+            {
+                var parameters = new Dictionary<string, object>();
+                var schemas = new[]
+                {
+                    new CommandParamSchema { Name = "height", Type = "double", UnitKind = UnitKinds.Length, Default = 3000 }
+                };
+
+                UnitsJson.ApplyToParameters(parameters, schemas, Canonical);
+
+                Assert.Equal(3000.0 / 304.8, Convert.ToDouble(parameters["height"]), 9);
+            }
+
+            [Fact]
+            public void MissingParameterWithoutDefault_StaysAbsent()
+            {
+                var parameters = new Dictionary<string, object>();
+                var schemas = new[]
+                {
+                    new CommandParamSchema { Name = "height", Type = "double", UnitKind = UnitKinds.Length }
+                };
+
+                UnitsJson.ApplyToParameters(parameters, schemas, Canonical);
+
+                Assert.False(parameters.ContainsKey("height"));
+            }
         }
 
         public class RewriteData
