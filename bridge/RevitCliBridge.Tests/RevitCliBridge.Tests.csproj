@@ -32,6 +32,7 @@
     <Compile Include="..\RevitCliBridge\CliBridge\HttpPrefixes.cs" Link="Linked\HttpPrefixes.cs" />
     <Compile Include="..\RevitCliBridge\CliBridge\SheetBoundsCalculator.cs" Link="Linked\SheetBoundsCalculator.cs" />
     <Compile Include="..\RevitCliBridge\CliBridge\SheetPlacementParser.cs" Link="Linked\SheetPlacementParser.cs" />
+    <Compile Include="..\RevitCliBridge\CliBridge\UnitContracts.cs" Link="Linked\UnitContracts.cs" />
     <Compile Include="..\RevitCliBridge\CliBridge\PortAllocator.cs" Link="Linked\PortAllocator.cs" />
     <Compile Include="..\RevitCliBridge\CliBridge\InstanceRegistry.cs" Link="Linked\InstanceRegistry.cs" />
     <Compile Include="..\RevitCliBridge\CliBridge\Models\CliBridgeConfig.cs" Link="Linked\CliBridgeConfig.cs" />
