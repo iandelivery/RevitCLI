@@ -18,8 +18,8 @@ namespace RevitCliBridge.Handlers.Creation
         public override CommandParamSchema[] Parameters => new[]
         {
             new CommandParamSchema { Name = "level_id", Type = "int", Required = true, Description = "Level element ID to place the room on" },
-            new CommandParamSchema { Name = "x", Type = "double", Required = true, Description = "Room location X in millimeters" },
-            new CommandParamSchema { Name = "y", Type = "double", Required = true, Description = "Room location Y in millimeters" },
+            new CommandParamSchema { Name = "x", Type = "double", Required = true, UnitKind = UnitKinds.Length, Description = "Room location X (request length unit, default mm)" },
+            new CommandParamSchema { Name = "y", Type = "double", Required = true, UnitKind = UnitKinds.Length, Description = "Room location Y (request length unit, default mm)" },
             new CommandParamSchema { Name = "name", Type = "string", Required = false, Description = "Room name" },
             new CommandParamSchema { Name = "number", Type = "string", Required = false, Description = "Room number" }
         };
@@ -62,7 +62,7 @@ namespace RevitCliBridge.Handlers.Creation
 
                 try
                 {
-                    var point = new XYZ(x.Value.MillimeterToFeet(), y.Value.MillimeterToFeet(), level.Elevation);
+                    var point = new XYZ(x.Value, y.Value, level.Elevation);
                     room = doc.Create.NewRoom(phase);
 
                     if (room is not null)

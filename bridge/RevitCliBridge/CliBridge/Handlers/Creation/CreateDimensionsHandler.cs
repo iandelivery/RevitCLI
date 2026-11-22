@@ -9,26 +9,36 @@ namespace RevitCliBridge.Handlers.Creation
 {
     public class CreateDimensionsHandler : DocumentCommandBase
     {
+        private static readonly IReadOnlyDictionary<string, string> FieldKinds =
+            new Dictionary<string, string>
+            {
+                ["start_x"] = UnitKinds.Length,
+                ["start_y"] = UnitKinds.Length,
+                ["end_x"] = UnitKinds.Length,
+                ["end_y"] = UnitKinds.Length
+            };
+
         public override string CommandName => "create_dimensions";
         public override string Description => "Creates a linear dimension across two or more grid lines in a view (grids only; multi-segment when more than two grids are given)";
         public override string Category => "Create";
         public override bool SupportsDryRun => true;
+        public override IReadOnlyDictionary<string, string> ResponseFieldKinds => FieldKinds;
 
         public override CommandParamSchema[] Parameters => new[]
         {
             new CommandParamSchema { Name = "element_ids", Type = "int[]", Required = true, Description = "Two or more Grid element IDs, in the order they appear on the dimension (grids should be parallel)" },
             new CommandParamSchema { Name = "view_id", Type = "int", Required = false, Description = "View element ID (defaults to active view)" },
-            new CommandParamSchema { Name = "offset_mm", Type = "double", Required = false, Description = "Shifts the auto dimension line along the grid direction (used when explicit line points are omitted)", Default = 0 },
-            new CommandParamSchema { Name = "line_start_x", Type = "double", Required = false, Description = "Dimension line start X in millimeters (explicit mode; overrides offset_mm)" },
-            new CommandParamSchema { Name = "line_start_y", Type = "double", Required = false, Description = "Dimension line start Y in millimeters (explicit mode)" },
-            new CommandParamSchema { Name = "line_end_x", Type = "double", Required = false, Description = "Dimension line end X in millimeters (explicit mode)" },
-            new CommandParamSchema { Name = "line_end_y", Type = "double", Required = false, Description = "Dimension line end Y in millimeters (explicit mode)" }
+            new CommandParamSchema { Name = "offset", Type = "double", Required = false, UnitKind = UnitKinds.Length, Description = "Shifts the auto dimension line along the grid direction (request length unit, default mm; used when explicit line points are omitted)", Default = 0 },
+            new CommandParamSchema { Name = "line_start_x", Type = "double", Required = false, UnitKind = UnitKinds.Length, Description = "Dimension line start X (request length unit, default mm; explicit mode, overrides offset)" },
+            new CommandParamSchema { Name = "line_start_y", Type = "double", Required = false, UnitKind = UnitKinds.Length, Description = "Dimension line start Y (request length unit, default mm; explicit mode)" },
+            new CommandParamSchema { Name = "line_end_x", Type = "double", Required = false, UnitKind = UnitKinds.Length, Description = "Dimension line end X (request length unit, default mm; explicit mode)" },
+            new CommandParamSchema { Name = "line_end_y", Type = "double", Required = false, UnitKind = UnitKinds.Length, Description = "Dimension line end Y (request length unit, default mm; explicit mode)" }
         };
 
         public override string[] Examples => new[]
         {
             "{ \"command\": \"create_dimensions\", \"parameters\": { \"element_ids\": [123, 456] } }",
-            "{ \"command\": \"create_dimensions\", \"parameters\": { \"element_ids\": [123, 456, 789], \"offset_mm\": 2000 } }",
+            "{ \"command\": \"create_dimensions\", \"parameters\": { \"element_ids\": [123, 456, 789], \"offset\": 2000 } }",
             "{ \"command\": \"create_dimensions\", \"parameters\": { \"element_ids\": [123, 456], \"line_start_x\": 0, \"line_start_y\": -1500, \"line_end_x\": 10000, \"line_end_y\": -1500 } }"
         };
 
@@ -51,7 +61,7 @@ namespace RevitCliBridge.Handlers.Creation
             if (view is null)
                 return CommandResponse.Error(cmd.TaskId, "No active view or specified view not found.").ToJson();
 
-            double offsetMm = HandlerUtilities.GetDoubleOrNull(parameters, "offset_mm") ?? 0.0;
+            double offset = HandlerUtilities.GetDoubleOrNull(parameters, "offset") ?? 0.0;
             double? startX = HandlerUtilities.GetDoubleOrNull(parameters, "line_start_x");
             double? startY = HandlerUtilities.GetDoubleOrNull(parameters, "line_start_y");
             double? endX = HandlerUtilities.GetDoubleOrNull(parameters, "line_end_x");
@@ -81,16 +91,16 @@ namespace RevitCliBridge.Handlers.Creation
             {
                 var z = bestA.Z;
                 dimLine = Line.CreateBound(
-                    new XYZ(startX!.Value.MillimeterToFeet(), startY!.Value.MillimeterToFeet(), z),
-                    new XYZ(endX!.Value.MillimeterToFeet(), endY!.Value.MillimeterToFeet(), z));
+                    new XYZ(startX!.Value, startY!.Value, z),
+                    new XYZ(endX!.Value, endY!.Value, z));
             }
             else
             {
                 var shift = XYZ.Zero;
-                if (Math.Abs(offsetMm) > 1e-9)
+                if (Math.Abs(offset) > 1e-9)
                 {
                     var tangent = curve1.ComputeDerivatives(0.5, true).BasisX.Normalize();
-                    shift = tangent * offsetMm.MillimeterToFeet();
+                    shift = tangent * offset;
                 }
                 dimLine = Line.CreateBound(bestA + shift, bestB + shift);
             }
@@ -132,10 +142,10 @@ namespace RevitCliBridge.Handlers.Creation
                 view_id = view.Id.IntegerValue,
                 line = new
                 {
-                    start_x = dimLine.GetEndPoint(0).X.FeetToMillimeter(),
-                    start_y = dimLine.GetEndPoint(0).Y.FeetToMillimeter(),
-                    end_x = dimLine.GetEndPoint(1).X.FeetToMillimeter(),
-                    end_y = dimLine.GetEndPoint(1).Y.FeetToMillimeter()
+                    start_x = dimLine.GetEndPoint(0).X,
+                    start_y = dimLine.GetEndPoint(0).Y,
+                    end_x = dimLine.GetEndPoint(1).X,
+                    end_y = dimLine.GetEndPoint(1).Y
                 },
                 element_ids = elementIds
             };

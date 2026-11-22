@@ -9,27 +9,38 @@ namespace RevitCliBridge.Handlers.Structural
     /// <summary>
     /// Modifies an existing structural column: base location point and/or
     /// family type. At least one optional field must be provided.
-    /// Coordinates are in millimeters; omitted components keep their current
-    /// value.
+    /// Coordinates use the request length unit (default mm); omitted
+    /// components keep their current value.
     /// </summary>
     public class ModifyStructuralColumnHandler : DocumentCommandBase
     {
+        private static readonly IReadOnlyDictionary<string, string> FieldKinds =
+            new Dictionary<string, string>
+            {
+                ["x"] = UnitKinds.Length,
+                ["y"] = UnitKinds.Length,
+                ["z"] = UnitKinds.Length,
+                ["base_offset"] = UnitKinds.Length,
+                ["top_offset"] = UnitKinds.Length
+            };
+
         public override string CommandName => "modify_structural_column";
         public override string Description => "Modifies an existing structural column (location point, family type)";
         public override string Category => "Modify";
         public override string[] Aliases => new[] { "structural_column_modify" };
         public override bool SupportsDryRun => true;
+        public override IReadOnlyDictionary<string, string> ResponseFieldKinds => FieldKinds;
 
         public override CommandParamSchema[] Parameters => new[]
         {
             new CommandParamSchema { Name = "element_id", Type = "int", Required = true, Description = "Structural column element ID to modify" },
-            new CommandParamSchema { Name = "x", Type = "double", Required = false, Description = "New base point X in millimeters" },
-            new CommandParamSchema { Name = "y", Type = "double", Required = false, Description = "New base point Y in millimeters" },
-            new CommandParamSchema { Name = "z", Type = "double", Required = false, Description = "New base point Z in millimeters" },
+            new CommandParamSchema { Name = "x", Type = "double", Required = false, UnitKind = UnitKinds.Length, Description = "New base point X (request length unit, default mm)" },
+            new CommandParamSchema { Name = "y", Type = "double", Required = false, UnitKind = UnitKinds.Length, Description = "New base point Y (request length unit, default mm)" },
+            new CommandParamSchema { Name = "z", Type = "double", Required = false, UnitKind = UnitKinds.Length, Description = "New base point Z (request length unit, default mm)" },
             new CommandParamSchema { Name = "base_level_id", Type = "int", Required = false, Description = "New base level element ID" },
             new CommandParamSchema { Name = "top_level_id", Type = "int", Required = false, Description = "New top constraint level element ID" },
-            new CommandParamSchema { Name = "base_offset", Type = "double", Required = false, Description = "New base offset from the base level in millimeters" },
-            new CommandParamSchema { Name = "top_offset", Type = "double", Required = false, Description = "New top offset from the top level in millimeters" },
+            new CommandParamSchema { Name = "base_offset", Type = "double", Required = false, UnitKind = UnitKinds.Length, Description = "New base offset from the base level (request length unit, default mm)" },
+            new CommandParamSchema { Name = "top_offset", Type = "double", Required = false, UnitKind = UnitKinds.Length, Description = "New top offset from the top level (request length unit, default mm)" },
             new CommandParamSchema { Name = "symbol_id", Type = "int", Required = false, Description = "New column FamilySymbol ID (list via get_family_symbols --category OST_StructuralColumns)" }
         };
 
@@ -83,9 +94,9 @@ namespace RevitCliBridge.Handlers.Structural
 
                     var old = locPoint.Point;
                     locPoint.Point = new XYZ(
-                        (p.X ?? old.X.FeetToMillimeter()).MillimeterToFeet(),
-                        (p.Y ?? old.Y.FeetToMillimeter()).MillimeterToFeet(),
-                        (p.Z ?? old.Z.FeetToMillimeter()).MillimeterToFeet());
+                        p.X ?? old.X,
+                        p.Y ?? old.Y,
+                        p.Z ?? old.Z);
                 }
 
                 if (p.BaseLevelId.HasValue && p.BaseLevelId.Value > 0)
@@ -105,14 +116,14 @@ namespace RevitCliBridge.Handlers.Structural
                 if (p.BaseOffset.HasValue)
                 {
                     var prm = column.get_Parameter(BuiltInParameter.FAMILY_BASE_LEVEL_OFFSET_PARAM);
-                    if (prm is null || !prm.Set(p.BaseOffset.Value.MillimeterToFeet()))
+                    if (prm is null || !prm.Set(p.BaseOffset.Value))
                         return CommandResponse.Error(cmd.TaskId, "Column does not support the Base Offset parameter.").ToJson();
                 }
 
                 if (p.TopOffset.HasValue)
                 {
                     var prm = column.get_Parameter(BuiltInParameter.FAMILY_TOP_LEVEL_OFFSET_PARAM);
-                    if (prm is null || !prm.Set(p.TopOffset.Value.MillimeterToFeet()))
+                    if (prm is null || !prm.Set(p.TopOffset.Value))
                         return CommandResponse.Error(cmd.TaskId, "Column does not support the Top Offset parameter.").ToJson();
                 }
 

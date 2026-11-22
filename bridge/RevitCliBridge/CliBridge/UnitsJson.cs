@@ -33,7 +33,11 @@ namespace RevitCliBridge
                 if (string.IsNullOrEmpty(schema.UnitKind) || schema.UnitKind == UnitKinds.Raw)
                     continue;
                 if (!parameters.TryGetValue(schema.Name, out var value) || value is null)
+                {
+                    if (schema.Default is not null)
+                        parameters[schema.Name] = ToInternal(schema.Default, schema.UnitKind!, unitForKind);
                     continue;
+                }
 
                 parameters[schema.Name] = ConvertValue(value, schema, unitForKind);
             }

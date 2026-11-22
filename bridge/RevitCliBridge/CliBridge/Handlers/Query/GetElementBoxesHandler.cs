@@ -8,9 +8,21 @@ namespace RevitCliBridge.Handlers.Query
 {
     public class GetElementBoxesHandler : DocumentCommandBase
     {
+        private static readonly IReadOnlyDictionary<string, string> FieldKinds =
+            new Dictionary<string, string>
+            {
+                ["min_x"] = UnitKinds.Length,
+                ["min_y"] = UnitKinds.Length,
+                ["min_z"] = UnitKinds.Length,
+                ["max_x"] = UnitKinds.Length,
+                ["max_y"] = UnitKinds.Length,
+                ["max_z"] = UnitKinds.Length
+            };
+
         public override string CommandName => "get_element_boxes";
-        public override string Description => "Returns bounding boxes for elements in millimeters, in model space or in a view's coordinate system (clipped by an active section box)";
+        public override string Description => "Returns bounding boxes in the request length unit (default mm), in model space or in a view's coordinate system (clipped by an active section box)";
         public override string Category => "Query";
+        public override IReadOnlyDictionary<string, string> ResponseFieldKinds => FieldKinds;
 
         public override CommandParamSchema[] Parameters => new[]
         {
@@ -57,12 +69,12 @@ namespace RevitCliBridge.Handlers.Query
                 {
                     id,
                     found = true,
-                    min_x = box.Min.X.FeetToMillimeter(),
-                    min_y = box.Min.Y.FeetToMillimeter(),
-                    min_z = box.Min.Z.FeetToMillimeter(),
-                    max_x = box.Max.X.FeetToMillimeter(),
-                    max_y = box.Max.Y.FeetToMillimeter(),
-                    max_z = box.Max.Z.FeetToMillimeter()
+                    min_x = box.Min.X,
+                    min_y = box.Min.Y,
+                    min_z = box.Min.Z,
+                    max_x = box.Max.X,
+                    max_y = box.Max.Y,
+                    max_z = box.Max.Z
                 });
             }
 

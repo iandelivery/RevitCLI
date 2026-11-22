@@ -18,9 +18,9 @@ namespace RevitCliBridge.Handlers.Creation
         {
             new CommandParamSchema { Name = "symbol_id", Type = "int", Required = true, Description = "FamilySymbol element ID to instantiate" },
             new CommandParamSchema { Name = "level_id", Type = "int", Required = true, Description = "Level element ID to place the instance on" },
-            new CommandParamSchema { Name = "x", Type = "double", Required = true, Description = "Insertion point X in millimeters" },
-            new CommandParamSchema { Name = "y", Type = "double", Required = true, Description = "Insertion point Y in millimeters" },
-            new CommandParamSchema { Name = "z", Type = "double", Required = false, Description = "Insertion point Z in millimeters", Default = 0 },
+            new CommandParamSchema { Name = "x", Type = "double", Required = true, UnitKind = UnitKinds.Length, Description = "Insertion point X (request length unit, default mm)" },
+            new CommandParamSchema { Name = "y", Type = "double", Required = true, UnitKind = UnitKinds.Length, Description = "Insertion point Y (request length unit, default mm)" },
+            new CommandParamSchema { Name = "z", Type = "double", Required = false, UnitKind = UnitKinds.Length, Description = "Insertion point Z (request length unit, default mm)", Default = 0 },
             new CommandParamSchema { Name = "structural_type", Type = "string", Required = false, Description = "Structural type", EnumValues = new[] { "NonStructural", "Beam", "Column", "Brace", "Footing", "UnknownFraming", "UnknownStructural" }, Default = "NonStructural" }
         };
 
@@ -58,7 +58,7 @@ namespace RevitCliBridge.Handlers.Creation
                 if (!symbol.IsActive)
                     symbol.Activate();
 
-                var location = new XYZ(p.X.MillimeterToFeet(), p.Y.MillimeterToFeet(), p.Z.MillimeterToFeet());
+                var location = new XYZ(p.X, p.Y, p.Z);
                 var instance = doc.Create.NewFamilyInstance(location, symbol, level, structuralType);
 
                 t.Commit();

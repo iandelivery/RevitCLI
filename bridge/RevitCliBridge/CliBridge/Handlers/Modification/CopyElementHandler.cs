@@ -10,17 +10,26 @@ namespace RevitCliBridge.Handlers.Modification
 {
     public class CopyElementHandler : DocumentCommandBase
     {
+        private static readonly IReadOnlyDictionary<string, string> FieldKinds =
+            new Dictionary<string, string>
+            {
+                ["translation_x"] = UnitKinds.Length,
+                ["translation_y"] = UnitKinds.Length,
+                ["translation_z"] = UnitKinds.Length
+            };
+
         public override string CommandName => "copy_element";
         public override string Description => "Copies an element by a translation vector (dx, dy, dz)";
         public override string Category => "Modify";
         public override bool SupportsDryRun => true;
+        public override IReadOnlyDictionary<string, string> ResponseFieldKinds => FieldKinds;
 
         public override CommandParamSchema[] Parameters => new[]
         {
             new CommandParamSchema { Name = "element_id", Type = "int", Required = true, Description = "Element ID to copy" },
-            new CommandParamSchema { Name = "dx", Type = "double", Required = true, Description = "Translation X in millimeters" },
-            new CommandParamSchema { Name = "dy", Type = "double", Required = true, Description = "Translation Y in millimeters" },
-            new CommandParamSchema { Name = "dz", Type = "double", Required = false, Description = "Translation Z in millimeters", Default = 0 }
+            new CommandParamSchema { Name = "dx", Type = "double", Required = true, UnitKind = UnitKinds.Length, Description = "Translation X (request length unit, default mm)" },
+            new CommandParamSchema { Name = "dy", Type = "double", Required = true, UnitKind = UnitKinds.Length, Description = "Translation Y (request length unit, default mm)" },
+            new CommandParamSchema { Name = "dz", Type = "double", Required = false, UnitKind = UnitKinds.Length, Description = "Translation Z (request length unit, default mm)", Default = 0 }
         };
 
         public override string[] Examples => new[]
@@ -51,7 +60,7 @@ namespace RevitCliBridge.Handlers.Modification
             {
                 t.ConfigureFailureHandling();
 
-                var translation = new XYZ(dx.Value.MillimeterToFeet(), dy.Value.MillimeterToFeet(), (dz ?? 0).MillimeterToFeet());
+                var translation = new XYZ(dx.Value, dy.Value, dz ?? 0);
                 var newElementIds = ElementTransformUtils.CopyElement(doc, element.Id, translation);
 
                 t.Commit();

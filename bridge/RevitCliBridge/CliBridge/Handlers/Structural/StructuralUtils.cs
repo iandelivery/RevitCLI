@@ -9,7 +9,9 @@ namespace RevitCliBridge.Handlers.Structural
     /// typed column/beam checks, and snapshot projection. Modeled on
     /// <see cref="Handlers.Piping.PipeUtils"/> — a stateless singleton so
     /// the column and beam handlers stay structurally parallel to the other
-    /// disciplines. Coordinates cross the API boundary in millimeters only.
+    /// disciplines. Snapshot coordinates are emitted in Revit internal
+    /// units; the units middleware rewrites the declared response fields to
+    /// the request units.
     /// </summary>
     internal sealed class StructuralUtils
     {
@@ -63,8 +65,8 @@ namespace RevitCliBridge.Handlers.Structural
             instance.StructuralType == StructuralType.Beam;
 
         /// <summary>
-        /// Project a structural column into a serializable snapshot with the
-        /// location point converted to millimeters.
+        /// Project a structural column into a serializable snapshot with
+        /// length fields in Revit internal units.
         /// </summary>
         public object SnapshotColumn(FamilyInstance column, Document doc)
         {
@@ -81,20 +83,20 @@ namespace RevitCliBridge.Handlers.Structural
                 level_id = column.LevelId.IntegerValue,
                 base_level_id = GetLevelId(column, BuiltInParameter.FAMILY_BASE_LEVEL_PARAM),
                 top_level_id = GetLevelId(column, BuiltInParameter.FAMILY_TOP_LEVEL_PARAM),
-                base_offset_mm = GetMm(column, BuiltInParameter.FAMILY_BASE_LEVEL_OFFSET_PARAM),
-                top_offset_mm = GetMm(column, BuiltInParameter.FAMILY_TOP_LEVEL_OFFSET_PARAM),
+                base_offset = GetLength(column, BuiltInParameter.FAMILY_BASE_LEVEL_OFFSET_PARAM),
+                top_offset = GetLength(column, BuiltInParameter.FAMILY_TOP_LEVEL_OFFSET_PARAM),
                 location = point is null ? null : new
                 {
-                    x = point.X.FeetToMillimeter(),
-                    y = point.Y.FeetToMillimeter(),
-                    z = point.Z.FeetToMillimeter()
+                    x = point.X,
+                    y = point.Y,
+                    z = point.Z
                 }
             };
         }
 
         /// <summary>
         /// Project a beam into a serializable snapshot with both endpoints
-        /// and the length converted to millimeters.
+        /// and the length in Revit internal units.
         /// </summary>
         public object SnapshotBeam(FamilyInstance beam, Document doc)
         {
@@ -106,8 +108,8 @@ namespace RevitCliBridge.Handlers.Structural
             {
                 var p1 = curve.GetEndPoint(0);
                 var p2 = curve.GetEndPoint(1);
-                start = new { x = p1.X.FeetToMillimeter(), y = p1.Y.FeetToMillimeter(), z = p1.Z.FeetToMillimeter() };
-                end = new { x = p2.X.FeetToMillimeter(), y = p2.Y.FeetToMillimeter(), z = p2.Z.FeetToMillimeter() };
+                start = new { x = p1.X, y = p1.Y, z = p1.Z };
+                end = new { x = p2.X, y = p2.Y, z = p2.Z };
             }
 
             var refLevel = beam.get_Parameter(BuiltInParameter.INSTANCE_REFERENCE_LEVEL_PARAM)?.AsElementId();
@@ -122,11 +124,11 @@ namespace RevitCliBridge.Handlers.Structural
                 type_name = symbol?.Name ?? "",
                 family_name = symbol?.FamilyName ?? "",
                 level_id = refLevel.IntegerValue,
-                start_level_offset_mm = GetMm(beam, BuiltInParameter.STRUCTURAL_BEAM_END0_ELEVATION),
-                end_level_offset_mm = GetMm(beam, BuiltInParameter.STRUCTURAL_BEAM_END1_ELEVATION),
+                start_level_offset = GetLength(beam, BuiltInParameter.STRUCTURAL_BEAM_END0_ELEVATION),
+                end_level_offset = GetLength(beam, BuiltInParameter.STRUCTURAL_BEAM_END1_ELEVATION),
                 start,
                 end,
-                length_mm = curve?.Length.FeetToMillimeter() ?? 0.0
+                length = curve?.Length ?? 0.0
             };
         }
 
@@ -144,9 +146,9 @@ namespace RevitCliBridge.Handlers.Structural
         }
 
         /// <summary>
-        /// Read a length-valued parameter projected to millimeters; 0 when absent.
+        /// Read a length-valued parameter in Revit internal units; 0 when absent.
         /// </summary>
-        private static double GetMm(Element element, BuiltInParameter bp) =>
-            element.get_Parameter(bp)?.AsDouble().FeetToMillimeter() ?? 0.0;
+        private static double GetLength(Element element, BuiltInParameter bp) =>
+            element.get_Parameter(bp)?.AsDouble() ?? 0.0;
     }
 }
