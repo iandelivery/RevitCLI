@@ -17,11 +17,20 @@ namespace RevitCliBridge.Handlers.Piping
     /// </summary>
     public class CreateTeeFittingHandler : DocumentCommandBase
     {
+        private static readonly IReadOnlyDictionary<string, string> FieldKinds =
+            new Dictionary<string, string>
+            {
+                ["x"] = UnitKinds.Length,
+                ["y"] = UnitKinds.Length,
+                ["z"] = UnitKinds.Length
+            };
+
         public override string CommandName => "create_pipe_tee_fitting";
         public override string Description => "Creates a tee fitting where a branch pipe meets a main pipe";
         public override string Category => "Create";
         public override string[] Aliases => new[] { "pipe_tee_fitting" };
         public override bool SupportsDryRun => true;
+        public override IReadOnlyDictionary<string, string> ResponseFieldKinds => FieldKinds;
 
         public override CommandParamSchema[] Parameters => new[]
         {
@@ -101,9 +110,9 @@ namespace RevitCliBridge.Handlers.Piping
                         fitting_id = fitting.Id.IntegerValue,
                         intersection = new
                         {
-                            x = intersection.X.FeetToMillimeter(),
-                            y = intersection.Y.FeetToMillimeter(),
-                            z = intersection.Z.FeetToMillimeter()
+                            x = intersection.X,
+                            y = intersection.Y,
+                            z = intersection.Z
                         }
                     },
                     "Tee fitting created successfully.", tx.ResolvedFailures).ToJson();

@@ -10,14 +10,26 @@ namespace RevitCliBridge.Handlers.Piping
     /// <summary>
     /// Queries pipe instances in the active document. Supports optional
     /// filtering by level, system type, and/or diameter (approximate match).
-    /// Returns paginated results with coordinates in millimeters.
+    /// Returns paginated results with length fields in the request length
+    /// unit (default mm).
     /// </summary>
     public class GetPipesHandler : PaginatedQueryHandler<object>
     {
+        private static readonly IReadOnlyDictionary<string, string> FieldKinds =
+            new Dictionary<string, string>
+            {
+                ["x"] = UnitKinds.Length,
+                ["y"] = UnitKinds.Length,
+                ["z"] = UnitKinds.Length,
+                ["diameter"] = UnitKinds.Length,
+                ["length"] = UnitKinds.Length
+            };
+
         public override string CommandName => "get_pipes";
         public override string Description => "Retrieves pipe instances, optionally filtered by level, system type, or diameter";
         public override string Category => "Query";
         public override string[] Aliases => new[] { "pipes", "list_pipes" };
+        public override IReadOnlyDictionary<string, string> ResponseFieldKinds => FieldKinds;
 
         protected override string ItemsProperty => "pipes";
         protected override string SuccessMessage(int count) => $"Retrieved {count} pipe(s).";
@@ -40,9 +52,10 @@ namespace RevitCliBridge.Handlers.Piping
             },
             new CommandParamSchema
             {
-                Name = "diameter_mm",
+                Name = "diameter",
                 Type = "double",
                 Required = false,
+                UnitKind = UnitKinds.Length,
                 Description = "Filter by closer nominal diameter (exact value match within a small tolerance)"
             }
         };
@@ -51,14 +64,14 @@ namespace RevitCliBridge.Handlers.Piping
         {
             "{ \"command\": \"get_pipes\", \"parameters\": {} }",
             "{ \"command\": \"get_pipes\", \"parameters\": { \"level_id\": 3001 } }",
-            "{ \"command\": \"get_pipes\", \"parameters\": { \"diameter_mm\": 100, \"limit\": 100 } }"
+            "{ \"command\": \"get_pipes\", \"parameters\": { \"diameter\": 100, \"limit\": 100 } }"
         };
 
         protected override IEnumerable<object> QuerySource(UIApplication app, Document doc, Dictionary<string, object> parameters)
         {
             int? levelId = HandlerUtilities.GetIntOrNull(parameters, "level_id");
             int? systemTypeId = HandlerUtilities.GetIntOrNull(parameters, "system_type_id");
-            double? diameterMm = HandlerUtilities.GetDoubleOrNull(parameters, "diameter_mm");
+            double? diameter = HandlerUtilities.GetDoubleOrNull(parameters, "diameter");
 
             var collector = new FilteredElementCollector(doc)
                 .OfCategory(BuiltInCategory.OST_PipeCurves)
@@ -77,13 +90,14 @@ namespace RevitCliBridge.Handlers.Piping
                 });
             }
 
-            if (diameterMm.HasValue && diameterMm.Value > 0)
+            if (diameter.HasValue && diameter.Value > 0)
             {
-                double targetMm = diameterMm.Value;
+                double targetFt = diameter.Value;
+                double toleranceFt = 1.0.MillimeterToFeet();
                 collector = collector.Where(p =>
                 {
-                    double dmm = p.get_Parameter(BuiltInParameter.RBS_PIPE_DIAMETER_PARAM)?.AsDouble().FeetToMillimeter() ?? 0.0;
-                    return System.Math.Abs(dmm - targetMm) < 1.0;
+                    double d = p.get_Parameter(BuiltInParameter.RBS_PIPE_DIAMETER_PARAM)?.AsDouble() ?? 0.0;
+                    return System.Math.Abs(d - targetFt) < toleranceFt;
                 });
             }
 
