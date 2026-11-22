@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -122,4 +123,57 @@ func captureStderrMain(t *testing.T, fn func()) string {
 	data := make([]byte, 1024)
 	n, _ := r.Read(data)
 	return string(data[:n])
+}
+
+func TestParseUnitsSpecE(t *testing.T) {
+	tests := []struct {
+		name    string
+		specs   []string
+		want    interface{}
+		wantErr bool
+	}{
+		{name: "empty", specs: nil, want: nil},
+		{name: "project", specs: []string{"project"}, want: "project"},
+		{
+			name:  "pairs",
+			specs: []string{"length=ft", "angle=rad"},
+			want:  map[string]interface{}{"length": "ft", "angle": "rad"},
+		},
+		{name: "garbage", specs: []string{"feet"}, wantErr: true},
+		{name: "missing unit", specs: []string{"length="}, wantErr: true},
+		{name: "missing kind", specs: []string{"=ft"}, wantErr: true},
+		{name: "mixed after project", specs: []string{"project", "length=ft"}, wantErr: true},
+		{name: "mixed before project", specs: []string{"length=ft", "project"}, wantErr: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := parseUnitsSpecE(tt.specs)
+			if tt.wantErr {
+				if err == nil {
+					t.Fatalf("expected error, got %v", got)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Fatalf("got %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestParseGlobalOptions_UnitsRepeatable(t *testing.T) {
+	opts := parseGlobalOptions([]string{"--units", "length=ft", "--pid", "42", "--units", "angle=rad"})
+	if opts.pid != 42 {
+		t.Fatalf("pid = %d, want 42", opts.pid)
+	}
+	if len(opts.units) != 2 || opts.units[0] != "length=ft" || opts.units[1] != "angle=rad" {
+		t.Fatalf("units = %v", opts.units)
+	}
+	inline := parseGlobalOptions([]string{"--units=length=ft", "get_units"})
+	if len(inline.units) != 1 || inline.units[0] != "length=ft" {
+		t.Fatalf("inline units = %v", inline.units)
+	}
 }

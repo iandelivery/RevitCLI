@@ -62,6 +62,7 @@ type globalOptions struct {
 	timeout   int
 	noWait    bool
 	requestID string
+	units     []string
 }
 
 // parseGlobalOptions scans args for the global flags in both "--flag value"
@@ -122,6 +123,8 @@ func parseGlobalOptions(args []string) globalOptions {
 			opts.timeout = v
 		case "--request-id":
 			opts.requestID = val
+		case "--units":
+			opts.units = append(opts.units, val)
 		}
 	}
 	return opts
@@ -139,7 +142,7 @@ func main() {
 
 const skillHint = "AI agent integration: run 'revit-cli skill install' to register this tool with Claude Code / Cursor / Trae / CodeBuddy."
 
-const contractHint = "Global flags: --url <url>, --pid <pid>, --revit <version>, --timeout <seconds>, --no-wait, --request-id <id>\n" +
+const contractHint = "Global flags: --url <url>, --pid <pid>, --revit <version>, --timeout <seconds>, --no-wait, --request-id <id>, --units <project|kind=unit>\n" +
 	"Exit codes: 0 success, 1 usage error, 2 bridge unreachable or auth rejected, 3 timed out, 4 command failed"
 
 func newRootCmd() *cobra.Command {
@@ -190,6 +193,48 @@ func resolveBaseURL(args []string) string {
 	return instance.ResolveURL(opts.url, opts.pid, opts.revit)
 }
 
+// parseUnitsSpec turns repeated --units values into the bridge's units
+// field: "project" alone resolves against the document's display units, and
+// kind=unit pairs (length=ft) select the request unit per kind. Returns nil
+// when no flag was given; exits with a usage error on anything the bridge
+// would reject anyway.
+func parseUnitsSpec(specs []string) interface{} {
+	units, err := parseUnitsSpecE(specs)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+	return units
+}
+
+func parseUnitsSpecE(specs []string) (interface{}, error) {
+	if len(specs) == 0 {
+		return nil, nil
+	}
+
+	pairs := map[string]interface{}{}
+	sawProject := false
+	for _, spec := range specs {
+		if spec == "project" {
+			sawProject = true
+			continue
+		}
+		idx := strings.Index(spec, "=")
+		if idx <= 0 || idx == len(spec)-1 {
+			return nil, fmt.Errorf("invalid --units value: %s (expected 'project' or kind=unit, e.g. length=ft)", spec)
+		}
+		pairs[spec[:idx]] = spec[idx+1:]
+	}
+
+	if sawProject {
+		if len(pairs) > 0 {
+			return nil, fmt.Errorf("cannot mix 'project' with kind=unit pairs in --units")
+		}
+		return "project", nil
+	}
+	return pairs, nil
+}
+
 func makeSend(baseURL string, opts globalOptions) abstractions.SendCommandFunc {
 	sseClient := client.NewSseClient(baseURL)
 	if opts.timeout > 0 {
@@ -201,7 +246,11 @@ func makeSend(baseURL string, opts globalOptions) abstractions.SendCommandFunc {
 	} else {
 		sseClient.RequestID = generateRequestID()
 	}
+	units := parseUnitsSpec(opts.units)
 	return abstractions.SendCommandFunc(func(ctx context.Context, cmd string, params interface{}, extra ...map[string]interface{}) int {
+		if units != nil {
+			extra = append(extra, map[string]interface{}{"units": units})
+		}
 		return sseClient.Execute(ctx, cmd, params, extra...)
 	})
 }
