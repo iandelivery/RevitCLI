@@ -37,7 +37,11 @@ namespace RevitCliBridge.Handlers.Parameters
                     return UnitKinds.Raw;
             }
 #else
+#if R22
+            var spec = p.Definition.GetDataType();
+#else
             var spec = p.Definition.GetSpecTypeId();
+#endif
             if (spec == SpecTypeId.Length || spec == SpecTypeId.SheetLength)
                 return UnitKinds.Length;
             if (spec == SpecTypeId.Area)

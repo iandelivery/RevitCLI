@@ -202,7 +202,7 @@ namespace RevitCliBridge
             if (unit == UnitTypeId.Centimeters) return "cm";
             if (unit == UnitTypeId.Meters) return "m";
             if (unit == UnitTypeId.Feet) return "ft";
-            if (unit == UnitTypeId.FractionalFeet) return "ft";
+            if (unit == UnitTypeId.FeetFractionalInches) return "ft";
             if (unit == UnitTypeId.Inches) return "in";
             if (unit == UnitTypeId.FractionalInches) return "in";
             if (unit == UnitTypeId.SquareMeters) return "m2";
