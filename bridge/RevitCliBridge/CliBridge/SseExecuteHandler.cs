@@ -108,7 +108,8 @@ namespace RevitCliBridge
                 Command = input.Command,
                 Parameters = input.Parameters,
                 DryRun = input.DryRun,
-                RequestId = requestId
+                RequestId = requestId,
+                Units = input.Units
             };
             TaskRegistry.CommandQueue.Enqueue(queuedCommand);
             TaskRegistry.RevitEvent?.Raise();

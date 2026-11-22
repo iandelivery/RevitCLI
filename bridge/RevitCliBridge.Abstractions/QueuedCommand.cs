@@ -46,6 +46,16 @@ namespace RevitCliBridge.Abstractions
         public string? RequestId { get; set; }
 
         /// <summary>
+        /// The raw `units` field of the request: a kind-to-unit map, the
+        /// string "project", or null for canonical units. Parsed and applied
+        /// by the units middleware before the handler runs; see
+        /// UnitsRequestParser. Kept raw so the queue and the task log stay
+        /// JSON-faithful to what the caller sent.
+        /// </summary>
+        [JsonProperty("units", NullValueHandling = NullValueHandling.Ignore)]
+        public object? Units { get; set; }
+
+        /// <summary>
         /// Report execution progress (0-100) with an optional human-readable
         /// message. The bridge wires the reporter to the task's SSE
         /// "progress" event before dispatch — the same channel built-in

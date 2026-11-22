@@ -321,7 +321,8 @@ namespace RevitCliBridge
                 Command = input.Command,
                 Parameters = input.Parameters,
                 DryRun = input.DryRun,
-                RequestId = requestId
+                RequestId = requestId,
+                Units = input.Units
             };
 
             var config = CliBridgeConfigLoader.Config;
