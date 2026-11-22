@@ -20,15 +20,15 @@ namespace RevitCliBridge.Handlers.Creation
         {
             new CommandParamSchema
             {
-                Name = "walls", Type = "object", Required = true, Description = "Array of wall definitions",
+                Name = "walls", Type = "object", Required = true, UnitKind = UnitKinds.Length, Description = "Array of wall definitions",
                 Properties = new[]
                 {
-                    new CommandParamSchema { Name = "start_x", Type = "double", Required = true, Description = "Start X in mm" },
-                    new CommandParamSchema { Name = "start_y", Type = "double", Required = true, Description = "Start Y in mm" },
-                    new CommandParamSchema { Name = "end_x", Type = "double", Required = true, Description = "End X in mm" },
-                    new CommandParamSchema { Name = "end_y", Type = "double", Required = true, Description = "End Y in mm" },
+                    new CommandParamSchema { Name = "start_x", Type = "double", Required = true, UnitKind = UnitKinds.Length, Description = "Start X (request length unit, default mm)" },
+                    new CommandParamSchema { Name = "start_y", Type = "double", Required = true, UnitKind = UnitKinds.Length, Description = "Start Y (request length unit, default mm)" },
+                    new CommandParamSchema { Name = "end_x", Type = "double", Required = true, UnitKind = UnitKinds.Length, Description = "End X (request length unit, default mm)" },
+                    new CommandParamSchema { Name = "end_y", Type = "double", Required = true, UnitKind = UnitKinds.Length, Description = "End Y (request length unit, default mm)" },
                     new CommandParamSchema { Name = "level_id", Type = "int", Required = true, Description = "Level element ID" },
-                    new CommandParamSchema { Name = "height", Type = "double", Required = false, Description = "Wall height in mm", Default = 3000 }
+                    new CommandParamSchema { Name = "height", Type = "double", Required = false, UnitKind = UnitKinds.Length, Description = "Wall height (request length unit, default mm)", Default = 3000 }
                 }
             }
         };
@@ -60,7 +60,7 @@ namespace RevitCliBridge.Handlers.Creation
                 double? endX = wallDict.TryGetValue("end_x", out var ex) ? (double?)ex : null;
                 double? endY = wallDict.TryGetValue("end_y", out var ey) ? (double?)ey : null;
                 int? levelId = wallDict.TryGetValue("level_id", out var lid) ? (int?)lid : null;
-                double height = wallDict.TryGetValue("height", out var h) ? (double)h : 3000.0;
+                double height = wallDict.TryGetValue("height", out var h) ? (double)h : 3000.0.MillimeterToFeet();
 
                 if (startX is null || startY is null || endX is null || endY is null || levelId is null)
                     return CommandResponse.Error(cmd.TaskId,
@@ -92,8 +92,8 @@ namespace RevitCliBridge.Handlers.Creation
                         (int)((i + 1) / (double)totalWalls * 100),
                         $"Creating wall {i + 1}/{totalWalls}");
 
-                    var start = new XYZ(entry.StartX.MillimeterToFeet(), entry.StartY.MillimeterToFeet(), 0);
-                    var end = new XYZ(entry.EndX.MillimeterToFeet(), entry.EndY.MillimeterToFeet(), 0);
+                    var start = new XYZ(entry.StartX, entry.StartY, 0);
+                    var end = new XYZ(entry.EndX, entry.EndY, 0);
 
                     var wall = Wall.Create(
                         doc,

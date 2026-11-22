@@ -9,17 +9,25 @@ namespace RevitCliBridge.Handlers.Creation
 {
     public class CreateDoorHandler : DocumentCommandBase
     {
+        private static readonly IReadOnlyDictionary<string, string> FieldKinds =
+            new Dictionary<string, string>
+            {
+                ["location_x"] = UnitKinds.Length,
+                ["location_y"] = UnitKinds.Length
+            };
+
         public override string CommandName => "create_door";
         public override string Description => "Creates a door instance on a wall at a specified location";
         public override string Category => "Create";
         public override bool SupportsDryRun => true;
+        public override IReadOnlyDictionary<string, string> ResponseFieldKinds => FieldKinds;
 
         public override CommandParamSchema[] Parameters => new[]
         {
             new CommandParamSchema { Name = "wall_id", Type = "int", Required = true, Description = "Host wall element ID" },
             new CommandParamSchema { Name = "family_type_id", Type = "int", Required = true, Description = "FamilySymbol element ID for the door type" },
-            new CommandParamSchema { Name = "location_x", Type = "double", Required = true, Description = "Insertion point X in millimeters" },
-            new CommandParamSchema { Name = "location_y", Type = "double", Required = true, Description = "Insertion point Y in millimeters" }
+            new CommandParamSchema { Name = "location_x", Type = "double", Required = true, UnitKind = UnitKinds.Length, Description = "Insertion point X (request length unit, default mm)" },
+            new CommandParamSchema { Name = "location_y", Type = "double", Required = true, UnitKind = UnitKinds.Length, Description = "Insertion point Y (request length unit, default mm)" }
         };
 
         public override string[] Examples => new[]
@@ -44,8 +52,8 @@ namespace RevitCliBridge.Handlers.Creation
 
             int wallId = Convert.ToInt32(wallIdVal);
             int familyTypeId = Convert.ToInt32(familyTypeIdVal);
-            double locX = Convert.ToDouble(locXVal).MillimeterToFeet();
-            double locY = Convert.ToDouble(locYVal).MillimeterToFeet();
+            double locX = Convert.ToDouble(locXVal);
+            double locY = Convert.ToDouble(locYVal);
 
             var wall = doc.GetElement(new ElementId(wallId)) as Wall;
             if (wall is null)
@@ -72,8 +80,8 @@ namespace RevitCliBridge.Handlers.Creation
                     element_id = door.Id.IntegerValue,
                     wall_id = wallId,
                     family_type_id = familyTypeId,
-                    location_x = locX.FeetToMillimeter(),
-                    location_y = locY.FeetToMillimeter()
+                    location_x = locX,
+                    location_y = locY
                 };
 
                 return CommandResponse.SuccessWithResolvedFailures(cmd.TaskId, result, "Door created successfully.", t.ResolvedFailures).ToJson();

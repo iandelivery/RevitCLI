@@ -8,19 +8,30 @@ namespace RevitCliBridge.Handlers.Creation
 {
     public class CreateWallHandler : DocumentCommandBase
     {
+        private static readonly IReadOnlyDictionary<string, string> FieldKinds =
+            new Dictionary<string, string>
+            {
+                ["start_x"] = UnitKinds.Length,
+                ["start_y"] = UnitKinds.Length,
+                ["end_x"] = UnitKinds.Length,
+                ["end_y"] = UnitKinds.Length,
+                ["height"] = UnitKinds.Length
+            };
+
         public override string CommandName => "create_wall";
         public override string Description => "Creates a new wall between two points on a specified level";
         public override string Category => "Create";
         public override bool SupportsDryRun => true;
+        public override IReadOnlyDictionary<string, string> ResponseFieldKinds => FieldKinds;
 
         public override CommandParamSchema[] Parameters => new[]
         {
-            new CommandParamSchema { Name = "start_x", Type = "double", Required = true, Description = "Start X coordinate in millimeters" },
-            new CommandParamSchema { Name = "start_y", Type = "double", Required = true, Description = "Start Y coordinate in millimeters" },
-            new CommandParamSchema { Name = "end_x", Type = "double", Required = true, Description = "End X coordinate in millimeters" },
-            new CommandParamSchema { Name = "end_y", Type = "double", Required = true, Description = "End Y coordinate in millimeters" },
+            new CommandParamSchema { Name = "start_x", Type = "double", Required = true, UnitKind = UnitKinds.Length, Description = "Start X coordinate (request length unit, default mm)" },
+            new CommandParamSchema { Name = "start_y", Type = "double", Required = true, UnitKind = UnitKinds.Length, Description = "Start Y coordinate (request length unit, default mm)" },
+            new CommandParamSchema { Name = "end_x", Type = "double", Required = true, UnitKind = UnitKinds.Length, Description = "End X coordinate (request length unit, default mm)" },
+            new CommandParamSchema { Name = "end_y", Type = "double", Required = true, UnitKind = UnitKinds.Length, Description = "End Y coordinate (request length unit, default mm)" },
             new CommandParamSchema { Name = "level_id", Type = "int", Required = true, Description = "Level element ID to place the wall on" },
-            new CommandParamSchema { Name = "height", Type = "double", Required = false, Description = "Wall height in millimeters (optional)", Default = 3000 }
+            new CommandParamSchema { Name = "height", Type = "double", Required = false, UnitKind = UnitKinds.Length, Description = "Wall height (request length unit, default mm)", Default = 3000 }
         };
 
         public override string[] Examples => new[]
@@ -38,8 +49,8 @@ namespace RevitCliBridge.Handlers.Creation
             {
                 t.ConfigureFailureHandling();
 
-                var start = new XYZ(p.StartX.MillimeterToFeet(), p.StartY.MillimeterToFeet(), 0);
-                var end = new XYZ(p.EndX.MillimeterToFeet(), p.EndY.MillimeterToFeet(), 0);
+                var start = new XYZ(p.StartX, p.StartY, 0);
+                var end = new XYZ(p.EndX, p.EndY, 0);
 
                 var wall = Wall.Create(
                     doc,
