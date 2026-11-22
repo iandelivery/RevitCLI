@@ -94,12 +94,13 @@ Global flags (usable on any command):
 - `--timeout <seconds>` — per-command budget, default 120. The bridge default is higher; raise this for long `batch_export` or `execute_raw` runs.
 - `--no-wait` — submit the command, print `task_id: <id>`, and exit 0 immediately. Poll later with `revit-cli.exe task -ti <id>`. Use this when the calling harness kills processes at its own limit.
 - `--request-id <id>` — stable retry key. If the bridge already holds a task with the same ID, it returns that task instead of running the command again. Pass the same value on every retry of the same logical request.
+- `--units <kind=unit | project>` — request units for the invocation; repeatable (`--units length=ft --units angle=rad`) or `--units project` to follow the document's display units. See Units below.
 
 A timed-out task may still have committed its Revit transaction, because the Revit API cannot be canceled mid-call. Treat exit code 3 as "outcome unknown": check the model with a query command before retrying, or retry with the same `--request-id` so the bridge deduplicates instead of creating a second element.
 
 **Streams**: stdout carries the result JSON only. Progress lines, `task_id`, and error payloads go to stderr, so `revit-cli.exe <command> 2>$null` yields parseable JSON.
 
-**Units**: the client uses **millimeters** — every distance, coordinate, and size argument of high-level commands (and every such value returned) is in mm; the bridge converts to/from Revit internal feet (`1 ft = 304.8 mm`). Raw C# scripts bypass this conversion and talk to the Revit API directly in internal feet — see the units constraint in [references/csharp-scripting.md](references/csharp-scripting.md).
+**Units (the units contract)**: an agent never sees a Revit internal unit. Every dimensional value a command takes or returns is expressed in the request unit of its kind, and every response carries a `units` echo naming the units used. Canonical defaults: `length=mm`, `area=m2`, `volume=m3`, `angle=deg`. Allowed per kind: length `mm cm m ft in`, area `m2 mm2 ft2`, volume `m3 mm3 ft3 l`, angle `deg rad`. Choose per invocation with the `--units` flag (`--units length=ft`, or `--units project` to mirror the document's decimal display units — query them with `get_units`). Outputs round to 3 decimals; inputs are never rounded. Fields whose kind the contract does not convert yet (e.g. flow, pressure) report `unit_kind: "raw"` and pass through unchanged. Raw C# scripts bypass this conversion and talk to the Revit API directly in internal feet — see the units constraint in [references/csharp-scripting.md](references/csharp-scripting.md).
 
 Full command table, argument shortcuts, dynamic discovery, SSE events, and configuration: [references/cli-reference.md](references/cli-reference.md).
 
