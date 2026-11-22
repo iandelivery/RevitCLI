@@ -46,34 +46,44 @@ namespace RevitCliBridge.Handlers.Mechanical
         }
 
         /// <summary>
-        /// Read the size of a duct in millimeters. For round ducts, only
-        /// <paramref name="diameterMm"/> is populated; for rectangular/oval
-        /// ducts, only <paramref name="widthMm"/> and <paramref name="heightMm"/>.
+        /// Read the size of a duct in Revit internal units (feet). For round
+        /// ducts, only <paramref name="diameter"/> is populated; for
+        /// rectangular/oval ducts, only <paramref name="width"/> and
+        /// <paramref name="height"/>.
         /// </summary>
-        public (double diameterMm, double widthMm, double heightMm) GetSize(Duct duct)
+        public (double diameter, double width, double height) GetSizeInternal(Duct duct)
         {
             var shape = duct.DuctType?.Shape ?? ConnectorProfileType.Round;
 
             if (shape == ConnectorProfileType.Round)
             {
-                double diaFt = duct.get_Parameter(BuiltInParameter.RBS_CURVE_DIAMETER_PARAM)?.AsDouble() ?? 0.0;
-                return (diaFt.FeetToMillimeter(), 0.0, 0.0);
+                double diameter = duct.get_Parameter(BuiltInParameter.RBS_CURVE_DIAMETER_PARAM)?.AsDouble() ?? 0.0;
+                return (diameter, 0.0, 0.0);
             }
 
-            double widthFt = duct.get_Parameter(BuiltInParameter.RBS_CURVE_WIDTH_PARAM)?.AsDouble() ?? 0.0;
-            double heightFt = duct.get_Parameter(BuiltInParameter.RBS_CURVE_HEIGHT_PARAM)?.AsDouble() ?? 0.0;
-            return (0.0, widthFt.FeetToMillimeter(), heightFt.FeetToMillimeter());
+            double width = duct.get_Parameter(BuiltInParameter.RBS_CURVE_WIDTH_PARAM)?.AsDouble() ?? 0.0;
+            double height = duct.get_Parameter(BuiltInParameter.RBS_CURVE_HEIGHT_PARAM)?.AsDouble() ?? 0.0;
+            return (0.0, width, height);
         }
 
         /// <summary>
-        /// Project a duct into a serializable snapshot with all coordinates
-        /// converted to millimeters. Includes shape-specific size fields.
+        /// Project a duct into a serializable snapshot with length fields in
+        /// Revit internal units. Includes shape-specific size fields.
         /// </summary>
         public object Snapshot(Duct duct, Document doc)
         {
             var curve = (duct.Location as LocationCurve)?.Curve;
             var shape = duct.DuctType?.Shape ?? ConnectorProfileType.Round;
-            var (diameterMm, widthMm, heightMm) = GetSize(duct);
+
+            double diameter = 0.0, width = 0.0, height = 0.0;
+            if (shape == ConnectorProfileType.Round)
+                diameter = duct.get_Parameter(BuiltInParameter.RBS_CURVE_DIAMETER_PARAM)?.AsDouble() ?? 0.0;
+            else
+            {
+                width = duct.get_Parameter(BuiltInParameter.RBS_CURVE_WIDTH_PARAM)?.AsDouble() ?? 0.0;
+                height = duct.get_Parameter(BuiltInParameter.RBS_CURVE_HEIGHT_PARAM)?.AsDouble() ?? 0.0;
+            }
+
             var typeName = duct.DuctType?.Name ?? "";
             var systemType = doc.GetElement(duct.get_Parameter(BuiltInParameter.RBS_DUCT_SYSTEM_TYPE_PARAM)?.AsElementId()) as MechanicalSystemType;
 
@@ -82,8 +92,8 @@ namespace RevitCliBridge.Handlers.Mechanical
             {
                 var p1 = curve.GetEndPoint(0);
                 var p2 = curve.GetEndPoint(1);
-                start = new { x = p1.X.FeetToMillimeter(), y = p1.Y.FeetToMillimeter(), z = p1.Z.FeetToMillimeter() };
-                end = new { x = p2.X.FeetToMillimeter(), y = p2.Y.FeetToMillimeter(), z = p2.Z.FeetToMillimeter() };
+                start = new { x = p1.X, y = p1.Y, z = p1.Z };
+                end = new { x = p2.X, y = p2.Y, z = p2.Z };
             }
 
             return new
@@ -98,10 +108,10 @@ namespace RevitCliBridge.Handlers.Mechanical
                 level_id = duct.LevelId.IntegerValue,
                 start,
                 end,
-                diameter_mm = diameterMm,
-                width_mm = widthMm,
-                height_mm = heightMm,
-                length_mm = curve?.Length.FeetToMillimeter() ?? 0.0
+                diameter,
+                width,
+                height,
+                length = curve?.Length ?? 0.0
             };
         }
 
