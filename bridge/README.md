@@ -184,50 +184,76 @@ Handler-side mechanics (see [docs/commands.md](docs/commands.md) for the full co
 
 ## Available Commands
 
-The bridge auto-discovers all `IBridgeCommand` implementations. Built-in commands include:
+The bridge auto-discovers all `IBridgeCommand` implementations — 105 built-in commands, listed below by their declared category. The running bridge is the source of truth: `revit-cli catalog`, `GET /api/catalog` (lightweight index), or `GET /api/commands` (full schemas) always reflect what is registered, including third-party plugins.
 
 ### System
-- `ping` — Test connection
-- `status` — Server status (HTTP GET)
-- `health` — Health check (HTTP GET)
-- `task` — Query task status
-
-### Query
-- `get_elements` — Query elements by category
-- `get_element_by_id` — Get element by ID
-- `get_levels` — List all levels
-- `get_parameters` — Get element parameters (with per-parameter `unit_kind`)
-- `get_units` — The active document's unit matrix (project / canonical / allowed)
-- `get_views`, `get_sheets`, `get_rooms` — List views/sheets/rooms
-- `get_family_symbols` — List family symbols
-- `search_elements` — Search elements by name
-
-### Create
-- `create_wall`, `create_walls` — Create walls
-- `create_door`, `create_window` — Create doors/windows
-- `create_grid` — Create grid lines
-- `create_room` — Create rooms
-- `create_view` — Create views
-- `create_sheet` — Create sheets
-- `create_family_instance` — Place family instances
-
-### Modify
-- `set_parameter`, `set_parameter_by_id` — Set parameters
-- `move_element`, `copy_element` — Transform elements
-- `rotate_element`, `mirror_element` — Rotate/mirror
-- `delete_element` — Delete elements
-- `set_offset` — Set element offset
-- `set_section_box` — Set section box bounds on a 3D view (explicit or computed from elements)
-- `toggle_section_box` — Enable or disable the section box on a 3D view
+- `ping` — Test bridge connectivity and return version info
+- `batch` — Execute multiple commands in a single transaction group, with optional rollback on error
 
 ### Document
-- `doc_open`, `doc_save`, `doc_save_as` — Document operations
+- `doc_open` — Open a document (.rvt, .rte, .rfa)
+- `doc_close` — Close documents (the active document cannot be closed via API)
+- `doc_save`, `doc_save_as` — Save the active document / save to a new path
+- `doc_sync` — Synchronize with the central model
 - `doc_list` — List open documents
-- `document_info` — Document info
+
+### Query
+- `get_elements`, `get_element_by_id` — Query elements (active or linked document)
+- `search_elements` — Search elements by category and parameter value
+- `get_element_types`, `get_family_symbol`, `get_family_symbols`, `get_symbol_instances` — Types and symbols
+- `get_parameters` — Element parameters (with per-parameter `unit_kind`)
+- `get_units` — The active document's unit matrix (project / canonical / allowed)
+- `get_levels` — All levels
+- `get_views`, `get_sheets`, `get_rooms` — Views/sheets/rooms
+- `get_links` — Linked RVT documents
+- `get_selected_elements` — Current selection
+- `get_element_locations`, `get_element_boxes` — Element locations and bounding boxes
+- `document_info` — Active document metadata
+- `get_sheet_viewports`, `check_sheet_bounds`, `check_viewport_overlaps` — Sheet layout inspection
+- MEP catalogs: `get_cable_trays`, `get_cable_tray_types`, `get_ducts`, `get_duct_types`, `get_duct_system_types`, `get_pipes`, `get_pipe_types`, `get_pipe_system_types`
+
+### Create
+- `create_wall`, `create_walls` — Walls
+- `create_door`, `create_window` — Doors/windows on walls
+- `create_grid` — Grid lines
+- `create_dimensions` — Linear dimension across grid lines
+- `create_room` — Rooms
+- `create_view`, `duplicate_view` — Views
+- `create_sheet` — Sheets
+- `create_family_instance` — Family instances
+- `create_beam`, `create_structural_column` — Structural framing and columns
+- Cable trays: `create_cable_tray`, `create_elbow_fitting`, `create_tee_fitting`, `create_cross_fitting`, `create_transition_fitting`, `create_union_fitting`
+- Ducts: `create_duct`, `create_duct_elbow_fitting`, `create_duct_tee_fitting`, `create_duct_cross_fitting`, `create_duct_transition_fitting`, `create_duct_union_fitting`, `create_duct_takeoff_fitting`
+- Pipes: `create_pipe`, `create_pipe_elbow_fitting`, `create_pipe_tee_fitting`, `create_pipe_cross_fitting`, `create_pipe_transition_fitting`, `create_pipe_union_fitting`, `create_pipe_takeoff_fitting`
+- `create_mep_fitting` — Unified fitting entry point for any pipe/duct/cable tray
+
+### Modify
+- `set_parameter`, `set_parameter_by_id`, `batch_set_param` — Set parameters
+- `move_element`, `copy_element`, `rotate_element`, `mirror_element` — Transform elements
+- `delete_element` — Delete elements
+- `set_offset` — Base/top offset on walls or family instances
+- `set_wall_constraint`, `set_walls_constraint` — Base/top level constraints on walls
+- `undo` — Undo recent transactions
+- `apply_view_template` — Apply a view template
+- Sheet layout: `place_on_sheet`, `move_viewport`, `remove_view_from_sheet`, `tag_rooms`
+- 3D views: `set_section_box` (explicit or computed from elements), `toggle_section_box`
+- MEP/structural: `modify_duct`, `modify_pipe`, `modify_cable_tray`, `modify_beam`, `modify_structural_column`
+
+### UI
+- `select_elements` — Get or set the current selection
+- `hide_elements` — Hide or unhide elements in a view (alias: `unhide_elements`)
+- `isolate_elements` — Temporarily isolate elements
+- `clear_temporary_isolate` — Exit temporary hide/isolate mode
+- `set_active_view` — Set the active view
+- `zoom_to_fit` — Zoom the active view to fit all elements
 
 ### Export
-- `export_view` — Export views
-- `batch_export` — Batch export
+- `export_view` — Export a view to an image (defaults to the active view)
+- `batch_export` — Batch export views/sheets to PDF, DWG, or images
+- `export_element_snapshot` — Export an image of specific elements (temporary isolate + section box, view state restored)
+
+### Raw
+- `execute_raw` — Execute raw C# code (requires `allow_raw_execution` in the config)
 
 ## Plugin Development
 
