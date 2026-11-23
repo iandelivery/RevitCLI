@@ -53,8 +53,12 @@ Thumbs.db
 # CLI Client skill folder
 client/skills/revit-cli/revit-cli.exe
 
-# Trae
-.trae/
+# Trae (except the tracked verification skills)
+.trae/*
+!.trae/skills/
+.trae/skills/*
+!.trae/skills/verify-revit-cli/
+!.trae/skills/verify-revit-cli-bridge/
 
 # Secrets / credentials (CodeUp PAT, API keys) — never commit real values
 .env
