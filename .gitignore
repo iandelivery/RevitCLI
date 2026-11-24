@@ -59,6 +59,7 @@ client/skills/revit-cli/revit-cli.exe
 .trae/skills/*
 !.trae/skills/verify-revit-cli/
 !.trae/skills/verify-revit-cli-bridge/
+!.trae/skills/verify-revit-cli-schema-cache/
 
 # Secrets / credentials (CodeUp PAT, API keys) — never commit real values
 .env
