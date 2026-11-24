@@ -12,7 +12,7 @@ namespace RevitCliBridge.Tests
     public class TaskStateMachineTests
     {
         private static TaskInfo NewTask(string id = "task-1", string command = "create_wall")
-            => new TaskInfo { TaskId = id, Command = command, Status = CliTaskStatus.Pending };
+            => new TaskInfo { TaskId = id, Command = command };
 
         [Fact]
         public void SetRunning_TransitionsToRunningAndStampsStartedAt()

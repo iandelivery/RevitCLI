@@ -23,7 +23,14 @@ namespace RevitCliBridge
                     continue;
                 }
 
-                TaskRegistry.SetRunning(queuedCommand.TaskId);
+                if (!TaskRegistry.SetRunning(queuedCommand.TaskId))
+                {
+                    CliLogger.Warn($"skipped_terminal_task",
+                        ("task_id", queuedCommand.TaskId),
+                        ("command", queuedCommand.Command),
+                        ("status", TaskRegistry.GetTask(queuedCommand.TaskId)?.Status.ToString().ToLowerInvariant() ?? "missing"));
+                    continue;
+                }
 
                 string resultJson = "{}";
                 try

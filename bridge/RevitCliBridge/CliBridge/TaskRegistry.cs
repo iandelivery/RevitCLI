@@ -21,7 +21,6 @@ namespace RevitCliBridge
             {
                 TaskId = taskId,
                 Command = command,
-                Status = CliTaskStatus.Pending,
                 CreatedAt = DateTime.Now
             };
 
@@ -35,12 +34,9 @@ namespace RevitCliBridge
             return task;
         }
 
-        public static void SetRunning(string taskId)
+        public static bool SetRunning(string taskId)
         {
-            if (Tasks.TryGetValue(taskId, out var task))
-            {
-                TaskStateMachine.SetRunning(task);
-            }
+            return Tasks.TryGetValue(taskId, out var task) && TaskStateMachine.SetRunning(task);
         }
 
         public static void SetProgress(string taskId, int progress, string? message = null)
