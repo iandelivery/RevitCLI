@@ -30,16 +30,16 @@ Init ==
 
 vars == <<status, result, tcs, winner, outcome, revitPc, httpPc, stream>>
 
-RevitStartCheck ==
+RevitStart ==
   /\ revitPc = "queued"
-  /\ revitPc' = IF status \in Terminal THEN "exit" ELSE "startChecked"
-  /\ UNCHANGED <<status, result, tcs, winner, outcome, httpPc, stream>>
-
-RevitStartWrite ==
-  /\ revitPc = "startChecked"
-  /\ status' = Running
-  /\ revitPc' = "running"
-  /\ UNCHANGED <<result, tcs, winner, outcome, httpPc, stream>>
+  /\ IF status \in Terminal
+       THEN /\ revitPc' = "exit"
+            /\ UNCHANGED <<status, result, tcs, winner>>
+       ELSE /\ status' = Running
+            /\ revitPc' = "running"
+            /\ UNCHANGED <<result, tcs, winner>>
+  /\ UNCHANGED <<outcome, httpPc>>
+  /\ IF status \in Terminal THEN UNCHANGED stream ELSE stream' = Append(stream, "progress")
 
 RevitFinishes ==
   /\ revitPc = "running"
@@ -47,17 +47,16 @@ RevitFinishes ==
   /\ revitPc' = "done"
   /\ UNCHANGED <<status, result, tcs, winner, httpPc, stream>>
 
-RevitEndCheck ==
+RevitEnd ==
   /\ revitPc = "done"
-  /\ revitPc' = IF status \in Terminal THEN "exit" ELSE "endChecked"
-  /\ UNCHANGED <<status, result, tcs, winner, outcome, httpPc, stream>>
-
-RevitEndWrite ==
-  /\ revitPc = "endChecked"
-  /\ status' = EndOf(outcome)
-  /\ winner' = IF winner = None THEN "revit" ELSE winner
-  /\ revitPc' = "statusSet"
-  /\ UNCHANGED <<result, tcs, outcome, httpPc, stream>>
+  /\ IF status \in Terminal
+       THEN /\ revitPc' = "exit"
+            /\ UNCHANGED <<status, result, tcs, winner, outcome, httpPc, stream>>
+       ELSE /\ status' = EndOf(outcome)
+            /\ winner' = IF winner = None THEN "revit" ELSE winner
+            /\ stream' = Append(stream, FrameOf(outcome))
+            /\ revitPc' = "statusSet"
+            /\ UNCHANGED <<result, tcs, outcome, httpPc>>
 
 RevitResultWrite ==
   /\ revitPc = "statusSet"
@@ -65,14 +64,8 @@ RevitResultWrite ==
   /\ revitPc' = "resultSet"
   /\ UNCHANGED <<status, tcs, winner, outcome, httpPc, stream>>
 
-RevitBroadcast ==
-  /\ revitPc = "resultSet"
-  /\ stream' = Append(stream, FrameOf(outcome))
-  /\ revitPc' = "broadcast"
-  /\ UNCHANGED <<status, result, tcs, winner, outcome, httpPc>>
-
 RevitTcsWrite ==
-  /\ revitPc = "broadcast"
+  /\ revitPc = "resultSet"
   /\ tcs' = IF tcs = None THEN outcome ELSE tcs
   /\ revitPc' = "exit"
   /\ UNCHANGED <<status, result, winner, outcome, httpPc, stream>>
@@ -82,17 +75,16 @@ HttpWakes ==
   /\ httpPc' = "woke"
   /\ UNCHANGED <<status, result, tcs, winner, outcome, revitPc, stream>>
 
-HttpEndCheck ==
+HttpEnd ==
   /\ httpPc = "woke"
-  /\ httpPc' = IF status \in Terminal THEN "finalPending" ELSE "endChecked"
-  /\ UNCHANGED <<status, result, tcs, winner, outcome, revitPc, stream>>
-
-HttpEndWrite ==
-  /\ httpPc = "endChecked"
-  /\ status' = Timeout
-  /\ winner' = IF winner = None THEN "http" ELSE winner
-  /\ httpPc' = "statusSet"
-  /\ UNCHANGED <<result, tcs, outcome, revitPc, stream>>
+  /\ IF status \in Terminal
+       THEN /\ httpPc' = "finalPending"
+            /\ UNCHANGED <<status, result, tcs, winner, outcome, revitPc, stream>>
+       ELSE /\ status' = Timeout
+            /\ winner' = IF winner = None THEN "http" ELSE winner
+            /\ stream' = Append(stream, "failed")
+            /\ httpPc' = "statusSet"
+            /\ UNCHANGED <<result, tcs, outcome, revitPc>>
 
 HttpResultWrite ==
   /\ httpPc = "statusSet"
@@ -100,14 +92,8 @@ HttpResultWrite ==
   /\ httpPc' = "resultSet"
   /\ UNCHANGED <<status, tcs, winner, outcome, revitPc, stream>>
 
-HttpBroadcast ==
-  /\ httpPc = "resultSet"
-  /\ stream' = Append(stream, "failed")
-  /\ httpPc' = "broadcast"
-  /\ UNCHANGED <<status, result, tcs, winner, outcome, revitPc>>
-
 HttpTcsWrite ==
-  /\ httpPc = "broadcast"
+  /\ httpPc = "resultSet"
   /\ tcs' = IF tcs = None THEN Tmo ELSE tcs
   /\ httpPc' = "finalPending"
   /\ UNCHANGED <<status, result, winner, outcome, revitPc, stream>>
@@ -123,19 +109,14 @@ Done ==
   /\ UNCHANGED vars
 
 Next ==
-  \/ RevitStartCheck
-  \/ RevitStartWrite
+  \/ RevitStart
   \/ RevitFinishes
-  \/ RevitEndCheck
-  \/ RevitEndWrite
+  \/ RevitEnd
   \/ RevitResultWrite
-  \/ RevitBroadcast
   \/ RevitTcsWrite
   \/ HttpWakes
-  \/ HttpEndCheck
-  \/ HttpEndWrite
+  \/ HttpEnd
   \/ HttpResultWrite
-  \/ HttpBroadcast
   \/ HttpTcsWrite
   \/ HttpFinalFrame
   \/ Done
