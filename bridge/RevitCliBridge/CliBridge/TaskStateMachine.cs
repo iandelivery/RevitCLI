@@ -27,15 +27,16 @@ namespace RevitCliBridge
         /// Transition a task from Pending to Running, stamp StartedAt, and
         /// broadcast a "progress" event with progress=0.
         /// No-op if the task is null or already terminal.
+        /// Returns false when the task is null or the transition was refused.
         /// </summary>
-        public static void SetRunning(TaskInfo? task)
+        public static bool SetRunning(TaskInfo? task)
         {
-            if (task is null) return;
-            if (IsTerminal(task.Status)) return;
+            if (task is null) return false;
+            if (!task.TrySetStatus(CliTaskStatus.Running, "progress",
+                    new { task_id = task.TaskId, progress = 0, message = "Execution started" })) return false;
 
-            task.Status = CliTaskStatus.Running;
             task.StartedAt = DateTime.Now;
-            task.Broadcast("progress", new { task_id = task.TaskId, progress = 0, message = "Execution started" });
+            return true;
         }
 
         /// <summary>
@@ -62,12 +63,11 @@ namespace RevitCliBridge
         public static void SetCompleted(TaskInfo? task, string resultJson)
         {
             if (task is null) return;
-            if (IsTerminal(task.Status)) return;
+            if (!task.TrySetStatus(CliTaskStatus.Completed, "completed",
+                    new { task_id = task.TaskId, status = "completed", result = SafeParseJson(resultJson) })) return;
 
-            task.Status = CliTaskStatus.Completed;
             task.ResultJson = resultJson;
             task.CompletedAt = DateTime.Now;
-            task.Broadcast("completed", new { task_id = task.TaskId, status = "completed", result = SafeParseJson(resultJson) });
             task.Tcs.TrySetResult(resultJson);
         }
 
@@ -81,12 +81,11 @@ namespace RevitCliBridge
         public static void SetFailed(TaskInfo? task, string errorJson)
         {
             if (task is null) return;
-            if (IsTerminal(task.Status)) return;
+            if (!task.TrySetStatus(CliTaskStatus.Failed, "failed",
+                    new { task_id = task.TaskId, status = "failed", result = SafeParseJson(errorJson) })) return;
 
-            task.Status = CliTaskStatus.Failed;
             task.ResultJson = errorJson;
             task.CompletedAt = DateTime.Now;
-            task.Broadcast("failed", new { task_id = task.TaskId, status = "failed", result = SafeParseJson(errorJson) });
             task.Tcs.TrySetResult(errorJson);
         }
 
@@ -99,12 +98,11 @@ namespace RevitCliBridge
         public static void SetTimeout(TaskInfo? task, string errorJson)
         {
             if (task is null) return;
-            if (IsTerminal(task.Status)) return;
+            if (!task.TrySetStatus(CliTaskStatus.Timeout, "failed",
+                    new { task_id = task.TaskId, status = "timeout", result = SafeParseJson(errorJson) })) return;
 
-            task.Status = CliTaskStatus.Timeout;
             task.ResultJson = errorJson;
             task.CompletedAt = DateTime.Now;
-            task.Broadcast("failed", new { task_id = task.TaskId, status = "timeout", result = SafeParseJson(errorJson) });
             task.Tcs.TrySetResult(errorJson);
         }
 

@@ -28,7 +28,24 @@ namespace RevitCliBridge
         public CliTaskStatus Status
         {
             get { lock (_lock) return _status; }
-            set { lock (_lock) _status = value; }
+        }
+
+        /// <summary>
+        /// Moves the task to <paramref name="target"/> when no earlier transition ended it,
+        /// and sends <paramref name="eventName"/> with <paramref name="payload"/> to the open
+        /// SSE stream under the same lock, so no later frame can arrive before this one.
+        /// Returns false when the task is already terminal, so the caller drops its result.
+        /// </summary>
+        public bool TrySetStatus(CliTaskStatus target, string eventName, object payload)
+        {
+            lock (_lock)
+            {
+                if (_status is CliTaskStatus.Completed or CliTaskStatus.Failed or CliTaskStatus.Timeout)
+                    return false;
+                _status = target;
+                Broadcast(eventName, payload);
+                return true;
+            }
         }
 
         [JsonProperty("progress")]

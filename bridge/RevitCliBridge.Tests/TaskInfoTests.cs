@@ -77,10 +77,10 @@ namespace RevitCliBridge.Tests
         }
 
         [Fact]
-        public void Status_Setter_UpdatesValue()
+        public void TrySetStatus_UpdatesValue()
         {
             var t = new TaskInfo();
-            t.Status = CliTaskStatus.Running;
+            Assert.True(t.TrySetStatus(CliTaskStatus.Running, "progress", new { }));
             Assert.Equal(CliTaskStatus.Running, t.Status);
         }
 
@@ -222,8 +222,9 @@ namespace RevitCliBridge.Tests
                 }
             });
 
-            t.Status = CliTaskStatus.Running;
-            t.Status = CliTaskStatus.Completed;
+            Assert.True(t.TrySetStatus(CliTaskStatus.Running, "progress", new { }));
+            Assert.True(t.TrySetStatus(CliTaskStatus.Completed, "completed", new { }));
+            Assert.False(t.TrySetStatus(CliTaskStatus.Timeout, "failed", new { }));
 
             cts.Cancel();
             await Task.WhenAll(reader1, reader2);
