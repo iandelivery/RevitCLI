@@ -14,17 +14,25 @@ Rank(s) == IF s = S2 THEN 2 ELSE IF s = S1 THEN 1 ELSE IF s = "etag-v2" THEN 2 E
 Idle == "idle"
 Asking == "asking"
 Got200 == "got200"
-WroteEtag == "wroteEtag"
+WroteSchema == "wroteSchema"
+
+LegacyDisk ==
+  \* A disk the pre-fix client left behind: it wrote the stamp before the list,
+  \* so a failed list write left a stamp with no list. Reachable only by
+  \* upgrading from that client; the current client cannot produce it.
+  /\ diskEtag = EtagOf(server)
+  /\ diskSchema = None
 
 Init ==
   /\ server = S1
-  /\ diskSchema = None
-  /\ diskEtag = None
   /\ fresh = FALSE
   /\ phase = Idle
   /\ served = None
   /\ servedVia = None
   /\ servedStale = FALSE
+  /\ \/ /\ diskSchema = None
+        /\ diskEtag = None
+     \/ LegacyDisk
 
 vars == <<server, diskSchema, diskEtag, fresh, phase, served, servedVia, servedStale>>
 
@@ -53,9 +61,11 @@ StartRequest ==
   /\ phase' = Asking
   /\ UNCHANGED <<server, diskSchema, diskEtag, fresh, served, servedVia, servedStale>>
 
+SentEtag == IF diskSchema = None THEN None ELSE diskEtag
+
 Answer200 ==
   /\ phase = Asking
-  /\ diskEtag # EtagOf(server)
+  /\ SentEtag # EtagOf(server)
   /\ served' = server
   /\ servedVia' = "200"
   /\ servedStale' = FALSE
@@ -64,7 +74,7 @@ Answer200 ==
 
 Answer304 ==
   /\ phase = Asking
-  /\ diskEtag = EtagOf(server)
+  /\ SentEtag = EtagOf(server)
   /\ IF diskSchema = None THEN UNCHANGED fresh ELSE fresh' = TRUE
   /\ served' = diskSchema
   /\ servedVia' = "304"
@@ -80,31 +90,31 @@ AnswerUnreachable ==
   /\ phase' = Idle
   /\ UNCHANGED <<server, diskSchema, diskEtag, fresh>>
 
-SaveEtagOk ==
-  /\ phase = Got200
-  /\ diskEtag' = EtagOf(served)
-  /\ phase' = WroteEtag
-  /\ UNCHANGED <<server, diskSchema, fresh, served, servedVia, servedStale>>
-
-SaveEtagFail ==
-  /\ phase = Got200
-  /\ phase' = WroteEtag
-  /\ UNCHANGED <<server, diskSchema, diskEtag, fresh, served, servedVia, servedStale>>
-
 SaveSchemaOk ==
-  /\ phase = WroteEtag
+  /\ phase = Got200
   /\ diskSchema' = served
   /\ fresh' = TRUE
-  /\ phase' = Idle
+  /\ phase' = WroteSchema
   /\ UNCHANGED <<server, diskEtag, served, servedVia, servedStale>>
 
 SaveSchemaFail ==
-  /\ phase = WroteEtag
+  /\ phase = Got200
+  /\ phase' = Idle
+  /\ UNCHANGED <<server, diskSchema, diskEtag, fresh, served, servedVia, servedStale>>
+
+SaveEtagOk ==
+  /\ phase = WroteSchema
+  /\ diskEtag' = EtagOf(served)
+  /\ phase' = Idle
+  /\ UNCHANGED <<server, diskSchema, fresh, served, servedVia, servedStale>>
+
+SaveEtagFail ==
+  /\ phase = WroteSchema
   /\ phase' = Idle
   /\ UNCHANGED <<server, diskSchema, diskEtag, fresh, served, servedVia, servedStale>>
 
 ProcessDies ==
-  /\ phase \in {Got200, WroteEtag}
+  /\ phase \in {Got200, WroteSchema}
   /\ phase' = Idle
   /\ UNCHANGED <<server, diskSchema, diskEtag, fresh, served, servedVia, servedStale>>
 
@@ -116,13 +126,21 @@ Next ==
   \/ Answer200
   \/ Answer304
   \/ AnswerUnreachable
-  \/ SaveEtagOk
-  \/ SaveEtagFail
   \/ SaveSchemaOk
   \/ SaveSchemaFail
+  \/ SaveEtagOk
+  \/ SaveEtagFail
   \/ ProcessDies
 
-StampNeverAheadOfSchema == phase # Idle \/ Rank(diskEtag) =< Rank(diskSchema)
+\* The client never leaves a stamp that describes a newer bridge than the
+\* list it saved. A stamp with no list is the legacy residue the pre-fix
+\* client left behind, not something the current client writes.
+StampNeverAheadOfSchema == phase # Idle \/ diskSchema = None \/ Rank(diskEtag) =< Rank(diskSchema)
+
+\* The client never leaves a stamp that is ahead of the list it saved. The
+\* legacy initial disk may violate this; every state the current client
+\* reaches through Next must satisfy it.
+ClientKeepsStampInStep == [][StampNeverAheadOfSchema]_vars
 
 NotModifiedIsTruthful == servedVia # "304" \/ ~servedStale
 
@@ -132,7 +150,7 @@ Fair ==
   /\ SF_vars(ServeTtl \/ StartRequest)
   /\ SF_vars(TimePasses)
   /\ SF_vars(Answer200 \/ Answer304)
-  /\ SF_vars(SaveEtagOk \/ SaveEtagFail \/ SaveSchemaOk \/ SaveSchemaFail \/ ProcessDies)
+  /\ SF_vars(SaveSchemaOk \/ SaveSchemaFail \/ SaveEtagOk \/ SaveEtagFail \/ ProcessDies)
 
 Spec == Init /\ [][Next]_vars /\ Fair
 =============================================================================

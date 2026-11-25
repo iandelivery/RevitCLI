@@ -102,12 +102,18 @@ func TestVerify_NotModifiedNeverServesOldList(t *testing.T) {
 	}
 }
 
-func TestVerify_SavedStampWithoutListStillFetches(t *testing.T) {
+// TestVerify_LegacyStampWithoutListRecovers seeds the state the pre-fix client
+// could leave behind (stamp written, list never written) and checks that the
+// current client recovers on the first run instead of getting 304 -> nil forever.
+func TestVerify_LegacyStampWithoutListRecovers(t *testing.T) {
 	t.Setenv("REVIT_CLI_DATA_DIR", t.TempDir())
 	bridge := newVerifyBridge(t, verifyNewETag, verifySchemaBody("new"))
 	verifySeedDisk(t, NewSchemaCache(bridge.srv.URL), "", verifyNewETag, 0)
 
 	if got := verifyVersion(bridge.fetch(false)); got != "new" {
-		t.Fatalf("run with a saved stamp but no saved list: served %q, want new (the bridge is up and answering)", got)
+		t.Fatalf("first run on a legacy disk (stamp, no list): served %q, want new (the bridge is up and answering)", got)
+	}
+	if got := verifyVersion(bridge.fetch(false)); got != "new" {
+		t.Fatalf("second run after recovery: served %q, want new", got)
 	}
 }
