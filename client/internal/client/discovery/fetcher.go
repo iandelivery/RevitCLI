@@ -120,7 +120,7 @@ func (f *SchemaFetcher) Fetch(forceRefresh bool) *models.CommandSchema {
 
 	etag := f.lastEtag
 	if etag == "" {
-		etag = f.cache.LoadEtag()
+		etag = f.cache.LoadEtagForList()
 	}
 	if etag != "" {
 		req.Header.Set("If-None-Match", `"`+etag+`"`)
@@ -157,12 +157,11 @@ func (f *SchemaFetcher) Fetch(forceRefresh bool) *models.CommandSchema {
 
 		etagHeader := resp.Header.Get("ETag")
 		etagHeader = strings.Trim(etagHeader, `"`)
-		if etagHeader != "" {
+		if err := f.cache.Save(&schema); err == nil && etagHeader != "" {
 			f.lastEtag = etagHeader
 			f.cache.SaveEtag(etagHeader)
 		}
 
-		f.cache.Save(&schema)
 		return &schema
 	}
 

@@ -98,30 +98,29 @@ func (c *SchemaCache) LoadStale() *models.CommandSchema {
 }
 
 // Save writes the schema to the local cache using atomic write (temp file + rename)
-// to prevent corruption if the process crashes mid-write.
-func (c *SchemaCache) Save(schema *models.CommandSchema) {
+// to prevent corruption if the process crashes mid-write. It returns the error so
+// the caller can keep the saved ETag in step with the saved list.
+func (c *SchemaCache) Save(schema *models.CommandSchema) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
 	if err := os.MkdirAll(filepath.Dir(c.cachePath), 0o755); err != nil {
-		log.Printf("[cache] cannot create dir: %v", err)
-		return
+		return err
 	}
 	data, err := json.MarshalIndent(schema, "", "  ")
 	if err != nil {
-		log.Printf("[cache] cannot marshal schema: %v", err)
-		return
+		return err
 	}
 
 	tmpPath := c.cachePath + ".tmp"
 	if err := os.WriteFile(tmpPath, data, 0o644); err != nil {
-		log.Printf("[cache] cannot write temp cache: %v", err)
-		return
+		return err
 	}
 	if err := os.Rename(tmpPath, c.cachePath); err != nil {
-		log.Printf("[cache] cannot rename temp cache: %v", err)
 		os.Remove(tmpPath)
+		return err
 	}
+	return nil
 }
 
 // LoadEtag returns the stored ETag for conditional requests.
@@ -129,6 +128,23 @@ func (c *SchemaCache) LoadEtag() string {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
+	return c.readEtagLocked()
+}
+
+// LoadEtagForList returns the stored ETag only when the cached schema file
+// exists. A stamp without a list validates nothing: sending it produces a 304
+// that yields no schema while the bridge is up.
+func (c *SchemaCache) LoadEtagForList() string {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if _, err := os.Stat(c.cachePath); err != nil {
+		return ""
+	}
+	return c.readEtagLocked()
+}
+
+func (c *SchemaCache) readEtagLocked() string {
 	data, err := os.ReadFile(c.etagPath)
 	if err != nil {
 		return ""
