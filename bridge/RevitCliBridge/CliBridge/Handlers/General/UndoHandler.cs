@@ -14,7 +14,7 @@ namespace RevitCliBridge.Handlers.General
 
         public override CommandParamSchema[] Parameters => new[]
         {
-            new CommandParamSchema { Name = "count", Type = "int", Required = false, Description = "Number of transactions to undo", Default = 1 }
+            new CommandParamSchema { Name = "count", Type = "int", Required = false, Description = "Number of undo commands to post (1 to 20)", Default = 1 }
         };
 
         public override string[] Examples => new[]
@@ -26,7 +26,9 @@ namespace RevitCliBridge.Handlers.General
         protected override string Execute(UIApplication app, Document doc, Dictionary<string, object> parameters, QueuedCommand cmd)
         {
 
-            int? steps = HandlerUtilities.GetIntOrNull(parameters, "steps") ?? 1;
+            int? steps = HandlerUtilities.GetIntOrNull(parameters, "count")
+                ?? HandlerUtilities.GetIntOrNull(parameters, "steps")
+                ?? 1;
 
             if (steps.Value < 1 || steps.Value > 20)
                 return CommandResponse.Error(cmd.TaskId, "Steps must be between 1 and 20.").ToJson();
@@ -57,7 +59,7 @@ namespace RevitCliBridge.Handlers.General
             var result = new
             {
                 steps_requested = steps.Value,
-                steps_executed = successCount
+                steps_posted = successCount
             };
 
             return CommandResponse.Success(cmd.TaskId, result,
