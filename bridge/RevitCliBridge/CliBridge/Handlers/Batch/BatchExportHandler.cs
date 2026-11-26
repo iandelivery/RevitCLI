@@ -108,7 +108,7 @@ namespace RevitCliBridge.Handlers.Batch
         {
             var viewIdInts = HandlerUtilities.GetIntArrayOrNull(parameters, "view_ids");
             if (viewIdInts is not null && viewIdInts.Length > 0)
-                return viewIdInts.Select(id => new ElementId(id)).ToList();
+                return viewIdInts.Select(id => ElementIdCompat.FromValue(id)).ToList();
 
             var sheetIdInts = HandlerUtilities.GetIntArrayOrNull(parameters, "sheet_ids");
             if (sheetIdInts is not null && sheetIdInts.Length > 0)
@@ -116,7 +116,7 @@ namespace RevitCliBridge.Handlers.Batch
                 var viewIds = new List<ElementId>();
                 foreach (var sid in sheetIdInts)
                 {
-                    var sheet = doc.GetElement(new ElementId(sid)) as ViewSheet;
+                    var sheet = doc.GetElement(ElementIdCompat.FromValue(sid)) as ViewSheet;
                     if (sheet is not null)
                         viewIds.Add(sheet.Id);
                 }
@@ -162,7 +162,7 @@ namespace RevitCliBridge.Handlers.Batch
                 foreach (var vid in views)
                 {
                     var element = doc.GetElement(vid);
-                    string fileName = element?.Name?.ReplaceInvalidChars() ?? vid.IntegerValue.ToString();
+                    string fileName = element?.Name?.ReplaceInvalidChars() ?? ElementIdCompat.ValueOf(vid).ToString();
                     string filePath = Path.Combine(outputDir, $"{fileName}.pdf");
                     try
                     {
@@ -177,12 +177,12 @@ namespace RevitCliBridge.Handlers.Batch
                         };
                         doc.ExportImage(imgOptions);
                         successCount++;
-                        results.Add(new { view_id = vid.IntegerValue, output_path = filePath, success = true });
+                        results.Add(new { view_id = ElementIdCompat.ValueOf(vid), output_path = filePath, success = true });
                     }
                     catch (Exception ex)
                     {
                         failCount++;
-                        results.Add(new { view_id = vid.IntegerValue, success = false, error = ex.Message });
+                        results.Add(new { view_id = ElementIdCompat.ValueOf(vid), success = false, error = ex.Message });
                     }
                 }
             }
@@ -260,12 +260,12 @@ namespace RevitCliBridge.Handlers.Batch
 
                     doc.ExportImage(imgOptions);
                     successCount++;
-                    results.Add(new { view_id = vid.IntegerValue, output_path = filePath, success = true });
+                    results.Add(new { view_id = ElementIdCompat.ValueOf(vid), output_path = filePath, success = true });
                 }
                 catch (Exception ex)
                 {
                     failCount++;
-                    results.Add(new { view_id = vid.IntegerValue, success = false, error = ex.Message });
+                    results.Add(new { view_id = ElementIdCompat.ValueOf(vid), success = false, error = ex.Message });
                 }
             }
         }

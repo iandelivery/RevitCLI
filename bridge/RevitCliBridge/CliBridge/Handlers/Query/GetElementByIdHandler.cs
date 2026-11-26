@@ -35,7 +35,7 @@ namespace RevitCliBridge.Handlers.Query
                 return CommandResponse.Error(cmd.TaskId, $"Linked document not loaded or not found: {linkLabel}").ToJson();
 
             int elementId = Convert.ToInt32(idVal);
-            var element = target.GetElement(new ElementId(elementId));
+            var element = target.GetElement(ElementIdCompat.FromValue(elementId));
 
             if (element is null)
                 return CommandResponse.Error(cmd.TaskId, $"Element with ID {elementId} not found.").ToJson();
@@ -46,12 +46,12 @@ namespace RevitCliBridge.Handlers.Query
 
             var elementInfo = new
             {
-                id = element.Id.IntegerValue,
+                id = ElementIdCompat.ValueOf(element.Id),
                 name = element.Name,
                 category = element.Category?.Name,
                 class_type = element.GetType().Name,
                 unique_id = element.UniqueId,
-                link_id = instance?.Id.IntegerValue,
+                link_id = ElementIdCompat.ValueOf(instance?.Id),
                 link_name = instance?.Name
             };
 

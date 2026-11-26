@@ -57,7 +57,7 @@ namespace RevitCliBridge.Handlers.Modification
             if (normalX is null && normalY is null && normalZ is null)
                 return CommandResponse.Error(cmd.TaskId, "Missing required parameter: mirror plane normal (normal_x, normal_y, normal_z).").ToJson();
 
-            var element = doc.GetElement(new ElementId(elementId.Value));
+            var element = doc.GetElement(ElementIdCompat.FromValue(elementId.Value));
             if (element is null)
                 return CommandResponse.Error(cmd.TaskId, $"Element with ID {elementId.Value} not found.").ToJson();
 

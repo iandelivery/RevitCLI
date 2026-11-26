@@ -59,11 +59,11 @@ namespace RevitCliBridge.Handlers.Creation
 
             double? sillHeight = HandlerUtilities.GetDoubleOrNull(parameters, "sill_height");
 
-            var wall = doc.GetElement(new ElementId(wallId)) as Wall;
+            var wall = doc.GetElement(ElementIdCompat.FromValue(wallId)) as Wall;
             if (wall is null)
                 return CommandResponse.Error(cmd.TaskId, $"Wall with ID {wallId} not found.").ToJson();
 
-            var windowType = doc.GetElement(new ElementId(familyTypeId)) as FamilySymbol;
+            var windowType = doc.GetElement(ElementIdCompat.FromValue(familyTypeId)) as FamilySymbol;
             if (windowType is null)
                 return CommandResponse.Error(cmd.TaskId, $"FamilySymbol with ID {familyTypeId} not found.").ToJson();
 
@@ -88,7 +88,7 @@ namespace RevitCliBridge.Handlers.Creation
 
                 var result = new
                 {
-                    element_id = window.Id.IntegerValue,
+                    element_id = ElementIdCompat.ValueOf(window.Id),
                     wall_id = wallId,
                     family_type_id = familyTypeId,
                     location_x = locX,

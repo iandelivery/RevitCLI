@@ -21,7 +21,7 @@ jobs:
     runs-on: windows-latest
     strategy:
       matrix:
-        revit-version: [2019, 2020, 2021, 2022]
+        revit-version: [2019, 2020, 2021, 2022, 2023, 2024]
       fail-fast: false
 
     steps:
@@ -58,6 +58,8 @@ jobs:
             "2020" { "R20" }
             "2021" { "R21" }
             "2022" { "R22" }
+            "2023" { "R23" }
+            "2024" { "R24" }
           }
           $buildConfig = "Release $configTag"
           $outputDir = "dist/Revit${{ matrix.revit-version }}"
@@ -167,7 +169,7 @@ jobs:
           $parts = $version -split '\.'
           $major = if ($parts.Length -gt 0) { $parts[0] } else { "1" }
           $minor = if ($parts.Length -gt 1) { $parts[1] } else { "0" }
-          $bridgeVersions = @(2019, 2020, 2021, 2022)
+          $bridgeVersions = @(2019, 2020, 2021, 2022, 2023, 2024)
 
           # --- Primary package: revit-cli + bridge bundled together ---
           # Users download this single zip and run configure setup — done.
@@ -331,6 +333,8 @@ jobs:
           | ``RevitCliBridge-2020.$major.$minor.zip`` | Bridge add-in for Revit 2020 only |
           | ``RevitCliBridge-2021.$major.$minor.zip`` | Bridge add-in for Revit 2021 only |
           | ``RevitCliBridge-2022.$major.$minor.zip`` | Bridge add-in for Revit 2022 only |
+          | ``RevitCliBridge-2023.$major.$minor.zip`` | Bridge add-in for Revit 2023 only |
+          | ``RevitCliBridge-2024.$major.$minor.zip`` | Bridge add-in for Revit 2024 only |
           | ``RevitCliBridge.Abstractions.$version.nupkg`` | Plugin SDK NuGet package — Revit-version independent (netstandard2.0), push to your internal NuGet feed |
 
           ### Quick Start
@@ -359,6 +363,8 @@ jobs:
           | 2020    | 4.7           | 5021      |
           | 2021    | 4.8           | 5031      |
           | 2022    | 4.8           | 5041      |
+          | 2023    | 4.8           | 5051      |
+          | 2024    | 4.8           | 5061      |
 
           ### Package Contents
 

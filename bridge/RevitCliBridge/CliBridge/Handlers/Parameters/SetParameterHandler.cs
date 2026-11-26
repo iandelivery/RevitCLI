@@ -42,7 +42,7 @@ namespace RevitCliBridge.Handlers.Parameters
             string paramName = nameVal.ToString() ?? "";
             object value = valVal;
 
-            var element = doc.GetElement(new ElementId(elementId));
+            var element = doc.GetElement(ElementIdCompat.FromValue(elementId));
             if (element is null)
                 return CommandResponse.Error(cmd.TaskId, $"Element with ID {elementId} not found.").ToJson();
 
@@ -95,7 +95,7 @@ namespace RevitCliBridge.Handlers.Parameters
                         return true;
                     case StorageType.ElementId:
                         if (value is null) return false;
-                        p.Set(new ElementId(Convert.ToInt32(value)));
+                        p.Set(ElementIdCompat.FromValue(Convert.ToInt64(value)));
                         return true;
                     default:
                         return false;

@@ -39,7 +39,7 @@ namespace RevitCliBridge.Handlers.Architecture
             if (topLevelId is null && baseLevelId is null)
                 return CommandResponse.Error(cmd.TaskId, "At least one of top_level_id or base_level_id is required.").ToJson();
 
-            var wall = doc.GetElement(new ElementId(wallId.Value)) as Wall;
+            var wall = doc.GetElement(ElementIdCompat.FromValue(wallId.Value)) as Wall;
             if (wall is null)
                 return CommandResponse.Error(cmd.TaskId, $"Wall with ID {wallId} not found.").ToJson();
 
@@ -61,7 +61,7 @@ namespace RevitCliBridge.Handlers.Architecture
                         return CommandResponse.Error(cmd.TaskId, "WALL_BASE_CONSTRAINT parameter not found or is read-only.").ToJson();
                     }
 
-                    if (!baseParam.Set(new ElementId(baseLevelId.Value)))
+                    if (!baseParam.Set(ElementIdCompat.FromValue(baseLevelId.Value)))
                     {
                         t.RollBack();
                         return CommandResponse.Error(cmd.TaskId, $"Failed to set base constraint to level {baseLevelId}.").ToJson();
@@ -79,7 +79,7 @@ namespace RevitCliBridge.Handlers.Architecture
                         return CommandResponse.Error(cmd.TaskId, "WALL_HEIGHT_TYPE parameter not found on this wall.").ToJson();
                     }
 
-                    if (!topParam.Set(new ElementId(topLevelId.Value)))
+                    if (!topParam.Set(ElementIdCompat.FromValue(topLevelId.Value)))
                     {
                         t.RollBack();
                         return CommandResponse.Error(cmd.TaskId, $"Failed to set top constraint to level {topLevelId}.").ToJson();

@@ -46,7 +46,7 @@ namespace RevitCliBridge.Handlers.Query
                 {
                     elements.Add(new
                     {
-                        id = id.IntegerValue,
+                        id = ElementIdCompat.ValueOf(id),
                         name = element.Name ?? string.Empty,
                         category = element.Category?.Name,
                         class_type = element.GetType().Name

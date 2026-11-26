@@ -46,7 +46,7 @@ namespace RevitCliBridge.Handlers.Views
 
             var result = new
             {
-                view_id = view.Id.IntegerValue,
+                view_id = ElementIdCompat.ValueOf(view.Id),
                 view_name = view.Name,
                 active = p.Enable
             };

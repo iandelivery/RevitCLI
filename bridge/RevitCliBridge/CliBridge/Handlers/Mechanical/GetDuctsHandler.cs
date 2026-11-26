@@ -80,14 +80,14 @@ namespace RevitCliBridge.Handlers.Mechanical
                 .Cast<Duct>();
 
             if (levelId.HasValue && levelId.Value > 0)
-                collector = collector.Where(d => d.LevelId.IntegerValue == levelId.Value);
+                collector = collector.Where(d => ElementIdCompat.ValueOf(d.LevelId) == levelId.Value);
 
             if (systemTypeId.HasValue && systemTypeId.Value > 0)
             {
                 collector = collector.Where(d =>
                 {
                     var stId = d.get_Parameter(BuiltInParameter.RBS_DUCT_SYSTEM_TYPE_PARAM)?.AsElementId();
-                    return stId is not null && stId.IntegerValue == systemTypeId.Value;
+                    return stId is not null && ElementIdCompat.ValueOf(stId) == systemTypeId.Value;
                 });
             }
 
@@ -102,7 +102,7 @@ namespace RevitCliBridge.Handlers.Mechanical
             }
 
             return collector
-                .OrderBy(d => d.Id.IntegerValue)
+                .OrderBy(d => ElementIdCompat.ValueOf(d.Id))
                 .Select(d => DuctUtils.Default.Snapshot(d, doc))
                 .ToList();
         }

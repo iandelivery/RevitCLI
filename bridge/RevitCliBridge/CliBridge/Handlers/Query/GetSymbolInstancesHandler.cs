@@ -32,7 +32,7 @@ namespace RevitCliBridge.Handlers.Query
             if (symbolId is null)
                 return CommandResponse.Error(cmd.TaskId, "Missing required parameter: symbol_id.").ToJson();
 
-            var symbolElem = doc.GetElement(new ElementId(symbolId.Value));
+            var symbolElem = doc.GetElement(ElementIdCompat.FromValue(symbolId.Value));
             if (symbolElem is null)
                 return CommandResponse.Error(cmd.TaskId, $"Element with ID {symbolId.Value} not found.").ToJson();
 
@@ -45,11 +45,11 @@ namespace RevitCliBridge.Handlers.Query
             FilteredElementCollector collector;
             if (viewId is not null)
             {
-                var viewElem = doc.GetElement(new ElementId(viewId.Value));
+                var viewElem = doc.GetElement(ElementIdCompat.FromValue(viewId.Value));
                 if (viewElem is null || !(viewElem is View))
                     return CommandResponse.Error(cmd.TaskId, $"View with ID {viewId.Value} not found.").ToJson();
 
-                collector = new FilteredElementCollector(doc, new ElementId(viewId.Value));
+                collector = new FilteredElementCollector(doc, ElementIdCompat.FromValue(viewId.Value));
             }
             else
             {
@@ -63,14 +63,15 @@ namespace RevitCliBridge.Handlers.Query
             var instances = new List<object>();
             foreach (var inst in matched)
             {
-                if (inst.Symbol.Id.IntegerValue == symbolId.Value)
+                if (ElementIdCompat.ValueOf(inst.Symbol.Id) == symbolId.Value)
                 {
                     instances.Add(new
                     {
-                        element_id = inst.Id.IntegerValue,
+                        element_id = ElementIdCompat.ValueOf(inst.Id),
                         name = inst.Name,
                         category = inst.Category?.Name,
-                        level_id = inst.LevelId?.IntegerValue ?? -1
+                        level_id = inst.LevelId is { } levelId
+                            ? ElementIdCompat.ValueOf(levelId) : -1
                     });
                 }
             }

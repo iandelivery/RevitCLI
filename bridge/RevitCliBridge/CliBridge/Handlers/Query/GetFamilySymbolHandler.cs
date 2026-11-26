@@ -47,7 +47,7 @@ namespace RevitCliBridge.Handlers.Query
 
         private string HandleFromInstance(Document doc, QueuedCommand cmd, int instanceId)
         {
-            var instance = doc.GetElement(new ElementId(instanceId)) as FamilyInstance;
+            var instance = doc.GetElement(ElementIdCompat.FromValue(instanceId)) as FamilyInstance;
             if (instance is null)
                 return CommandResponse.Error(cmd.TaskId, $"FamilyInstance with ID {instanceId} not found.").ToJson();
 
@@ -58,7 +58,7 @@ namespace RevitCliBridge.Handlers.Query
             var result = new
             {
                 instance_id = instanceId,
-                symbol_id = symbol.Id.IntegerValue,
+                symbol_id = ElementIdCompat.ValueOf(symbol.Id),
                 symbol_name = symbol.Name,
                 family_name = symbol.Family?.Name
             };
@@ -107,7 +107,7 @@ namespace RevitCliBridge.Handlers.Query
             {
                 results.Add(new
                 {
-                    element_id = sym.Id.IntegerValue,
+                    element_id = ElementIdCompat.ValueOf(sym.Id),
                     family_name = sym.Family.Name,
                     symbol_name = sym.Name,
                     category = sym.Category?.Name

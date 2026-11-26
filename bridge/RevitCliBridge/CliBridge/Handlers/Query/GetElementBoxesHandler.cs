@@ -46,7 +46,7 @@ namespace RevitCliBridge.Handlers.Query
             int? viewId = HandlerUtilities.GetIntOrNull(parameters, "view_id");
             if (viewId.HasValue)
             {
-                view = doc.GetElement(new ElementId(viewId.Value)) as Autodesk.Revit.DB.View;
+                view = doc.GetElement(ElementIdCompat.FromValue(viewId.Value)) as Autodesk.Revit.DB.View;
                 if (view is null)
                     return CommandResponse.Error(cmd.TaskId, $"Element with ID {viewId.Value} is not a view.").ToJson();
             }
@@ -56,7 +56,7 @@ namespace RevitCliBridge.Handlers.Query
 
             foreach (var id in elementIds.Distinct())
             {
-                var element = doc.GetElement(new ElementId(id));
+                var element = doc.GetElement(ElementIdCompat.FromValue(id));
                 var box = element?.get_BoundingBox(view);
 
                 if (box is null)

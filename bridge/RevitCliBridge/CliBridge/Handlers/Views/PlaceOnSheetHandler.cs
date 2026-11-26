@@ -48,7 +48,7 @@ namespace RevitCliBridge.Handlers.Views
             if (!sheetId.HasValue)
                 return CommandResponse.Error(cmd.TaskId, "Missing 'sheet_id' parameter.").ToJson();
 
-            var sheet = doc.GetElement(new ElementId(sheetId.Value)) as ViewSheet;
+            var sheet = doc.GetElement(ElementIdCompat.FromValue(sheetId.Value)) as ViewSheet;
             if (sheet is null)
                 return CommandResponse.Error(cmd.TaskId, $"Sheet with ID {sheetId.Value} not found.").ToJson();
 
@@ -61,7 +61,7 @@ namespace RevitCliBridge.Handlers.Views
             for (var i = 0; i < items.Count; i++)
             {
                 var item = items[i];
-                var view = doc.GetElement(new ElementId((int)item.Id)) as View;
+                var view = doc.GetElement(ElementIdCompat.FromValue((long)item.Id)) as View;
                 if (view is null)
                     return CommandResponse.Error(cmd.TaskId, $"View with ID {item.Id} not found.").ToJson();
                 if (!Viewport.CanAddViewToSheet(doc, sheet.Id, view.Id))
@@ -90,7 +90,7 @@ namespace RevitCliBridge.Handlers.Views
                         placed.Add(new
                         {
                             view_id = item.Id,
-                            viewport_id = viewport.Id.IntegerValue,
+                            viewport_id = ElementIdCompat.ValueOf(viewport.Id),
                             location_x = location.X,
                             location_y = location.Y
                         });

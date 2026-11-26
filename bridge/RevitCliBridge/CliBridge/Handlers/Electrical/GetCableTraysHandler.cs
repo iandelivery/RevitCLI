@@ -70,13 +70,13 @@ namespace RevitCliBridge.Handlers.Electrical
                 .Cast<CableTray>();
 
             if (levelId.HasValue && levelId.Value > 0)
-                collector = collector.Where(ct => ct.LevelId.IntegerValue == levelId.Value);
+                collector = collector.Where(ct => ElementIdCompat.ValueOf(ct.LevelId) == levelId.Value);
 
             if (typeId.HasValue && typeId.Value > 0)
-                collector = collector.Where(ct => ct.GetTypeId().IntegerValue == typeId.Value);
+                collector = collector.Where(ct => ElementIdCompat.ValueOf(ct.GetTypeId()) == typeId.Value);
 
             return collector
-                .OrderBy(ct => ct.Id.IntegerValue)
+                .OrderBy(ct => ElementIdCompat.ValueOf(ct.Id))
                 .Select(ct => CableTrayUtils.Default.Snapshot(ct, doc))
                 .ToList();
         }

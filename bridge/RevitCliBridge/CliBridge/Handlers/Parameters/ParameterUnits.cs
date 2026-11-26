@@ -9,8 +9,9 @@ namespace RevitCliBridge.Handlers.Parameters
     /// schema: the target spec is a property of the element's parameter, so
     /// the four geometric kinds convert (length to the length unit, area to
     /// the area unit, and so on) and everything else passes through as raw.
-    /// The version difference, UnitType on 2019 and 2020 versus SpecTypeId
-    /// on 2021 and 2022, stays inside this class. Pure static facade with no
+    /// The version difference, UnitType on 2019 and 2020 versus the spec-type
+    /// API on 2021 and later (GetSpecTypeId through 2023, GetDataType from
+    /// 2022 on), stays inside this class. Pure static facade with no
     /// state, per the repo convention of facades over base classes.
     /// </summary>
     internal static class ParameterUnits
@@ -37,7 +38,7 @@ namespace RevitCliBridge.Handlers.Parameters
                     return UnitKinds.Raw;
             }
 #else
-#if R22
+#if (R22 || R23 || R24)
             var spec = p.Definition.GetDataType();
 #else
             var spec = p.Definition.GetSpecTypeId();
@@ -76,7 +77,7 @@ namespace RevitCliBridge.Handlers.Parameters
                 {
                     StorageType.Integer => p.AsInteger(),
                     StorageType.String => p.AsString(),
-                    StorageType.ElementId => p.AsElementId().IntegerValue,
+                    StorageType.ElementId => ElementIdCompat.ValueOf(p.AsElementId()),
                     _ => null
                 };
 

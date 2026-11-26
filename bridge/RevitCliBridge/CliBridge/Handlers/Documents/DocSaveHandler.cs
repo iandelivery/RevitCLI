@@ -50,7 +50,7 @@ namespace RevitCliBridge.Handlers.Documents
                     saveOptions.Compact = compact;
 
                     if (previewViewId is not null)
-                        saveOptions.PreviewViewId = new ElementId(previewViewId.Value);
+                        saveOptions.PreviewViewId = ElementIdCompat.FromValue(previewViewId.Value);
 
                     doc.Save(saveOptions);
                 }

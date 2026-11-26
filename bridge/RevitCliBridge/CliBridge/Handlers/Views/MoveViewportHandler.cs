@@ -52,7 +52,7 @@ namespace RevitCliBridge.Handlers.Views
             var viewports = new Viewport[moves.Count];
             for (var i = 0; i < moves.Count; i++)
             {
-                var viewport = doc.GetElement(new ElementId((int)moves[i].Id)) as Viewport;
+                var viewport = doc.GetElement(ElementIdCompat.FromValue((long)moves[i].Id!)) as Viewport;
                 if (viewport is null)
                     return CommandResponse.Error(cmd.TaskId, $"Element with ID {moves[i].Id} is not a viewport.").ToJson();
                 if (viewport.SheetId == ElementId.InvalidElementId)
@@ -95,7 +95,7 @@ namespace RevitCliBridge.Handlers.Views
                 var center = viewport.GetBoxCenter();
                 moved.Add(new
                 {
-                    viewport_id = viewport.Id.IntegerValue,
+                    viewport_id = ElementIdCompat.ValueOf(viewport.Id),
                     x = center.X,
                     y = center.Y
                 });

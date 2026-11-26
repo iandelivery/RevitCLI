@@ -57,7 +57,7 @@ namespace RevitCliBridge.Handlers.Structural
             var p = TryBind<CreateBeamParams>(cmd, out var error);
             if (p is null) return error!;
 
-            var level = doc.GetElement(new ElementId(p.LevelId)) as Level;
+            var level = doc.GetElement(ElementIdCompat.FromValue(p.LevelId)) as Level;
             if (level is null)
                 return CommandResponse.Error(cmd.TaskId, $"Level with ID {p.LevelId} not found.").ToJson();
 

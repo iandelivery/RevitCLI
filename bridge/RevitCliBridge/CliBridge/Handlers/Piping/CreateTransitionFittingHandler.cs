@@ -76,7 +76,7 @@ namespace RevitCliBridge.Handlers.Piping
                 return CommandResponse.SuccessWithResolvedFailures(cmd.TaskId,
                     new
                     {
-                        fitting_id = fitting.Id.IntegerValue,
+                        fitting_id = ElementIdCompat.ValueOf(fitting.Id),
                         diameter_1 = dia1,
                         diameter_2 = dia2
                     },

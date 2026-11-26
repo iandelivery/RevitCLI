@@ -84,8 +84,8 @@ namespace RevitCliBridge.Handlers.Raw
         {
             "{ \"command\": \"execute_raw\", \"parameters\": { \"code\": \"return doc.Title;\" } }",
             "{ \"command\": \"execute_raw\", \"parameters\": { \"code\": \"return new FilteredElementCollector(doc).OfClass(typeof(Wall)).Count();\" } }",
-            "{ \"command\": \"execute_raw\", \"parameters\": { \"code\": \"var walls = new FilteredElementCollector(doc).OfClass(typeof(Wall)).Cast<Wall>(); return walls.Select(w => new { id = w.Id.IntegerValue, name = w.Name }).ToList();\" } }",
-            "{ \"command\": \"execute_raw\", \"parameters\": { \"code\": \"using (var t = new Transaction(doc, \\\"Delete\\\")) { t.Start(); doc.Delete(new ElementId(123)); t.Commit(); return \\\"deleted\\\"; }\" } }",
+            "{ \"command\": \"execute_raw\", \"parameters\": { \"code\": \"var walls = new FilteredElementCollector(doc).OfClass(typeof(Wall)).Cast<Wall>(); return walls.Select(w => new { id = ElementIdCompat.ValueOf(w.Id), name = w.Name }).ToList();\" } }",
+            "{ \"command\": \"execute_raw\", \"parameters\": { \"code\": \"using (var t = new Transaction(doc, \\\"Delete\\\")) { t.Start(); doc.Delete(ElementIdCompat.FromValue(123)); t.Commit(); return \\\"deleted\\\"; }\" } }",
             "{ \"command\": \"execute_raw\", \"parameters\": { \"code\": \"return doc.Title;\" }, \"dry_run\": true }"
         };
 

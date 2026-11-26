@@ -95,7 +95,7 @@ namespace RevitCliBridge.Handlers.Views
 
             var result = new
             {
-                view_id = view.Id.IntegerValue,
+                view_id = ElementIdCompat.ValueOf(view.Id),
                 view_name = view.Name,
                 active = true,
                 source,
@@ -166,7 +166,7 @@ namespace RevitCliBridge.Handlers.Views
             View3D? view;
             if (viewId.HasValue)
             {
-                view = doc.GetElement(new ElementId(viewId.Value)) as View3D;
+                view = doc.GetElement(ElementIdCompat.FromValue(viewId.Value)) as View3D;
                 if (view is null)
                     return new ViewOrError(null, CommandResponse.Error(cmd.TaskId, $"Element with ID {viewId.Value} is not a 3D view.").ToJson());
             }
@@ -202,7 +202,7 @@ namespace RevitCliBridge.Handlers.Views
 
             foreach (var id in elementIds)
             {
-                var element = doc.GetElement(new ElementId(id));
+                var element = doc.GetElement(ElementIdCompat.FromValue(id));
                 if (element is null)
                 {
                     skipped.Add(id);

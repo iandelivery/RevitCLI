@@ -18,15 +18,9 @@ namespace RevitCliBridge.Tests
         [InlineData(2020, 5021)]
         [InlineData(2021, 5031)]
         [InlineData(2022, 5041)]
-        public void GetBasePort_ReturnsVersionSpecificBase(int version, int expectedPort)
-        {
-            Assert.Equal(expectedPort, PortAllocator.GetBasePort(version));
-        }
-
-        [Theory]
         [InlineData(2023, 5051)]
         [InlineData(2024, 5061)]
-        public void GetBasePort_ExtendsForFutureVersions(int version, int expectedPort)
+        public void GetBasePort_ReturnsVersionSpecificBase(int version, int expectedPort)
         {
             Assert.Equal(expectedPort, PortAllocator.GetBasePort(version));
         }
@@ -38,10 +32,14 @@ namespace RevitCliBridge.Tests
             int port2020 = PortAllocator.GetBasePort(2020);
             int port2021 = PortAllocator.GetBasePort(2021);
             int port2022 = PortAllocator.GetBasePort(2022);
+            int port2023 = PortAllocator.GetBasePort(2023);
+            int port2024 = PortAllocator.GetBasePort(2024);
 
             Assert.Equal(10, port2020 - port2019);
             Assert.Equal(10, port2021 - port2020);
             Assert.Equal(10, port2022 - port2021);
+            Assert.Equal(10, port2023 - port2022);
+            Assert.Equal(10, port2024 - port2023);
         }
 
         [Theory]

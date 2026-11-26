@@ -43,7 +43,7 @@ namespace RevitCliBridge.Handlers.Query
 
             foreach (var id in elementIds.Distinct())
             {
-                var element = doc.GetElement(new ElementId(id));
+                var element = doc.GetElement(ElementIdCompat.FromValue(id));
                 if (element is null)
                 {
                     elements.Add(new { id, found = false });

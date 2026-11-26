@@ -36,7 +36,7 @@ namespace RevitCliBridge.Handlers.Query
 
             if (levelId.HasValue)
             {
-                var level = doc.GetElement(new ElementId(levelId.Value)) as Level;
+                var level = doc.GetElement(ElementIdCompat.FromValue(levelId.Value)) as Level;
                 if (level is not null)
                     collector = collector.OfCategory(BuiltInCategory.OST_Rooms);
             }
@@ -44,13 +44,13 @@ namespace RevitCliBridge.Handlers.Query
             var rooms = collector
                 .Cast<Room>()
                 .Where(r => r.Area > 0)
-                .Where(r => !levelId.HasValue || r.LevelId.IntegerValue == levelId.Value)
+                .Where(r => !levelId.HasValue || ElementIdCompat.ValueOf(r.LevelId) == levelId.Value)
                 .Select(r => new
                 {
-                    id = r.Id.IntegerValue,
+                    id = ElementIdCompat.ValueOf(r.Id),
                     name = r.get_Parameter(BuiltInParameter.ROOM_NAME)?.AsString() ?? r.Name,
                     number = r.Number,
-                    level_id = r.LevelId.IntegerValue,
+                    level_id = ElementIdCompat.ValueOf(r.LevelId),
                     area = UnitContracts.FromInternal(UnitKinds.Area,
                         ParameterUnits.UnitFor(cmd.ResolvedUnits, UnitKinds.Area), r.Area)
                 })

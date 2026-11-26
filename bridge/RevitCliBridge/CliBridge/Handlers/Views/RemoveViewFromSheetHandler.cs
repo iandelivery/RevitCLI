@@ -41,14 +41,14 @@ namespace RevitCliBridge.Handlers.Views
                 return CommandResponse.Error(cmd.TaskId, "Missing required parameter: view_ids.").ToJson();
 
             var viewportsByViewId = SheetViewportHelpers.GetViewports(doc, sheet)
-                .ToDictionary(vp => vp.ViewId.IntegerValue);
+                .ToDictionary(vp => ElementIdCompat.ValueOf(vp.ViewId));
 
             var results = new List<object>();
             var toDelete = new List<ElementId>();
 
             foreach (var viewId in viewIds.Distinct())
             {
-                if (doc.GetElement(new ElementId(viewId)) is null)
+                if (doc.GetElement(ElementIdCompat.FromValue(viewId)) is null)
                 {
                     results.Add(new { view_id = viewId, removed = false, reason = $"View with ID {viewId} not found." });
                     continue;
@@ -61,7 +61,7 @@ namespace RevitCliBridge.Handlers.Views
                 }
 
                 toDelete.Add(viewport.Id);
-                results.Add(new { view_id = viewId, removed = true, viewport_id = viewport.Id.IntegerValue });
+                results.Add(new { view_id = viewId, removed = true, viewport_id = ElementIdCompat.ValueOf(viewport.Id) });
             }
 
             var removedCount = toDelete.Count;

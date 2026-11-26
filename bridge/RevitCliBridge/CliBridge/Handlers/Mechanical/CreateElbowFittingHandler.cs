@@ -58,7 +58,7 @@ namespace RevitCliBridge.Handlers.Mechanical
                 tx.Commit();
 
                 return CommandResponse.SuccessWithResolvedFailures(cmd.TaskId,
-                    new { fitting_id = fitting.Id.IntegerValue },
+                    new { fitting_id = ElementIdCompat.ValueOf(fitting.Id) },
                     "Elbow fitting created successfully.", tx.ResolvedFailures).ToJson();
             }
             catch (Autodesk.Revit.Exceptions.ArgumentException ex)

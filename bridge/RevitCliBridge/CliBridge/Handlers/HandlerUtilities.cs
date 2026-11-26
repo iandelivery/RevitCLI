@@ -155,7 +155,7 @@ namespace RevitCliBridge.Handlers
                 .ToList();
 
             RevitLinkInstance? match = selector.InstanceId.HasValue
-                ? instances.FirstOrDefault(l => l.Id.IntegerValue == selector.InstanceId.Value)
+                ? instances.FirstOrDefault(l => ElementIdCompat.ValueOf(l.Id) == selector.InstanceId.Value)
                 : instances.FirstOrDefault(l =>
                     string.Equals(l.Name, selector.Name, StringComparison.OrdinalIgnoreCase));
 
@@ -165,7 +165,7 @@ namespace RevitCliBridge.Handlers
                 return null;
             }
 
-            linkLabel = $"{match.Name} (id {match.Id.IntegerValue})";
+            linkLabel = $"{match.Name} (id {ElementIdCompat.ValueOf(match.Id)})";
             return GetLinkDocumentSafe(hostDoc, match);
         }
     }

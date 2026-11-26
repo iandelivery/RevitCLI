@@ -38,7 +38,7 @@ namespace RevitCliBridge.Handlers.Modification
             var validIds = new List<ElementId>();
             foreach (var id in elementIds)
             {
-                var element = doc.GetElement(new ElementId(id));
+                var element = doc.GetElement(ElementIdCompat.FromValue(id));
                 if (element is not null)
                     validIds.Add(element.Id);
             }
@@ -59,10 +59,10 @@ namespace RevitCliBridge.Handlers.Modification
 
             var result = new
             {
-                view_id = view.Id.IntegerValue,
+                view_id = ElementIdCompat.ValueOf(view.Id),
                 view_name = view.Name,
                 count = validIds.Count,
-                element_ids = validIds.Select(id => id.IntegerValue).ToArray()
+                element_ids = validIds.Select(id => ElementIdCompat.ValueOf(id)).ToArray()
             };
 
             return CommandResponse.SuccessWithResolvedFailures(cmd.TaskId, result,
@@ -74,7 +74,7 @@ namespace RevitCliBridge.Handlers.Modification
             int? viewId = HandlerUtilities.GetIntOrNull(parameters, "view_id");
             if (viewId is not null)
             {
-                var viewElem = doc.GetElement(new ElementId(viewId.Value));
+                var viewElem = doc.GetElement(ElementIdCompat.FromValue(viewId.Value));
                 if (viewElem is View v && !v.IsTemplate)
                     return v;
                 return null;

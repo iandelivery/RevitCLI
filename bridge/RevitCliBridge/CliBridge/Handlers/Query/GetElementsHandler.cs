@@ -65,7 +65,7 @@ namespace RevitCliBridge.Handlers.Query
                 var selector = HandlerUtilities.ResolveLinkSelector(
                     HandlerUtilities.GetStringOrNull(parameters, "link"));
                 var instance = FindInstance(doc, selector);
-                linkId = instance?.Id.IntegerValue;
+                linkId = (int?)ElementIdCompat.ValueOf(instance?.Id);
                 linkName = instance?.Name;
             }
 
@@ -92,7 +92,7 @@ namespace RevitCliBridge.Handlers.Query
                 .WhereElementIsNotElementType()
                 .Select(e => new
                 {
-                    id = e.Id.IntegerValue,
+                    id = ElementIdCompat.ValueOf(e.Id),
                     name = e.Name,
                     category = e.Category?.Name,
                     class_type = e.GetType().Name,
@@ -114,7 +114,7 @@ namespace RevitCliBridge.Handlers.Query
                 .ToList();
 
             if (selector.InstanceId.HasValue)
-                return instances.FirstOrDefault(l => l.Id.IntegerValue == selector.InstanceId.Value);
+                return instances.FirstOrDefault(l => ElementIdCompat.ValueOf(l.Id) == selector.InstanceId.Value);
 
             return instances.FirstOrDefault(l =>
                 string.Equals(l.Name, selector.Name, StringComparison.OrdinalIgnoreCase));

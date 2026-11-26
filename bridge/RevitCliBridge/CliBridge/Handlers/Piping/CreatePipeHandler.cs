@@ -78,7 +78,7 @@ namespace RevitCliBridge.Handlers.Piping
             try
             {
                 tx.ConfigureFailureHandling();
-                var pipe = Pipe.Create(doc, systemType.Id, pipeType.Id, new ElementId(p.LevelId), start, end);
+                var pipe = Pipe.Create(doc, systemType.Id, pipeType.Id, ElementIdCompat.FromValue(p.LevelId), start, end);
 
                 if (p.Diameter > 0)
                     pipe.get_Parameter(BuiltInParameter.RBS_PIPE_DIAMETER_PARAM)?.Set(p.Diameter);

@@ -140,7 +140,7 @@ namespace RevitCliBridge.Handlers.Mep
 
                 tx.Commit();
                 return CommandResponse.SuccessWithResolvedFailures(cmd.TaskId,
-                    new { fitting_id = fitting!.Id.IntegerValue },
+                    new { fitting_id = ElementIdCompat.ValueOf(fitting!.Id) },
                     $"{verb} fitting created successfully.", tx.ResolvedFailures).ToJson();
             }
             catch (Autodesk.Revit.Exceptions.ArgumentException ex)
@@ -206,13 +206,13 @@ namespace RevitCliBridge.Handlers.Mep
         private static MEPCurve? ResolveElement(Document doc, int id, string cls, out string? label)
         {
             label = null;
-            var e = doc.GetElement(new ElementId(id));
+            var e = doc.GetElement(ElementIdCompat.FromValue(id));
             if (e is not MEPCurve mc) { label = $"Element {id}"; return null; }
 
             var expectedCat = cls == "duct" ? BuiltInCategory.OST_DuctCurves
                 : cls == "pipe" ? BuiltInCategory.OST_PipeCurves
                 : BuiltInCategory.OST_CableTray;
-            if (mc.Category?.Id.IntegerValue != (int)expectedCat) { label = $"Element {id}"; return null; }
+            if (ElementIdCompat.ValueOf(mc.Category?.Id) != (int)expectedCat) { label = $"Element {id}"; return null; }
             return mc;
         }
 

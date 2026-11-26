@@ -105,7 +105,7 @@ namespace RevitCliBridge.Handlers.Creation
 
                 if (templateId.HasValue && templateId.Value > 0)
                 {
-                    var tplElement = doc.GetElement(new ElementId(templateId.Value));
+                    var tplElement = doc.GetElement(ElementIdCompat.FromValue(templateId.Value));
                     if (tplElement is View tplView && tplView.IsTemplate)
                     {
                         newView.ViewTemplateId = tplView.Id;
@@ -119,7 +119,7 @@ namespace RevitCliBridge.Handlers.Creation
 
             var result = new
             {
-                element_id = newView.Id.IntegerValue,
+                element_id = ElementIdCompat.ValueOf(newView.Id),
                 name = newView.Name,
                 view_type = newView.ViewType.ToString()
             };
@@ -133,7 +133,7 @@ namespace RevitCliBridge.Handlers.Creation
             if (!levelId.HasValue)
                 return null;
 
-            var level = doc.GetElement(new ElementId(levelId.Value)) as Level;
+            var level = doc.GetElement(ElementIdCompat.FromValue(levelId.Value)) as Level;
             if (level is null)
                 return null;
 
@@ -146,7 +146,7 @@ namespace RevitCliBridge.Handlers.Creation
             if (!levelId.HasValue)
                 return null;
 
-            var level = doc.GetElement(new ElementId(levelId.Value)) as Level;
+            var level = doc.GetElement(ElementIdCompat.FromValue(levelId.Value)) as Level;
             if (level is null)
                 return null;
 
@@ -168,7 +168,7 @@ namespace RevitCliBridge.Handlers.Creation
             if (!levelId.HasValue)
                 return null;
 
-            var level = doc.GetElement(new ElementId(levelId.Value)) as Level;
+            var level = doc.GetElement(ElementIdCompat.FromValue(levelId.Value)) as Level;
             if (level is null)
                 return null;
 
@@ -190,7 +190,7 @@ namespace RevitCliBridge.Handlers.Creation
             if (!levelId.HasValue)
                 return null;
 
-            var level = doc.GetElement(new ElementId(levelId.Value)) as Level;
+            var level = doc.GetElement(ElementIdCompat.FromValue(levelId.Value)) as Level;
             if (level is null)
                 return null;
 
@@ -212,7 +212,7 @@ namespace RevitCliBridge.Handlers.Creation
             if (!levelId.HasValue)
                 return null;
 
-            var level = doc.GetElement(new ElementId(levelId.Value)) as Level;
+            var level = doc.GetElement(ElementIdCompat.FromValue(levelId.Value)) as Level;
             if (level is null)
                 return null;
 

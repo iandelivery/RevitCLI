@@ -71,7 +71,7 @@ namespace RevitCliBridge.Handlers.Modification
                 {
                     elements.Add(new
                     {
-                        id = id.IntegerValue,
+                        id = ElementIdCompat.ValueOf(id),
                         name = element.Name ?? string.Empty,
                         category = element.Category?.Name,
                         class_type = element.GetType().Name
@@ -95,7 +95,7 @@ namespace RevitCliBridge.Handlers.Modification
 
             foreach (var id in elementIds)
             {
-                var element = doc.GetElement(new ElementId(id));
+                var element = doc.GetElement(ElementIdCompat.FromValue(id));
                 if (element is not null)
                 {
                     idsToSelect.Add(element.Id);
@@ -112,7 +112,7 @@ namespace RevitCliBridge.Handlers.Modification
             var result = new
             {
                 selected_count = idsToSelect.Count,
-                element_ids = idsToSelect.Select(id => id.IntegerValue).ToArray()
+                element_ids = idsToSelect.Select(id => ElementIdCompat.ValueOf(id)).ToArray()
             };
 
             return CommandResponse.Success(cmd.TaskId, result, $"Selected {idsToSelect.Count} elements.").ToJson();

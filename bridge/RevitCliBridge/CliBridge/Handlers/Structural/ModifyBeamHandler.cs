@@ -64,12 +64,12 @@ namespace RevitCliBridge.Handlers.Structural
                 return CommandResponse.Error(cmd.TaskId,
                     "At least one of start/end coordinates, reference_level_id, start_level_offset, end_level_offset, or symbol_id must be provided.").ToJson();
 
-            var beam = doc.GetElement(new ElementId(p.ElementId)) as FamilyInstance;
+            var beam = doc.GetElement(ElementIdCompat.FromValue(p.ElementId)) as FamilyInstance;
             if (beam is null || !StructuralUtils.Default.IsBeam(beam))
                 return CommandResponse.Error(cmd.TaskId, $"Element {p.ElementId} is not a beam.").ToJson();
 
             if (p.ReferenceLevelId.HasValue && p.ReferenceLevelId.Value > 0 &&
-                doc.GetElement(new ElementId(p.ReferenceLevelId.Value)) as Level is null)
+                doc.GetElement(ElementIdCompat.FromValue(p.ReferenceLevelId.Value)) as Level is null)
                 return CommandResponse.Error(cmd.TaskId, $"Reference level with ID {p.ReferenceLevelId.Value} not found.").ToJson();
 
             using var tx = new DryRunTransaction(doc, "CLI Modify Beam", cmd.DryRun);
@@ -77,7 +77,7 @@ namespace RevitCliBridge.Handlers.Structural
             {
                 tx.ConfigureFailureHandling();
 
-                if (p.SymbolId.HasValue && p.SymbolId.Value > 0 && p.SymbolId.Value != beam.GetTypeId().IntegerValue)
+                if (p.SymbolId.HasValue && p.SymbolId.Value > 0 && p.SymbolId.Value != ElementIdCompat.ValueOf(beam.GetTypeId()))
                 {
                     var newSymbol = StructuralUtils.Default.ResolveSymbol(doc, p.SymbolId, BuiltInCategory.OST_StructuralFraming);
                     if (newSymbol is null)
@@ -89,7 +89,7 @@ namespace RevitCliBridge.Handlers.Structural
                 if (p.ReferenceLevelId.HasValue && p.ReferenceLevelId.Value > 0)
                 {
                     var prm = beam.get_Parameter(BuiltInParameter.INSTANCE_REFERENCE_LEVEL_PARAM);
-                    if (prm is null || !prm.Set(new ElementId(p.ReferenceLevelId.Value)))
+                    if (prm is null || !prm.Set(ElementIdCompat.FromValue(p.ReferenceLevelId.Value)))
                         return CommandResponse.Error(cmd.TaskId, "Beam does not support the Reference Level parameter.").ToJson();
                 }
 

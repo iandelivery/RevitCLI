@@ -65,7 +65,7 @@ namespace RevitCliBridge.Handlers.Electrical
             if (!HasAnyChange(p))
                 return CommandResponse.Error(cmd.TaskId, "At least one of start/end coordinates, type_id, width, or height must be provided.").ToJson();
 
-            var tray = doc.GetElement(new ElementId(p.ElementId)) as CableTray;
+            var tray = doc.GetElement(ElementIdCompat.FromValue(p.ElementId)) as CableTray;
             if (tray is null)
                 return CommandResponse.Error(cmd.TaskId, $"Element {p.ElementId} is not a cable tray.").ToJson();
 
@@ -74,9 +74,9 @@ namespace RevitCliBridge.Handlers.Electrical
             {
                 tx.ConfigureFailureHandling();
 
-                if (p.TypeId.HasValue && p.TypeId.Value > 0 && p.TypeId.Value != tray.GetTypeId().IntegerValue)
+                if (p.TypeId.HasValue && p.TypeId.Value > 0 && p.TypeId.Value != ElementIdCompat.ValueOf(tray.GetTypeId()))
                 {
-                    var newType = doc.GetElement(new ElementId(p.TypeId.Value)) as CableTrayType;
+                    var newType = doc.GetElement(ElementIdCompat.FromValue(p.TypeId.Value)) as CableTrayType;
                     if (newType is null)
                         return CommandResponse.Error(cmd.TaskId, $"Element {p.TypeId.Value} is not a cable tray type.").ToJson();
                     tray.ChangeTypeId(newType.Id);

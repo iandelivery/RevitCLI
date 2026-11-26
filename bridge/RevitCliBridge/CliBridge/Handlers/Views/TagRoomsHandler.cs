@@ -40,7 +40,7 @@ namespace RevitCliBridge.Handlers.Views
             int? tagTypeId = HandlerUtilities.GetIntOrNull(parameters, "tag_type_id");
 
             var activeView = viewId.HasValue
-                ? doc.GetElement(new ElementId(viewId.Value)) as View
+                ? doc.GetElement(ElementIdCompat.FromValue(viewId.Value)) as View
                 : doc.ActiveView;
 
             if (activeView is null)
@@ -53,7 +53,7 @@ namespace RevitCliBridge.Handlers.Views
             FamilySymbol? tagType = null;
             if (tagTypeId.HasValue)
             {
-                tagType = doc.GetElement(new ElementId(tagTypeId.Value)) as FamilySymbol;
+                tagType = doc.GetElement(ElementIdCompat.FromValue(tagTypeId.Value)) as FamilySymbol;
             }
 
             if (tagType is null)
@@ -88,7 +88,7 @@ namespace RevitCliBridge.Handlers.Views
                         var location = room.Location as LocationPoint;
                         if (location is null)
                         {
-                            results.Add(new { room_id = room.Id.IntegerValue, success = false, error = "Room has no location point" });
+                            results.Add(new { room_id = ElementIdCompat.ValueOf(room.Id), success = false, error = "Room has no location point" });
                             failCount++;
                             continue;
                         }
@@ -96,12 +96,12 @@ namespace RevitCliBridge.Handlers.Views
                         var tag = IndependentTag.Create(doc, tagType.Id, activeView.Id,
                             new Reference(room), false, TagOrientation.Horizontal, location.Point);
 
-                        results.Add(new { room_id = room.Id.IntegerValue, tag_id = tag.Id.IntegerValue, success = true });
+                        results.Add(new { room_id = ElementIdCompat.ValueOf(room.Id), tag_id = ElementIdCompat.ValueOf(tag.Id), success = true });
                         successCount++;
                     }
                     catch (Exception ex)
                     {
-                        results.Add(new { room_id = room.Id.IntegerValue, success = false, error = ex.Message });
+                        results.Add(new { room_id = ElementIdCompat.ValueOf(room.Id), success = false, error = ex.Message });
                         failCount++;
                     }
                 }
@@ -113,8 +113,8 @@ namespace RevitCliBridge.Handlers.Views
 
             var result = new
             {
-                view_id = activeView.Id.IntegerValue,
-                tag_type_id = tagType.Id.IntegerValue,
+                view_id = ElementIdCompat.ValueOf(activeView.Id),
+                tag_type_id = ElementIdCompat.ValueOf(tagType.Id),
                 total = rooms.Count,
                 success_count = successCount,
                 fail_count = failCount,
@@ -132,7 +132,7 @@ namespace RevitCliBridge.Handlers.Views
                 var rooms = new List<Room>();
                 foreach (var id in roomIds)
                 {
-                    var room = doc.GetElement(new ElementId(id)) as Room;
+                    var room = doc.GetElement(ElementIdCompat.FromValue(id)) as Room;
                     if (room is not null && room.Area > 0)
                         rooms.Add(room);
                 }

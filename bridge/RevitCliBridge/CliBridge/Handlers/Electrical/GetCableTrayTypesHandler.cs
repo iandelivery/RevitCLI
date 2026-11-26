@@ -43,14 +43,14 @@ namespace RevitCliBridge.Handlers.Electrical
             return new FilteredElementCollector(doc)
                 .OfClass(typeof(CableTrayType))
                 .Cast<CableTrayType>()
-                .OrderBy(t => t.Id.IntegerValue)
+                .OrderBy(t => ElementIdCompat.ValueOf(t.Id))
                 .Select(t =>
                 {
                     double widthFt = t.get_Parameter(BuiltInParameter.RBS_CABLETRAY_WIDTH_PARAM)?.AsDouble() ?? 0.0;
                     double heightFt = t.get_Parameter(BuiltInParameter.RBS_CABLETRAY_HEIGHT_PARAM)?.AsDouble() ?? 0.0;
                     return (object)new
                     {
-                        type_id = t.Id.IntegerValue,
+                        type_id = ElementIdCompat.ValueOf(t.Id),
                         name = t.Name,
                         default_width = widthFt,
                         default_height = heightFt

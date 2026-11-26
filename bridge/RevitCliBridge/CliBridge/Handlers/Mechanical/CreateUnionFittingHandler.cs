@@ -80,7 +80,7 @@ namespace RevitCliBridge.Handlers.Mechanical
                 return CommandResponse.SuccessWithResolvedFailures(cmd.TaskId,
                     new
                     {
-                        fitting_id = fitting.Id.IntegerValue,
+                        fitting_id = ElementIdCompat.ValueOf(fitting.Id),
                         diameter = dia1,
                         width = w1,
                         height = h1

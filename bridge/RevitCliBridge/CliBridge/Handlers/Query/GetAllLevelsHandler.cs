@@ -29,7 +29,7 @@ namespace RevitCliBridge.Handlers.Query
                 .Cast<Level>()
                 .Select(l => new
                 {
-                    id = l.Id.IntegerValue,
+                    id = ElementIdCompat.ValueOf(l.Id),
                     name = l.Name,
                     elevation = l.Elevation
                 })

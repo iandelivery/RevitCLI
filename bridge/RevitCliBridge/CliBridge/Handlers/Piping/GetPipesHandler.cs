@@ -79,14 +79,14 @@ namespace RevitCliBridge.Handlers.Piping
                 .Cast<Pipe>();
 
             if (levelId.HasValue && levelId.Value > 0)
-                collector = collector.Where(p => p.LevelId.IntegerValue == levelId.Value);
+                collector = collector.Where(p => ElementIdCompat.ValueOf(p.LevelId) == levelId.Value);
 
             if (systemTypeId.HasValue && systemTypeId.Value > 0)
             {
                 collector = collector.Where(p =>
                 {
                     var stId = p.get_Parameter(BuiltInParameter.RBS_PIPING_SYSTEM_TYPE_PARAM)?.AsElementId();
-                    return stId is not null && stId.IntegerValue == systemTypeId.Value;
+                    return stId is not null && ElementIdCompat.ValueOf(stId) == systemTypeId.Value;
                 });
             }
 
@@ -102,7 +102,7 @@ namespace RevitCliBridge.Handlers.Piping
             }
 
             return collector
-                .OrderBy(p => p.Id.IntegerValue)
+                .OrderBy(p => ElementIdCompat.ValueOf(p.Id))
                 .Select(p => PipeUtils.Default.Snapshot(p, doc))
                 .ToList();
         }

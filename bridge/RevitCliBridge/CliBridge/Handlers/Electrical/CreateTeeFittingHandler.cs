@@ -53,8 +53,8 @@ namespace RevitCliBridge.Handlers.Electrical
             if (p.MainElementId == p.BranchElementId)
                 return CommandResponse.Error(cmd.TaskId, "Main and branch element IDs must be different.").ToJson();
 
-            var main = doc.GetElement(new ElementId(p.MainElementId)) as CableTray;
-            var branch = doc.GetElement(new ElementId(p.BranchElementId)) as CableTray;
+            var main = doc.GetElement(ElementIdCompat.FromValue(p.MainElementId)) as CableTray;
+            var branch = doc.GetElement(ElementIdCompat.FromValue(p.BranchElementId)) as CableTray;
             if (main is null || branch is null)
                 return CommandResponse.Error(cmd.TaskId, "One or both element IDs do not refer to a cable tray.").ToJson();
 
@@ -109,7 +109,7 @@ namespace RevitCliBridge.Handlers.Electrical
                 return CommandResponse.SuccessWithResolvedFailures(cmd.TaskId,
                     new
                     {
-                        fitting_id = fitting.Id.IntegerValue,
+                        fitting_id = ElementIdCompat.ValueOf(fitting.Id),
                         intersection = new
                         {
                             x = intersection.X,

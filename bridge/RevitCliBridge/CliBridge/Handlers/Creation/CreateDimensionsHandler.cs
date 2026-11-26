@@ -51,7 +51,7 @@ namespace RevitCliBridge.Handlers.Creation
             var grids = new List<Grid>();
             foreach (var id in elementIds)
             {
-                var grid = doc.GetElement(new ElementId(id)) as Grid;
+                var grid = doc.GetElement(ElementIdCompat.FromValue(id)) as Grid;
                 if (grid is null)
                     return CommandResponse.Error(cmd.TaskId, $"Element with ID {id} is not a Grid element.").ToJson();
                 grids.Add(grid);
@@ -138,8 +138,8 @@ namespace RevitCliBridge.Handlers.Creation
 
             var result = new
             {
-                dimension_id = dimension.Id.IntegerValue,
-                view_id = view.Id.IntegerValue,
+                dimension_id = ElementIdCompat.ValueOf(dimension.Id),
+                view_id = ElementIdCompat.ValueOf(view.Id),
                 line = new
                 {
                     start_x = dimLine.GetEndPoint(0).X,
@@ -158,7 +158,7 @@ namespace RevitCliBridge.Handlers.Creation
             int? viewId = HandlerUtilities.GetIntOrNull(parameters, "view_id");
             if (viewId is not null)
             {
-                var viewElem = doc.GetElement(new ElementId(viewId.Value));
+                var viewElem = doc.GetElement(ElementIdCompat.FromValue(viewId.Value));
                 if (viewElem is View v && !v.IsTemplate)
                     return v;
                 return null;

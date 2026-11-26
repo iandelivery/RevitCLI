@@ -35,10 +35,10 @@ namespace RevitCliBridge.Handlers.Piping
             return new FilteredElementCollector(doc)
                 .OfClass(typeof(PipeType))
                 .Cast<PipeType>()
-                .OrderBy(t => t.Id.IntegerValue)
+                .OrderBy(t => ElementIdCompat.ValueOf(t.Id))
                 .Select(t => (object)new
                 {
-                    type_id = t.Id.IntegerValue,
+                    type_id = ElementIdCompat.ValueOf(t.Id),
                     name = t.Name
                 });
         }

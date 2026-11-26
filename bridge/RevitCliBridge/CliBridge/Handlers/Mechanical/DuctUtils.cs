@@ -27,7 +27,7 @@ namespace RevitCliBridge.Handlers.Mechanical
         public DuctType? ResolveType(Document doc, int? typeId)
         {
             if (typeId.HasValue && typeId.Value > 0)
-                return doc.GetElement(new ElementId(typeId.Value)) as DuctType;
+                return doc.GetElement(ElementIdCompat.FromValue(typeId.Value)) as DuctType;
 
             return new FilteredElementCollector(doc)
                 .OfClass(typeof(DuctType))
@@ -42,7 +42,7 @@ namespace RevitCliBridge.Handlers.Mechanical
         {
             if (!systemTypeId.HasValue || systemTypeId.Value <= 0)
                 return null;
-            return doc.GetElement(new ElementId(systemTypeId.Value)) as MechanicalSystemType;
+            return doc.GetElement(ElementIdCompat.FromValue(systemTypeId.Value)) as MechanicalSystemType;
         }
 
         /// <summary>
@@ -98,14 +98,15 @@ namespace RevitCliBridge.Handlers.Mechanical
 
             return new
             {
-                element_id = duct.Id.IntegerValue,
+                element_id = ElementIdCompat.ValueOf(duct.Id),
                 name = duct.Name,
-                type_id = duct.DuctType?.Id.IntegerValue ?? 0,
+                type_id = duct.DuctType is { } ductType ? ElementIdCompat.ValueOf(ductType.Id) : 0,
                 type_name = typeName,
                 shape = shape.ToString().ToLowerInvariant(),
-                system_type_id = duct.get_Parameter(BuiltInParameter.RBS_DUCT_SYSTEM_TYPE_PARAM)?.AsElementId().IntegerValue ?? 0,
+                system_type_id = duct.get_Parameter(BuiltInParameter.RBS_DUCT_SYSTEM_TYPE_PARAM)?.AsElementId() is { } ductSystemId
+                    ? ElementIdCompat.ValueOf(ductSystemId) : 0,
                 system_type_name = systemType?.Name ?? "",
-                level_id = duct.LevelId.IntegerValue,
+                level_id = ElementIdCompat.ValueOf(duct.LevelId),
                 start,
                 end,
                 diameter,

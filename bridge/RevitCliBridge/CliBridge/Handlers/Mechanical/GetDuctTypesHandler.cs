@@ -36,10 +36,10 @@ namespace RevitCliBridge.Handlers.Mechanical
             return new FilteredElementCollector(doc)
                 .OfClass(typeof(DuctType))
                 .Cast<DuctType>()
-                .OrderBy(t => t.Id.IntegerValue)
+                .OrderBy(t => ElementIdCompat.ValueOf(t.Id))
                 .Select(t => (object)new
                 {
-                    type_id = t.Id.IntegerValue,
+                    type_id = ElementIdCompat.ValueOf(t.Id),
                     name = t.Name,
                     shape = t.Shape.ToString().ToLowerInvariant()
                 });

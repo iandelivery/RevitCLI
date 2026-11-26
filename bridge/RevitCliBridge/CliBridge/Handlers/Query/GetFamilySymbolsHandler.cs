@@ -55,7 +55,7 @@ namespace RevitCliBridge.Handlers.Query
             return symbols
                 .Select(s => new
                 {
-                    element_id = s.Id.IntegerValue,
+                    element_id = ElementIdCompat.ValueOf(s.Id),
                     family_name = s.Family.Name,
                     symbol_name = s.Name,
                     category = s.Category?.Name

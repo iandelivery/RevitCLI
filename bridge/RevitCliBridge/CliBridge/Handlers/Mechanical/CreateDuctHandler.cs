@@ -84,7 +84,7 @@ namespace RevitCliBridge.Handlers.Mechanical
             try
             {
                 tx.ConfigureFailureHandling();
-                var duct = Duct.Create(doc, systemType.Id, ductType.Id, new ElementId(p.LevelId), start, end);
+                var duct = Duct.Create(doc, systemType.Id, ductType.Id, ElementIdCompat.FromValue(p.LevelId), start, end);
 
                 var shape = ductType.Shape;
                 if (shape == ConnectorProfileType.Round && p.Diameter > 0)

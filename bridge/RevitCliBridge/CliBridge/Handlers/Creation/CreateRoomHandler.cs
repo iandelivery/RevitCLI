@@ -44,7 +44,7 @@ namespace RevitCliBridge.Handlers.Creation
             if (!x.HasValue || !y.HasValue)
                 return CommandResponse.Error(cmd.TaskId, "Missing 'x' and/or 'y' parameters.").ToJson();
 
-            var level = doc.GetElement(new ElementId(levelId.Value)) as Level;
+            var level = doc.GetElement(ElementIdCompat.FromValue(levelId.Value)) as Level;
             if (level is null)
                 return CommandResponse.Error(cmd.TaskId, $"Level with ID {levelId.Value} not found.").ToJson();
 
@@ -93,7 +93,7 @@ namespace RevitCliBridge.Handlers.Creation
 
             var result = new
             {
-                element_id = room.Id.IntegerValue,
+                element_id = ElementIdCompat.ValueOf(room.Id),
                 name = room.get_Parameter(BuiltInParameter.ROOM_NAME)?.AsString() ?? room.Name,
                 number = room.Number,
                 level_id = levelId.Value
@@ -107,7 +107,7 @@ namespace RevitCliBridge.Handlers.Creation
             var phases = new FilteredElementCollector(doc)
                 .OfClass(typeof(Phase))
                 .Cast<Phase>()
-                .OrderBy(p => p.Id.IntegerValue)
+                .OrderBy(p => ElementIdCompat.ValueOf(p.Id))
                 .ToList();
 
             return phases.LastOrDefault();

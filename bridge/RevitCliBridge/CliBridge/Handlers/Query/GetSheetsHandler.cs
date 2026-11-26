@@ -30,7 +30,7 @@ namespace RevitCliBridge.Handlers.Query
                 .Cast<ViewSheet>()
                 .Select(s => new
                 {
-                    id = s.Id.IntegerValue,
+                    id = ElementIdCompat.ValueOf(s.Id),
                     name = s.Name,
                     sheet_number = s.SheetNumber,
                     is_placeholder = s.IsPlaceholder,

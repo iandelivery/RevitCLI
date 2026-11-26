@@ -60,7 +60,7 @@ namespace RevitCliBridge.Handlers.Piping
             if (!HasAnyChange(p))
                 return CommandResponse.Error(cmd.TaskId, "At least one of start/end coordinates, pipe_type_id, or diameter must be provided.").ToJson();
 
-            var pipe = doc.GetElement(new ElementId(p.ElementId)) as Pipe;
+            var pipe = doc.GetElement(ElementIdCompat.FromValue(p.ElementId)) as Pipe;
             if (pipe is null)
                 return CommandResponse.Error(cmd.TaskId, $"Element {p.ElementId} is not a pipe.").ToJson();
 
@@ -69,9 +69,9 @@ namespace RevitCliBridge.Handlers.Piping
             {
                 tx.ConfigureFailureHandling();
 
-                if (p.PipeTypeId.HasValue && p.PipeTypeId.Value > 0 && p.PipeTypeId.Value != pipe.PipeType?.Id.IntegerValue)
+                if (p.PipeTypeId.HasValue && p.PipeTypeId.Value > 0 && p.PipeTypeId.Value != ElementIdCompat.ValueOf(pipe.PipeType?.Id))
                 {
-                    var newType = doc.GetElement(new ElementId(p.PipeTypeId.Value)) as PipeType;
+                    var newType = doc.GetElement(ElementIdCompat.FromValue(p.PipeTypeId.Value)) as PipeType;
                     if (newType is null)
                         return CommandResponse.Error(cmd.TaskId, $"Element {p.PipeTypeId.Value} is not a pipe type.").ToJson();
                     pipe.ChangeTypeId(newType.Id);

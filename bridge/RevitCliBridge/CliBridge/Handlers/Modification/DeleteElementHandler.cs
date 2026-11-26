@@ -30,7 +30,7 @@ namespace RevitCliBridge.Handlers.Modification
                 return CommandResponse.Error(cmd.TaskId, "Missing 'element_id' parameter.").ToJson();
 
             int elementId = Convert.ToInt32(idVal);
-            var element = doc.GetElement(new ElementId(elementId));
+            var element = doc.GetElement(ElementIdCompat.FromValue(elementId));
 
             if (element is null)
                 return CommandResponse.Error(cmd.TaskId, $"Element with ID {elementId} not found.").ToJson();

@@ -57,7 +57,7 @@ namespace RevitCliBridge.Handlers.Query
             return types
                 .Select(e => new
                 {
-                    element_id = e.Id.IntegerValue,
+                    element_id = ElementIdCompat.ValueOf(e.Id),
                     name = e.Name,
                     family_name = e.FamilyName,
                     category = e.Category?.Name,

@@ -40,7 +40,7 @@ namespace RevitCliBridge.Handlers.Views
 
             if (viewId is not null)
             {
-                var element = doc.GetElement(new ElementId(viewId.Value));
+                var element = doc.GetElement(ElementIdCompat.FromValue(viewId.Value));
                 if (element is View view)
                 {
                     targetView = view;
@@ -61,7 +61,7 @@ namespace RevitCliBridge.Handlers.Views
                 }
                 else if (views.Count > 1)
                 {
-                    var viewList = views.Select(v => new { id = v.Id.IntegerValue, name = v.Name, type = v.ViewType.ToString() }).ToList();
+                    var viewList = views.Select(v => new { id = ElementIdCompat.ValueOf(v.Id), name = v.Name, type = v.ViewType.ToString() }).ToList();
                     return CommandResponse.Error(cmd.TaskId, $"Multiple views found with name '{viewName}'. Use view_id instead.", JsonConvert.SerializeObject(viewList)).ToJson();
                 }
 
@@ -75,7 +75,7 @@ namespace RevitCliBridge.Handlers.Views
 
             var result = new
             {
-                view_id = targetView.Id.IntegerValue,
+                view_id = ElementIdCompat.ValueOf(targetView.Id),
                 view_name = targetView.Name,
                 view_type = targetView.ViewType.ToString()
             };

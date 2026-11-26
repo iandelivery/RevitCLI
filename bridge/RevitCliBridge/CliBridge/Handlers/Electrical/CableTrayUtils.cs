@@ -27,7 +27,7 @@ namespace RevitCliBridge.Handlers.Electrical
         public CableTrayType? ResolveType(Document doc, int? typeId)
         {
             if (typeId.HasValue && typeId.Value > 0)
-                return doc.GetElement(new ElementId(typeId.Value)) as CableTrayType;
+                return doc.GetElement(ElementIdCompat.FromValue(typeId.Value)) as CableTrayType;
 
             return new FilteredElementCollector(doc)
                 .OfClass(typeof(CableTrayType))
@@ -69,11 +69,11 @@ namespace RevitCliBridge.Handlers.Electrical
 
             return new
             {
-                element_id = ct.Id.IntegerValue,
+                element_id = ElementIdCompat.ValueOf(ct.Id),
                 name = ct.Name,
-                type_id = ct.GetTypeId().IntegerValue,
+                type_id = ElementIdCompat.ValueOf(ct.GetTypeId()),
                 type_name = typeName,
-                level_id = ct.LevelId.IntegerValue,
+                level_id = ElementIdCompat.ValueOf(ct.LevelId),
                 start,
                 end,
                 width,

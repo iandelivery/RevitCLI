@@ -31,8 +31,8 @@ namespace RevitCliBridge.Handlers.Mep
             if (elementId1 == elementId2)
                 return (null, null, "Both element IDs refer to the same element. Fittings require two distinct elements.");
 
-            var e1 = doc.GetElement(new ElementId(elementId1)) as T;
-            var e2 = doc.GetElement(new ElementId(elementId2)) as T;
+            var e1 = doc.GetElement(ElementIdCompat.FromValue(elementId1)) as T;
+            var e2 = doc.GetElement(ElementIdCompat.FromValue(elementId2)) as T;
             if (e1 is null || e2 is null)
                 return (null, null, $"One or both element IDs do not refer to a {elementLabel}.");
 

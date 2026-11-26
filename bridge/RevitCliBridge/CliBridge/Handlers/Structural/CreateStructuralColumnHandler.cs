@@ -54,12 +54,12 @@ namespace RevitCliBridge.Handlers.Structural
             var p = TryBind<CreateStructuralColumnParams>(cmd, out var error);
             if (p is null) return error!;
 
-            var level = doc.GetElement(new ElementId(p.LevelId)) as Level;
+            var level = doc.GetElement(ElementIdCompat.FromValue(p.LevelId)) as Level;
             if (level is null)
                 return CommandResponse.Error(cmd.TaskId, $"Level with ID {p.LevelId} not found.").ToJson();
 
             if (p.TopLevelId.HasValue && p.TopLevelId.Value > 0 &&
-                doc.GetElement(new ElementId(p.TopLevelId.Value)) as Level is null)
+                doc.GetElement(ElementIdCompat.FromValue(p.TopLevelId.Value)) as Level is null)
                 return CommandResponse.Error(cmd.TaskId, $"Top level with ID {p.TopLevelId.Value} not found.").ToJson();
 
             var symbol = StructuralUtils.Default.ResolveSymbol(doc, p.SymbolId, BuiltInCategory.OST_StructuralColumns);
@@ -89,7 +89,7 @@ namespace RevitCliBridge.Handlers.Structural
                 if (p.TopLevelId.HasValue && p.TopLevelId.Value > 0)
                 {
                     var top = column.get_Parameter(BuiltInParameter.FAMILY_TOP_LEVEL_PARAM);
-                    if (top is null || !top.Set(new ElementId(p.TopLevelId.Value)))
+                    if (top is null || !top.Set(ElementIdCompat.FromValue(p.TopLevelId.Value)))
                         return CommandResponse.Error(cmd.TaskId,
                             "The created column does not support the Top Level parameter.").ToJson();
                 }

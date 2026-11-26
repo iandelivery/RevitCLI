@@ -89,7 +89,7 @@ namespace RevitCliBridge.Handlers.Architecture
                             $"Setting constraint {i + 1}/{totalWalls}");
                     }
 
-                    var wall = doc.GetElement(new ElementId(wallId)) as Wall;
+                    var wall = doc.GetElement(ElementIdCompat.FromValue(wallId)) as Wall;
                     if (wall is null)
                     {
                         resultPairs.Add(new object[] { wallId, false });
@@ -101,14 +101,14 @@ namespace RevitCliBridge.Handlers.Architecture
                     if (baseLevelId is not null)
                     {
                         var baseParam = wall.get_Parameter(BuiltInParameter.WALL_BASE_CONSTRAINT);
-                        if (baseParam is null || baseParam.IsReadOnly || !baseParam.Set(new ElementId(baseLevelId.Value)))
+                        if (baseParam is null || baseParam.IsReadOnly || !baseParam.Set(ElementIdCompat.FromValue(baseLevelId.Value)))
                             success = false;
                     }
 
                     if (topLevelId is not null && success)
                     {
                         var topParam = wall.get_Parameter(BuiltInParameter.WALL_HEIGHT_TYPE);
-                        if (topParam is null || !topParam.Set(new ElementId(topLevelId.Value)))
+                        if (topParam is null || !topParam.Set(ElementIdCompat.FromValue(topLevelId.Value)))
                             success = false;
                     }
 
@@ -171,18 +171,18 @@ namespace RevitCliBridge.Handlers.Architecture
                     if (baseLevelId is not null)
                     {
                         var baseParam = wall.get_Parameter(BuiltInParameter.WALL_BASE_CONSTRAINT);
-                        if (baseParam is null || baseParam.IsReadOnly || !baseParam.Set(new ElementId(baseLevelId.Value)))
+                        if (baseParam is null || baseParam.IsReadOnly || !baseParam.Set(ElementIdCompat.FromValue(baseLevelId.Value)))
                             success = false;
                     }
 
                     if (topLevelId is not null && success)
                     {
                         var topParam = wall.get_Parameter(BuiltInParameter.WALL_HEIGHT_TYPE);
-                        if (topParam is null || !topParam.Set(new ElementId(topLevelId.Value)))
+                        if (topParam is null || !topParam.Set(ElementIdCompat.FromValue(topLevelId.Value)))
                             success = false;
                     }
 
-                    resultPairs.Add(new object[] { wall.Id.IntegerValue, success });
+                    resultPairs.Add(new object[] { ElementIdCompat.ValueOf(wall.Id), success });
                 }
 
                 t.Commit();
