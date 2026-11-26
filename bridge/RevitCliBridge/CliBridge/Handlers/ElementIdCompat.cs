@@ -8,8 +8,10 @@ namespace RevitCliBridge
     /// constructor and the IntegerValue property as errors, and only 2024
     /// offers the ElementId(long) constructor and the Value property. All
     /// other code calls this facade, so the version difference stays in one
-    /// class. Pure static facade with no state, per the repo convention of
-    /// facades over base classes.
+    /// class. The #if names the legacy versions, so a future Revit that
+    /// defines a new symbol automatically takes the modern branch.
+    /// Pure static facade with no state, per the repo convention of facades
+    /// over base classes.
     /// </summary>
     internal static class ElementIdCompat
     {
@@ -19,24 +21,24 @@ namespace RevitCliBridge
         /// </summary>
         internal static ElementId FromValue(long id)
         {
-#if R24
-            return new ElementId(id);
-#else
+#if (R19 || R20 || R21 || R22 || R23)
             return new ElementId((int)id);
+#else
+            return new ElementId(id);
 #endif
         }
 
         /// <summary>
         /// The numeric value of an ElementId, or -1 when the id is null
         /// (an absent optional id reads as the invalid id, matching
-        /// IntegerValue on 2023 and earlier).
+        /// IntegerValue on the legacy versions).
         /// </summary>
         internal static long ValueOf(ElementId? id)
         {
-#if R24
-            return id?.Value ?? -1;
-#else
+#if (R19 || R20 || R21 || R22 || R23)
             return id?.IntegerValue ?? -1;
+#else
+            return id?.Value ?? -1;
 #endif
         }
     }
