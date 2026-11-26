@@ -58,6 +58,15 @@ namespace RevitCliBridge.Handlers.Creation
                     ElementIdCompat.FromValue(p.LevelId),
                     false);
 
+                if (p.Height > 0)
+                {
+                    var heightParam = wall.get_Parameter(BuiltInParameter.WALL_USER_HEIGHT_PARAM);
+                    if (heightParam != null && !heightParam.IsReadOnly)
+                    {
+                        heightParam.Set(p.Height);
+                    }
+                }
+
                 var result = t.Commit(() => new
                 {
                     element_id = ElementIdCompat.ValueOf(wall.Id),
@@ -67,7 +76,7 @@ namespace RevitCliBridge.Handlers.Creation
                     end_x = p.EndX,
                     end_y = p.EndY,
                     level_id = p.LevelId,
-                    height = p.Height
+                    height = wall.get_Parameter(BuiltInParameter.WALL_USER_HEIGHT_PARAM)?.AsDouble() ?? 0
                 });
 
                 return CommandResponse.SuccessWithResolvedFailures(cmd.TaskId, result,
