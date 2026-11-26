@@ -55,12 +55,12 @@ namespace RevitCliBridge.Handlers.Creation
                 var wall = Wall.Create(
                     doc,
                     Line.CreateBound(start, end),
-                    new ElementId(p.LevelId),
+                    ElementIdCompat.FromValue(p.LevelId),
                     false);
 
                 var result = t.Commit(() => new
                 {
-                    element_id = wall.Id.IntegerValue,
+                    element_id = ElementIdCompat.ValueOf(wall.Id),
                     dry_run = t.IsDryRun,
                     start_x = p.StartX,
                     start_y = p.StartY,

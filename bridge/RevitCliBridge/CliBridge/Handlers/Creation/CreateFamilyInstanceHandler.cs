@@ -35,11 +35,11 @@ namespace RevitCliBridge.Handlers.Creation
             var p = TryBind<CreateFamilyInstanceParams>(cmd, out var error);
             if (p is null) return error!;
 
-            var symbol = doc.GetElement(new ElementId(p.SymbolId)) as FamilySymbol;
+            var symbol = doc.GetElement(ElementIdCompat.FromValue(p.SymbolId)) as FamilySymbol;
             if (symbol is null)
                 return CommandResponse.Error(cmd.TaskId, $"FamilySymbol with ID {p.SymbolId} not found.").ToJson();
 
-            var level = doc.GetElement(new ElementId(p.LevelId)) as Level;
+            var level = doc.GetElement(ElementIdCompat.FromValue(p.LevelId)) as Level;
             if (level is null)
                 return CommandResponse.Error(cmd.TaskId, $"Level with ID {p.LevelId} not found.").ToJson();
 
@@ -65,7 +65,7 @@ namespace RevitCliBridge.Handlers.Creation
 
                 var result = new
                 {
-                    element_id = instance?.Id.IntegerValue,
+                    element_id = ElementIdCompat.ValueOf(instance?.Id),
                     symbol_id = p.SymbolId,
                     level_id = p.LevelId
                 };

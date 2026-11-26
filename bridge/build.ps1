@@ -5,7 +5,7 @@
 .DESCRIPTION
     This script performs the following steps:
     1. Detects all installed Revit versions on the system that are officially
-       supported by the add-in (2019, 2020, 2021, 2022).
+       supported by the add-in (2019, 2020, 2021, 2022, 2023, 2024).
     2. For each detected supported version, builds the add-in using the
        corresponding MSBuild configuration (e.g. "Release R22").
     3. Copies all necessary add-in files (compiled DLLs, .addin manifest,
@@ -23,7 +23,7 @@
 .PARAMETER Versions
     Build only the specified Revit versions (comma-separated).
     Example: -Versions "2021,2022"
-    Default: all supported versions (2019, 2020, 2021, 2022).
+    Default: all supported versions (2019, 2020, 2021, 2022, 2023, 2024).
 
 .PARAMETER Configuration
     Build configuration prefix. Default: "Release".
@@ -64,12 +64,14 @@ $ErrorActionPreference = "Stop"
 # ---------------------------------------------------------------------------
 # Constants
 # ---------------------------------------------------------------------------
-$SupportedVersions = @(2019, 2020, 2021, 2022)
+$SupportedVersions = @(2019, 2020, 2021, 2022, 2023, 2024)
 $VersionConfigMap = @{
     2019 = "R19"
     2020 = "R20"
     2021 = "R21"
     2022 = "R22"
+    2023 = "R23"
+    2024 = "R24"
 }
 
 # ---------------------------------------------------------------------------

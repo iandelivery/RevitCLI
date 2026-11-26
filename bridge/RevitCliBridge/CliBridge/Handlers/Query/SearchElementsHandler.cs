@@ -92,11 +92,11 @@ namespace RevitCliBridge.Handlers.Query
                 .Where(e => MatchesParameter(e, paramName!, paramValue, paramOperator))
                 .Select(e => new
                 {
-                    id = e.Id.IntegerValue,
+                    id = ElementIdCompat.ValueOf(e.Id),
                     name = e.Name,
                     category = e.Category?.Name,
                     class_type = e.GetType().Name,
-                    link_id = instance?.Id.IntegerValue,
+                    link_id = ElementIdCompat.ValueOf(instance?.Id),
                     link_name = instance?.Name
                 })
                 .OrderBy(e => e.id)
@@ -117,7 +117,7 @@ namespace RevitCliBridge.Handlers.Query
             else if (storage == StorageType.Double)
                 numericValue = parameter.AsDouble();
             else if (storage == StorageType.ElementId)
-                numericValue = parameter.AsElementId().IntegerValue;
+                numericValue = ElementIdCompat.ValueOf(parameter.AsElementId());
 
             switch (op.ToLower())
             {

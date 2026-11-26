@@ -55,6 +55,8 @@ jobs:
           dotnet build bridge/RevitCliBridge/RevitCliBridge.csproj -p:Configuration="Release R20" -p:Platform=x64
           dotnet build bridge/RevitCliBridge/RevitCliBridge.csproj -p:Configuration="Release R21" -p:Platform=x64
           dotnet build bridge/RevitCliBridge/RevitCliBridge.csproj -p:Configuration="Release R22" -p:Platform=x64
+          dotnet build bridge/RevitCliBridge/RevitCliBridge.csproj -p:Configuration="Release R23" -p:Platform=x64
+          dotnet build bridge/RevitCliBridge/RevitCliBridge.csproj -p:Configuration="Release R24" -p:Platform=x64
 
       - name: Test bridge
         run: dotnet test bridge/RevitCliBridge.Tests/RevitCliBridge.Tests.csproj --no-build

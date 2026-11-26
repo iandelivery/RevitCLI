@@ -43,7 +43,7 @@ namespace RevitCliBridge.Handlers.Creation
             ElementId tbId = ElementId.InvalidElementId;
             if (titleblockId.HasValue && titleblockId.Value > 0)
             {
-                var tbElement = doc.GetElement(new ElementId(titleblockId.Value));
+                var tbElement = doc.GetElement(ElementIdCompat.FromValue(titleblockId.Value));
                 if (tbElement is not null)
                     tbId = tbElement.Id;
             }
@@ -87,7 +87,7 @@ namespace RevitCliBridge.Handlers.Creation
 
             var result = new
             {
-                element_id = sheet.Id.IntegerValue,
+                element_id = ElementIdCompat.ValueOf(sheet.Id),
                 name = sheet.Name,
                 sheet_number = sheet.SheetNumber
             };

@@ -75,7 +75,7 @@ namespace RevitCliBridge.Handlers.Piping
                 return CommandResponse.SuccessWithResolvedFailures(cmd.TaskId,
                     new
                     {
-                        fitting_id = fitting.Id.IntegerValue,
+                        fitting_id = ElementIdCompat.ValueOf(fitting.Id),
                         diameter = dia1
                     },
                     "Union fitting created successfully.", tx.ResolvedFailures).ToJson();

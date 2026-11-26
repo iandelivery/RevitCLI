@@ -57,7 +57,7 @@ namespace RevitCliBridge.Handlers.Views
             {
                 foreach (var id in elementIds)
                 {
-                    var element = doc.GetElement(new ElementId(id));
+                    var element = doc.GetElement(ElementIdCompat.FromValue(id));
                     if (element is not null)
                         targetIds.Add(element.Id);
                 }
@@ -76,7 +76,7 @@ namespace RevitCliBridge.Handlers.Views
             int? viewId = HandlerUtilities.GetIntOrNull(parameters, "view_id");
             if (viewId.HasValue)
             {
-                targetView = (doc.GetElement(new ElementId(viewId.Value)) as Autodesk.Revit.DB.View)!;
+                targetView = (doc.GetElement(ElementIdCompat.FromValue(viewId.Value)) as Autodesk.Revit.DB.View)!;
                 if (targetView is null)
                     return CommandResponse.Error(cmd.TaskId, $"Element with ID {viewId.Value} is not a view.").ToJson();
                 if (targetView.IsTemplate)
@@ -128,7 +128,7 @@ namespace RevitCliBridge.Handlers.Views
             if (useSectionBox)
             {
                 var bounds = SectionBoxUtilities.ComputeElementsBounds(
-                    doc, targetIds.Select(i => i.IntegerValue).ToArray(), cmd, out var computeError);
+                    doc, targetIds.Select(i => (int)ElementIdCompat.ValueOf(i)).ToArray(), cmd, out var computeError);
                 if (bounds is null)
                     return computeError!;
                 appliedBounds = bounds;
@@ -316,7 +316,7 @@ namespace RevitCliBridge.Handlers.Views
             var fileInfo = new FileInfo(outputPath);
             var result = new
             {
-                view_id = targetView.Id.IntegerValue,
+                view_id = ElementIdCompat.ValueOf(targetView.Id),
                 view_name = targetView.Name,
                 output_path = outputPath,
                 file_size = fileInfo.Exists ? fileInfo.Length : 0,

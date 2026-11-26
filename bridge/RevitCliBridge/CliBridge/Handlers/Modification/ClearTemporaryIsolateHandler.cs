@@ -44,7 +44,7 @@ namespace RevitCliBridge.Handlers.Modification
 
             var result = new
             {
-                view_id = view.Id.IntegerValue,
+                view_id = ElementIdCompat.ValueOf(view.Id),
                 view_name = view.Name,
                 cleared = true
             };
@@ -58,7 +58,7 @@ namespace RevitCliBridge.Handlers.Modification
             int? viewId = HandlerUtilities.GetIntOrNull(parameters, "view_id");
             if (viewId is not null)
             {
-                var viewElem = doc.GetElement(new ElementId(viewId.Value));
+                var viewElem = doc.GetElement(ElementIdCompat.FromValue(viewId.Value));
                 if (viewElem is View v && !v.IsTemplate)
                     return v;
                 return null;

@@ -37,7 +37,7 @@ namespace RevitCliBridge.Handlers.Modification
             if (view is null)
                 return CommandResponse.Error(cmd.TaskId, "No active view or specified view not found.").ToJson();
 
-            var ids = elementIds.Select(id => new ElementId(id)).ToList();
+            var ids = elementIds.Select(id => ElementIdCompat.FromValue(id)).ToList();
 
             var validIds = new List<ElementId>();
             foreach (var eid in ids)
@@ -77,11 +77,11 @@ namespace RevitCliBridge.Handlers.Modification
 
             var result = new
             {
-                view_id = view.Id.IntegerValue,
+                view_id = ElementIdCompat.ValueOf(view.Id),
                 view_name = view.Name,
                 action = action.ToLower(),
                 count = validIds.Count,
-                element_ids = validIds.Select(id => id.IntegerValue).ToArray()
+                element_ids = validIds.Select(id => ElementIdCompat.ValueOf(id)).ToArray()
             };
 
             return CommandResponse.SuccessWithResolvedFailures(cmd.TaskId, result,
@@ -93,7 +93,7 @@ namespace RevitCliBridge.Handlers.Modification
             int? viewId = HandlerUtilities.GetIntOrNull(parameters, "view_id");
             if (viewId is not null)
             {
-                var viewElem = doc.GetElement(new ElementId(viewId.Value));
+                var viewElem = doc.GetElement(ElementIdCompat.FromValue(viewId.Value));
                 if (viewElem is View v && !v.IsTemplate)
                     return v;
                 return null;

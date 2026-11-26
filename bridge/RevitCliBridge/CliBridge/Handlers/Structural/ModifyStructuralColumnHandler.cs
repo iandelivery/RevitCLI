@@ -60,16 +60,16 @@ namespace RevitCliBridge.Handlers.Structural
                 return CommandResponse.Error(cmd.TaskId,
                     "At least one of x, y, z, base_level_id, top_level_id, base_offset, top_offset, or symbol_id must be provided.").ToJson();
 
-            var column = doc.GetElement(new ElementId(p.ElementId)) as FamilyInstance;
+            var column = doc.GetElement(ElementIdCompat.FromValue(p.ElementId)) as FamilyInstance;
             if (column is null || !StructuralUtils.Default.IsColumn(column))
                 return CommandResponse.Error(cmd.TaskId, $"Element {p.ElementId} is not a structural column.").ToJson();
 
             if (p.BaseLevelId.HasValue && p.BaseLevelId.Value > 0 &&
-                doc.GetElement(new ElementId(p.BaseLevelId.Value)) as Level is null)
+                doc.GetElement(ElementIdCompat.FromValue(p.BaseLevelId.Value)) as Level is null)
                 return CommandResponse.Error(cmd.TaskId, $"Base level with ID {p.BaseLevelId.Value} not found.").ToJson();
 
             if (p.TopLevelId.HasValue && p.TopLevelId.Value > 0 &&
-                doc.GetElement(new ElementId(p.TopLevelId.Value)) as Level is null)
+                doc.GetElement(ElementIdCompat.FromValue(p.TopLevelId.Value)) as Level is null)
                 return CommandResponse.Error(cmd.TaskId, $"Top level with ID {p.TopLevelId.Value} not found.").ToJson();
 
             using var tx = new DryRunTransaction(doc, "CLI Modify Structural Column", cmd.DryRun);
@@ -77,7 +77,7 @@ namespace RevitCliBridge.Handlers.Structural
             {
                 tx.ConfigureFailureHandling();
 
-                if (p.SymbolId.HasValue && p.SymbolId.Value > 0 && p.SymbolId.Value != column.GetTypeId().IntegerValue)
+                if (p.SymbolId.HasValue && p.SymbolId.Value > 0 && p.SymbolId.Value != ElementIdCompat.ValueOf(column.GetTypeId()))
                 {
                     var newSymbol = StructuralUtils.Default.ResolveSymbol(doc, p.SymbolId, BuiltInCategory.OST_StructuralColumns);
                     if (newSymbol is null)
@@ -102,14 +102,14 @@ namespace RevitCliBridge.Handlers.Structural
                 if (p.BaseLevelId.HasValue && p.BaseLevelId.Value > 0)
                 {
                     var prm = column.get_Parameter(BuiltInParameter.FAMILY_BASE_LEVEL_PARAM);
-                    if (prm is null || !prm.Set(new ElementId(p.BaseLevelId.Value)))
+                    if (prm is null || !prm.Set(ElementIdCompat.FromValue(p.BaseLevelId.Value)))
                         return CommandResponse.Error(cmd.TaskId, "Column does not support the Base Level parameter.").ToJson();
                 }
 
                 if (p.TopLevelId.HasValue && p.TopLevelId.Value > 0)
                 {
                     var prm = column.get_Parameter(BuiltInParameter.FAMILY_TOP_LEVEL_PARAM);
-                    if (prm is null || !prm.Set(new ElementId(p.TopLevelId.Value)))
+                    if (prm is null || !prm.Set(ElementIdCompat.FromValue(p.TopLevelId.Value)))
                         return CommandResponse.Error(cmd.TaskId, "Column does not support the Top Level parameter.").ToJson();
                 }
 

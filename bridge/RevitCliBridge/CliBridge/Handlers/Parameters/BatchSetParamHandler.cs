@@ -75,7 +75,7 @@ namespace RevitCliBridge.Handlers.Parameters
                     var element = doc.GetElement(eid);
                     if (element is null)
                     {
-                        results.Add(new { element_id = eid.IntegerValue, success = false, error = "Element not found" });
+                        results.Add(new { element_id = ElementIdCompat.ValueOf(eid), success = false, error = "Element not found" });
                         failCount++;
                         continue;
                     }
@@ -83,14 +83,14 @@ namespace RevitCliBridge.Handlers.Parameters
                     var parameter = element.LookupParameter(paramName);
                     if (parameter is null)
                     {
-                        results.Add(new { element_id = eid.IntegerValue, success = false, error = $"Parameter '{paramName}' not found" });
+                        results.Add(new { element_id = ElementIdCompat.ValueOf(eid), success = false, error = $"Parameter '{paramName}' not found" });
                         failCount++;
                         continue;
                     }
 
                     if (parameter.IsReadOnly)
                     {
-                        results.Add(new { element_id = eid.IntegerValue, success = false, error = "Parameter is read-only" });
+                        results.Add(new { element_id = ElementIdCompat.ValueOf(eid), success = false, error = "Parameter is read-only" });
                         failCount++;
                         continue;
                     }
@@ -98,12 +98,12 @@ namespace RevitCliBridge.Handlers.Parameters
                     bool ok = SetParameterValue(parameter, value, cmd.ResolvedUnits);
                     if (ok)
                     {
-                        results.Add(new { element_id = eid.IntegerValue, success = true, error = (string?)null });
+                        results.Add(new { element_id = ElementIdCompat.ValueOf(eid), success = true, error = (string?)null });
                         successCount++;
                     }
                     else
                     {
-                        results.Add(new { element_id = eid.IntegerValue, success = false, error = "Value type mismatch" });
+                        results.Add(new { element_id = ElementIdCompat.ValueOf(eid), success = false, error = "Value type mismatch" });
                         failCount++;
                     }
                 }
@@ -132,7 +132,7 @@ namespace RevitCliBridge.Handlers.Parameters
             var elementIds = HandlerUtilities.GetIntArrayOrNull(parameters, "element_ids");
             if (elementIds is not null && elementIds.Length > 0)
             {
-                return elementIds.Select(id => new ElementId(id)).ToList();
+                return elementIds.Select(id => ElementIdCompat.FromValue(id)).ToList();
             }
 
             if (parameters.TryGetValue("category", out var catVal) && catVal is not null)
@@ -191,7 +191,7 @@ namespace RevitCliBridge.Handlers.Parameters
                         return true;
                     case StorageType.ElementId:
                         if (value is null) return false;
-                        p.Set(new ElementId(Convert.ToInt32(value)));
+                        p.Set(ElementIdCompat.FromValue(Convert.ToInt64(value)));
                         return true;
                     default:
                         return false;

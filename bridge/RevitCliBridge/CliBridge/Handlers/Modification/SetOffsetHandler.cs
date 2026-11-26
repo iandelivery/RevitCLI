@@ -50,7 +50,7 @@ namespace RevitCliBridge.Handlers.Modification
             if (baseOffset is null && topOffset is null)
                 return CommandResponse.Error(cmd.TaskId, "Missing required parameter: at least one of base_offset or top_offset.").ToJson();
 
-            var element = doc.GetElement(new ElementId(elementId.Value));
+            var element = doc.GetElement(ElementIdCompat.FromValue(elementId.Value));
             if (element is null)
                 return CommandResponse.Error(cmd.TaskId, $"Element with ID {elementId.Value} not found.").ToJson();
 

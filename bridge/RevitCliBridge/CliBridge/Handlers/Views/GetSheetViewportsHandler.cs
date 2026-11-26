@@ -56,8 +56,8 @@ namespace RevitCliBridge.Handlers.Views
 
                 viewports.Add(new
                 {
-                    viewport_id = viewport.Id.IntegerValue,
-                    view_id = viewport.ViewId.IntegerValue,
+                    viewport_id = ElementIdCompat.ValueOf(viewport.Id),
+                    view_id = ElementIdCompat.ValueOf(viewport.ViewId),
                     view_name = view?.Name,
                     view_type = view?.ViewType.ToString(),
                     pinned = viewport.Pinned,

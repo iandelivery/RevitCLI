@@ -141,7 +141,7 @@ namespace RevitCliBridge.Handlers.Views
                     var result = new
                     {
                         view_name = targetView.Name,
-                        view_id = targetView.Id.IntegerValue,
+                        view_id = ElementIdCompat.ValueOf(targetView.Id),
                         output_path = outputPath,
                         file_size = fileInfo.Exists ? fileInfo.Length : 0,
                         fit_direction = fitDirection.ToString(),

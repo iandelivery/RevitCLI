@@ -74,7 +74,7 @@ namespace RevitCliBridge.Handlers.Views
             var bbox = titleBlock.get_BoundingBox(sheet);
             if (bbox is null)
                 return CommandResponse.Error(cmd.TaskId,
-                    $"Title block {titleBlock.Id.IntegerValue} has no geometry to derive bounds from.").ToJson();
+                    $"Title block {ElementIdCompat.ValueOf(titleBlock.Id)} has no geometry to derive bounds from.").ToJson();
 
             var region = SheetBoundsCalculator.Shrink(
                 SheetViewportHelpers.ToRect(bbox.Min, bbox.Max),
@@ -110,8 +110,8 @@ namespace RevitCliBridge.Handlers.Views
 
                 entries.Add(new
                 {
-                    viewport_id = viewport.Id.IntegerValue,
-                    view_id = viewport.ViewId.IntegerValue,
+                    viewport_id = ElementIdCompat.ValueOf(viewport.Id),
+                    view_id = ElementIdCompat.ValueOf(viewport.ViewId),
                     view_name = view?.Name,
                     center = new { x = center.X, y = center.Y },
                     box = SheetViewportHelpers.RectJsonToInternal(box),
@@ -132,7 +132,7 @@ namespace RevitCliBridge.Handlers.Views
             {
                 sheet_id = sheetId.Value,
                 sheet_number = sheet.SheetNumber,
-                title_block_id = titleBlock.Id.IntegerValue,
+                title_block_id = ElementIdCompat.ValueOf(titleBlock.Id),
                 allowed_region = SheetViewportHelpers.RectJsonToInternal(region),
                 count = entries.Count,
                 viewports = entries,
@@ -153,7 +153,7 @@ namespace RevitCliBridge.Handlers.Views
             if (titleblockId.HasValue)
             {
                 var titleBlockCategoryId = new ElementId(BuiltInCategory.OST_TitleBlocks);
-                var instance = doc.GetElement(new ElementId(titleblockId.Value)) as FamilyInstance;
+                var instance = doc.GetElement(ElementIdCompat.FromValue(titleblockId.Value)) as FamilyInstance;
                 if (instance is null
                     || instance.Category is null
                     || instance.Category.Id != titleBlockCategoryId
@@ -174,7 +174,7 @@ namespace RevitCliBridge.Handlers.Views
 
             if (candidates.Count > 1)
             {
-                var ids = string.Join(", ", candidates.Select(tb => tb.Id.IntegerValue));
+                var ids = string.Join(", ", candidates.Select(tb => ElementIdCompat.ValueOf(tb.Id)));
                 error = $"Sheet {sheet.SheetNumber} has {candidates.Count} title blocks: pass titleblock_id. Candidates: {ids}.";
                 return null;
             }
@@ -189,7 +189,7 @@ namespace RevitCliBridge.Handlers.Views
             if (ids is null || ids.Length == 0)
                 return null;
 
-            var byId = viewports.ToDictionary(vp => vp.Id.IntegerValue);
+            var byId = viewports.ToDictionary(vp => ElementIdCompat.ValueOf(vp.Id));
             foreach (var id in ids.Distinct())
             {
                 if (!byId.ContainsKey(id))

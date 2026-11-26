@@ -50,7 +50,7 @@ namespace RevitCliBridge.Handlers.Views
             var ids = HandlerUtilities.GetIntArrayOrNull(parameters, "viewport_ids");
             if (ids is not null && ids.Length > 0)
             {
-                var byId = viewports.ToDictionary(vp => vp.Id.IntegerValue);
+                var byId = viewports.ToDictionary(vp => ElementIdCompat.ValueOf(vp.Id));
                 foreach (var id in ids.Distinct())
                 {
                     if (!byId.ContainsKey(id))
@@ -77,8 +77,8 @@ namespace RevitCliBridge.Handlers.Views
 
                     overlaps.Add(new
                     {
-                        viewport_a = boxes[i].Viewport.Id.IntegerValue,
-                        viewport_b = boxes[j].Viewport.Id.IntegerValue,
+                        viewport_a = ElementIdCompat.ValueOf(boxes[i].Viewport.Id),
+                        viewport_b = ElementIdCompat.ValueOf(boxes[j].Viewport.Id),
                         view_name_a = viewA?.Name,
                         view_name_b = viewB?.Name,
                         overlap = SheetViewportHelpers.RectJsonToInternal(intersection.Value),

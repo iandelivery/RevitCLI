@@ -11,6 +11,8 @@ namespace RevitCliBridge
     ///   Revit 2020 → 5021-5029
     ///   Revit 2021 → 5031-5039
     ///   Revit 2022 → 5041-5049
+    ///   Revit 2023 → 5051-5059
+    ///   Revit 2024 → 5061-5069
     /// Port 5000 is reserved as a legacy fallback.
     /// </summary>
     public static class PortAllocator

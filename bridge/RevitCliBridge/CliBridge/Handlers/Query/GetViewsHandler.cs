@@ -47,13 +47,13 @@ namespace RevitCliBridge.Handlers.Query
                 .Where(v => isTemplate is null || v.IsTemplate == isTemplate.Value)
                 .Select(v => new
                 {
-                    id = v.Id.IntegerValue,
+                    id = ElementIdCompat.ValueOf(v.Id),
                     name = v.Name,
                     view_type = v.ViewType.ToString(),
                     is_template = v.IsTemplate,
-                    template_id = v.ViewTemplateId.IntegerValue == -1
-                        ? (int?)null
-                        : v.ViewTemplateId.IntegerValue
+                    template_id = ElementIdCompat.ValueOf(v.ViewTemplateId) == -1
+                        ? (long?)null
+                        : ElementIdCompat.ValueOf(v.ViewTemplateId)
                 })
                 .ToList();
 

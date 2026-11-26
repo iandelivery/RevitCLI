@@ -19,7 +19,7 @@ namespace RevitCliBridge.Handlers.Views
         internal static ViewSheet? ResolveSheet(Document doc, int sheetId, out string? reason)
         {
             reason = null;
-            var sheet = doc.GetElement(new ElementId(sheetId)) as ViewSheet;
+            var sheet = doc.GetElement(ElementIdCompat.FromValue(sheetId)) as ViewSheet;
             if (sheet is null)
                 reason = $"Sheet with ID {sheetId} not found.";
             return sheet;

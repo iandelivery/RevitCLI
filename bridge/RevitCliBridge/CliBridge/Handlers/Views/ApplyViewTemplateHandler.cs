@@ -40,7 +40,7 @@ namespace RevitCliBridge.Handlers.Views
 
             if (templateId.HasValue)
             {
-                var tplElement = doc.GetElement(new ElementId(templateId.Value));
+                var tplElement = doc.GetElement(ElementIdCompat.FromValue(templateId.Value));
                 if (tplElement is View tplView && tplView.IsTemplate)
                     resolvedTemplateId = tplView.Id;
                 else
@@ -79,18 +79,18 @@ namespace RevitCliBridge.Handlers.Views
                     {
                         if (view.IsTemplate)
                         {
-                            results.Add(new { view_id = view.Id.IntegerValue, view_name = view.Name, success = false, error = "Cannot apply template to a view template" });
+                            results.Add(new { view_id = ElementIdCompat.ValueOf(view.Id), view_name = view.Name, success = false, error = "Cannot apply template to a view template" });
                             failCount++;
                             continue;
                         }
 
                         view.ViewTemplateId = resolvedTemplateId;
-                        results.Add(new { view_id = view.Id.IntegerValue, view_name = view.Name, success = true, error = (string?)null });
+                        results.Add(new { view_id = ElementIdCompat.ValueOf(view.Id), view_name = view.Name, success = true, error = (string?)null });
                         successCount++;
                     }
                     catch (Exception ex)
                     {
-                        results.Add(new { view_id = view.Id.IntegerValue, view_name = view.Name, success = false, error = ex.Message });
+                        results.Add(new { view_id = ElementIdCompat.ValueOf(view.Id), view_name = view.Name, success = false, error = ex.Message });
                         failCount++;
                     }
                 }
@@ -102,7 +102,7 @@ namespace RevitCliBridge.Handlers.Views
 
             var result = new
             {
-                template_id = resolvedTemplateId.IntegerValue,
+                template_id = ElementIdCompat.ValueOf(resolvedTemplateId),
                 total = targetViews.Count,
                 success_count = successCount,
                 fail_count = failCount,
@@ -118,7 +118,7 @@ namespace RevitCliBridge.Handlers.Views
             int? viewId = HandlerUtilities.GetIntOrNull(parameters, "view_id");
             if (viewId.HasValue)
             {
-                var view = doc.GetElement(new ElementId(viewId.Value)) as View;
+                var view = doc.GetElement(ElementIdCompat.FromValue(viewId.Value)) as View;
                 if (view is not null && !view.IsTemplate)
                     return new List<View> { view };
                 return null;
@@ -130,7 +130,7 @@ namespace RevitCliBridge.Handlers.Views
                 var views = new List<View>();
                 foreach (var id in viewIds)
                 {
-                    var view = doc.GetElement(new ElementId(id)) as View;
+                    var view = doc.GetElement(ElementIdCompat.FromValue(id)) as View;
                     if (view is not null && !view.IsTemplate)
                         views.Add(view);
                 }

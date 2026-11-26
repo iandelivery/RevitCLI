@@ -37,7 +37,7 @@ namespace RevitCliBridge.Handlers.Structural
         {
             if (symbolId.HasValue && symbolId.Value > 0)
             {
-                var byId = doc.GetElement(new ElementId(symbolId.Value)) as FamilySymbol;
+                var byId = doc.GetElement(ElementIdCompat.FromValue(symbolId.Value)) as FamilySymbol;
                 if (byId is null || !MatchesCategory(byId, category))
                     return null;
                 return byId;
@@ -75,12 +75,12 @@ namespace RevitCliBridge.Handlers.Structural
 
             return new
             {
-                element_id = column.Id.IntegerValue,
+                element_id = ElementIdCompat.ValueOf(column.Id),
                 name = column.Name,
-                type_id = column.GetTypeId().IntegerValue,
+                type_id = ElementIdCompat.ValueOf(column.GetTypeId()),
                 type_name = symbol?.Name ?? "",
                 family_name = symbol?.FamilyName ?? "",
-                level_id = column.LevelId.IntegerValue,
+                level_id = ElementIdCompat.ValueOf(column.LevelId),
                 base_level_id = GetLevelId(column, BuiltInParameter.FAMILY_BASE_LEVEL_PARAM),
                 top_level_id = GetLevelId(column, BuiltInParameter.FAMILY_TOP_LEVEL_PARAM),
                 base_offset = GetLength(column, BuiltInParameter.FAMILY_BASE_LEVEL_OFFSET_PARAM),
@@ -118,12 +118,12 @@ namespace RevitCliBridge.Handlers.Structural
 
             return new
             {
-                element_id = beam.Id.IntegerValue,
+                element_id = ElementIdCompat.ValueOf(beam.Id),
                 name = beam.Name,
-                type_id = beam.GetTypeId().IntegerValue,
+                type_id = ElementIdCompat.ValueOf(beam.GetTypeId()),
                 type_name = symbol?.Name ?? "",
                 family_name = symbol?.FamilyName ?? "",
-                level_id = refLevel.IntegerValue,
+                level_id = ElementIdCompat.ValueOf(refLevel),
                 start_level_offset = GetLength(beam, BuiltInParameter.STRUCTURAL_BEAM_END0_ELEVATION),
                 end_level_offset = GetLength(beam, BuiltInParameter.STRUCTURAL_BEAM_END1_ELEVATION),
                 start,
@@ -134,7 +134,7 @@ namespace RevitCliBridge.Handlers.Structural
 
         private static bool MatchesCategory(Element element, BuiltInCategory category) =>
             element.Category is not null &&
-            (BuiltInCategory)element.Category.Id.IntegerValue == category;
+            (BuiltInCategory)ElementIdCompat.ValueOf(element.Category.Id) == category;
 
         /// <summary>
         /// Read an ElementId-valued parameter; -1 when absent or invalid.
@@ -142,7 +142,7 @@ namespace RevitCliBridge.Handlers.Structural
         private static int GetLevelId(Element element, BuiltInParameter bp)
         {
             var id = element.get_Parameter(bp)?.AsElementId();
-            return id is null || id == ElementId.InvalidElementId ? -1 : id.IntegerValue;
+            return id is null || id == ElementId.InvalidElementId ? -1 : (int)ElementIdCompat.ValueOf(id);
         }
 
         /// <summary>

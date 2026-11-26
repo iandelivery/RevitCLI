@@ -121,9 +121,9 @@ namespace RevitCliBridge.Handlers.Query
 
             return new LinkRow
             {
-                Id = instance.Id.IntegerValue,
+                Id = (int)ElementIdCompat.ValueOf(instance.Id),
                 Name = instance.Name,
-                TypeId = instance.GetTypeId().IntegerValue,
+                TypeId = (int)ElementIdCompat.ValueOf(instance.GetTypeId()),
                 Loaded = HandlerUtilities.GetLinkDocumentSafe(instance.Document, instance) is not null,
                 Path = path,
                 IsNested = isNested,

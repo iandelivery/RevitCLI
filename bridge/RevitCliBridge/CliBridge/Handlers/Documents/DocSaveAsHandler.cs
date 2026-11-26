@@ -56,7 +56,7 @@ namespace RevitCliBridge.Handlers.Documents
                 saveAsOptions.Compact = compact;
 
                 if (previewViewId is not null)
-                    saveAsOptions.PreviewViewId = new ElementId(previewViewId.Value);
+                    saveAsOptions.PreviewViewId = ElementIdCompat.FromValue(previewViewId.Value);
 
                 if (saveAsCentral && doc.IsWorkshared)
                 {

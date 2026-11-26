@@ -55,11 +55,11 @@ namespace RevitCliBridge.Handlers.Creation
             double locX = Convert.ToDouble(locXVal);
             double locY = Convert.ToDouble(locYVal);
 
-            var wall = doc.GetElement(new ElementId(wallId)) as Wall;
+            var wall = doc.GetElement(ElementIdCompat.FromValue(wallId)) as Wall;
             if (wall is null)
                 return CommandResponse.Error(cmd.TaskId, $"Wall with ID {wallId} not found.").ToJson();
 
-            var doorType = doc.GetElement(new ElementId(familyTypeId)) as FamilySymbol;
+            var doorType = doc.GetElement(ElementIdCompat.FromValue(familyTypeId)) as FamilySymbol;
             if (doorType is null)
                 return CommandResponse.Error(cmd.TaskId, $"FamilySymbol with ID {familyTypeId} not found.").ToJson();
 
@@ -77,7 +77,7 @@ namespace RevitCliBridge.Handlers.Creation
 
                 var result = new
                 {
-                    element_id = door.Id.IntegerValue,
+                    element_id = ElementIdCompat.ValueOf(door.Id),
                     wall_id = wallId,
                     family_type_id = familyTypeId,
                     location_x = locX,

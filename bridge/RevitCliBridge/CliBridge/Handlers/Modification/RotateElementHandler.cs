@@ -54,7 +54,7 @@ namespace RevitCliBridge.Handlers.Modification
             if (angle is null)
                 return CommandResponse.Error(cmd.TaskId, "Missing required parameter: angle.").ToJson();
 
-            var element = doc.GetElement(new ElementId(elementId.Value));
+            var element = doc.GetElement(ElementIdCompat.FromValue(elementId.Value));
             if (element is null)
                 return CommandResponse.Error(cmd.TaskId, $"Element with ID {elementId.Value} not found.").ToJson();
 

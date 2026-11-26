@@ -75,7 +75,7 @@ namespace RevitCliBridge.Handlers.Electrical
                 return CommandResponse.SuccessWithResolvedFailures(cmd.TaskId,
                     new
                     {
-                        fitting_id = fitting.Id.IntegerValue,
+                        fitting_id = ElementIdCompat.ValueOf(fitting.Id),
                         width = w1,
                         height = h1
                     },

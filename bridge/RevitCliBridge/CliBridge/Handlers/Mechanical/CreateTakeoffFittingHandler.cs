@@ -44,8 +44,8 @@ namespace RevitCliBridge.Handlers.Mechanical
             if (p.BranchElementId == p.MainElementId)
                 return CommandResponse.Error(cmd.TaskId, "Branch and main element IDs must be different.").ToJson();
 
-            var branch = doc.GetElement(new ElementId(p.BranchElementId)) as Duct;
-            var main = doc.GetElement(new ElementId(p.MainElementId)) as Duct;
+            var branch = doc.GetElement(ElementIdCompat.FromValue(p.BranchElementId)) as Duct;
+            var main = doc.GetElement(ElementIdCompat.FromValue(p.MainElementId)) as Duct;
             if (branch is null || main is null)
                 return CommandResponse.Error(cmd.TaskId, "One or both element IDs do not refer to a duct.").ToJson();
 
@@ -80,7 +80,7 @@ namespace RevitCliBridge.Handlers.Mechanical
                 tx.Commit();
 
                 return CommandResponse.SuccessWithResolvedFailures(cmd.TaskId,
-                    new { fitting_id = fitting.Id.IntegerValue },
+                    new { fitting_id = ElementIdCompat.ValueOf(fitting.Id) },
                     "Takeoff fitting created successfully.", tx.ResolvedFailures).ToJson();
             }
             catch (Autodesk.Revit.Exceptions.ArgumentException ex)

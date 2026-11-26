@@ -56,10 +56,10 @@ namespace RevitCliBridge.Handlers.Electrical
                 p.MainElementId2 == p.BranchElementId2 || p.BranchElementId1 == p.BranchElementId2)
                 return CommandResponse.Error(cmd.TaskId, "All four element IDs must refer to distinct elements.").ToJson();
 
-            var main1 = doc.GetElement(new ElementId(p.MainElementId1)) as CableTray;
-            var main2 = doc.GetElement(new ElementId(p.MainElementId2)) as CableTray;
-            var branch1 = doc.GetElement(new ElementId(p.BranchElementId1)) as CableTray;
-            var branch2 = doc.GetElement(new ElementId(p.BranchElementId2)) as CableTray;
+            var main1 = doc.GetElement(ElementIdCompat.FromValue(p.MainElementId1)) as CableTray;
+            var main2 = doc.GetElement(ElementIdCompat.FromValue(p.MainElementId2)) as CableTray;
+            var branch1 = doc.GetElement(ElementIdCompat.FromValue(p.BranchElementId1)) as CableTray;
+            var branch2 = doc.GetElement(ElementIdCompat.FromValue(p.BranchElementId2)) as CableTray;
             if (main1 is null || main2 is null || branch1 is null || branch2 is null)
                 return CommandResponse.Error(cmd.TaskId, "One or more element IDs do not refer to a cable tray.").ToJson();
 
@@ -115,7 +115,7 @@ namespace RevitCliBridge.Handlers.Electrical
                 return CommandResponse.SuccessWithResolvedFailures(cmd.TaskId,
                     new
                     {
-                        fitting_id = fitting.Id.IntegerValue,
+                        fitting_id = ElementIdCompat.ValueOf(fitting.Id),
                         junction = new
                         {
                             x = junction.X,

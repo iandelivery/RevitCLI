@@ -35,10 +35,10 @@ namespace RevitCliBridge.Handlers.Mechanical
             return new FilteredElementCollector(doc)
                 .OfClass(typeof(MechanicalSystemType))
                 .Cast<MechanicalSystemType>()
-                .OrderBy(t => t.Id.IntegerValue)
+                .OrderBy(t => ElementIdCompat.ValueOf(t.Id))
                 .Select(t => (object)new
                 {
-                    system_type_id = t.Id.IntegerValue,
+                    system_type_id = ElementIdCompat.ValueOf(t.Id),
                     name = t.Name,
                     classification = t.SystemClassification.ToString()
                 });

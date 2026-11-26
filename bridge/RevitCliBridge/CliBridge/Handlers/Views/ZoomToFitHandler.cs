@@ -53,7 +53,7 @@ namespace RevitCliBridge.Handlers.Views
 
             if (elementId is not null)
             {
-                var element = doc.GetElement(new ElementId(elementId.Value));
+                var element = doc.GetElement(ElementIdCompat.FromValue(elementId.Value));
                 if (element is null)
                     return CommandResponse.Error(cmd.TaskId, $"Element with ID {elementId.Value} not found.").ToJson();
 
@@ -63,7 +63,7 @@ namespace RevitCliBridge.Handlers.Views
             {
                 foreach (var id in elementIds)
                 {
-                    var element = doc.GetElement(new ElementId(id));
+                    var element = doc.GetElement(ElementIdCompat.FromValue(id));
                     if (element is not null)
                         idsToShow.Add(element.Id);
                 }
@@ -78,7 +78,7 @@ namespace RevitCliBridge.Handlers.Views
             {
                 zoom_type = "elements",
                 element_count = idsToShow.Count,
-                element_ids = idsToShow.Select(id => id.IntegerValue).ToArray()
+                element_ids = idsToShow.Select(id => ElementIdCompat.ValueOf(id)).ToArray()
             };
 
             return CommandResponse.Success(cmd.TaskId, resultWithElements, "Zoomed to fit elements.").ToJson();

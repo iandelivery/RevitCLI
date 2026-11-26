@@ -45,7 +45,7 @@ namespace RevitCliBridge.Handlers.Modification
             var p = TryBind<MoveElementParams>(cmd, out var error);
             if (p is null) return error!;
 
-            var element = doc.GetElement(new ElementId(p.ElementId));
+            var element = doc.GetElement(ElementIdCompat.FromValue(p.ElementId));
             if (element is null)
                 return CommandResponse.Error(cmd.TaskId, $"Element with ID {p.ElementId} not found.").ToJson();
 

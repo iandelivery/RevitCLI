@@ -98,10 +98,10 @@ namespace RevitCliBridge.Handlers.Creation
                     var wall = Wall.Create(
                         doc,
                         Line.CreateBound(start, end),
-                        new ElementId(entry.LevelId),
+                        ElementIdCompat.FromValue(entry.LevelId),
                         false);
 
-                    resultPairs.Add(new object[] { wall.Id.IntegerValue, entry.LevelId });
+                    resultPairs.Add(new object[] { ElementIdCompat.ValueOf(wall.Id), entry.LevelId });
                 }
 
                 t.Commit();

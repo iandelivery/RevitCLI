@@ -74,7 +74,7 @@ namespace RevitCliBridge.Handlers.Electrical
             try
             {
                 tx.ConfigureFailureHandling();
-                var tray = CableTray.Create(doc, trayType.Id, start, end, new ElementId(p.LevelId));
+                var tray = CableTray.Create(doc, trayType.Id, start, end, ElementIdCompat.FromValue(p.LevelId));
 
                 if (p.Width > 0)
                 {

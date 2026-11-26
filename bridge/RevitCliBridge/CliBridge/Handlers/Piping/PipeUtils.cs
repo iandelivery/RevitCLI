@@ -29,7 +29,7 @@ namespace RevitCliBridge.Handlers.Piping
         public PipeType? ResolveType(Document doc, int? typeId)
         {
             if (typeId.HasValue && typeId.Value > 0)
-                return doc.GetElement(new ElementId(typeId.Value)) as PipeType;
+                return doc.GetElement(ElementIdCompat.FromValue(typeId.Value)) as PipeType;
 
             return new FilteredElementCollector(doc)
                 .OfClass(typeof(PipeType))
@@ -44,7 +44,7 @@ namespace RevitCliBridge.Handlers.Piping
         {
             if (!systemTypeId.HasValue || systemTypeId.Value <= 0)
                 return null;
-            return doc.GetElement(new ElementId(systemTypeId.Value)) as PipingSystemType;
+            return doc.GetElement(ElementIdCompat.FromValue(systemTypeId.Value)) as PipingSystemType;
         }
 
         /// <summary>
@@ -79,13 +79,14 @@ namespace RevitCliBridge.Handlers.Piping
 
             return new
             {
-                element_id = pipe.Id.IntegerValue,
+                element_id = ElementIdCompat.ValueOf(pipe.Id),
                 name = pipe.Name,
-                type_id = pipe.GetTypeId().IntegerValue,
+                type_id = ElementIdCompat.ValueOf(pipe.GetTypeId()),
                 type_name = typeName,
-                system_type_id = pipe.get_Parameter(BuiltInParameter.RBS_PIPING_SYSTEM_TYPE_PARAM)?.AsElementId().IntegerValue ?? 0,
+                system_type_id = pipe.get_Parameter(BuiltInParameter.RBS_PIPING_SYSTEM_TYPE_PARAM)?.AsElementId() is { } pipeSystemId
+                    ? ElementIdCompat.ValueOf(pipeSystemId) : 0,
                 system_type_name = systemType?.Name ?? "",
-                level_id = pipe.LevelId.IntegerValue,
+                level_id = ElementIdCompat.ValueOf(pipe.LevelId),
                 start,
                 end,
                 diameter,

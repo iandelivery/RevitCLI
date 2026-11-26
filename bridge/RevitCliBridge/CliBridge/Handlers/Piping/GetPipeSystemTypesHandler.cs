@@ -56,10 +56,10 @@ namespace RevitCliBridge.Handlers.Piping
             }
 
             return result
-                .OrderBy(t => t.Id.IntegerValue)
+                .OrderBy(t => ElementIdCompat.ValueOf(t.Id))
                 .Select(t => (object)new
                 {
-                    system_type_id = t.Id.IntegerValue,
+                    system_type_id = ElementIdCompat.ValueOf(t.Id),
                     name = t.Name,
                     classification = t.SystemClassification.ToString()
                 });

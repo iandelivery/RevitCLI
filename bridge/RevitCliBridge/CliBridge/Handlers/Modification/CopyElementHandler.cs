@@ -52,7 +52,7 @@ namespace RevitCliBridge.Handlers.Modification
             if (dx is null || dy is null)
                 return CommandResponse.Error(cmd.TaskId, "Missing required parameters: dx and dy.").ToJson();
 
-            var element = doc.GetElement(new ElementId(elementId.Value));
+            var element = doc.GetElement(ElementIdCompat.FromValue(elementId.Value));
             if (element is null)
                 return CommandResponse.Error(cmd.TaskId, $"Element with ID {elementId.Value} not found.").ToJson();
 
@@ -70,7 +70,7 @@ namespace RevitCliBridge.Handlers.Modification
                 var result = new
                 {
                     original_element_id = elementId.Value,
-                    new_element_id = newId?.IntegerValue,
+                    new_element_id = newId is { } copiedId ? ElementIdCompat.ValueOf(copiedId) : (long?)null,
                     translation_x = dx.Value,
                     translation_y = dy.Value,
                     translation_z = dz ?? 0

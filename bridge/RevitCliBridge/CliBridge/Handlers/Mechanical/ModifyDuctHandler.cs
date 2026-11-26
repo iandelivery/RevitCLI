@@ -68,7 +68,7 @@ namespace RevitCliBridge.Handlers.Mechanical
             if (!HasAnyChange(p))
                 return CommandResponse.Error(cmd.TaskId, "At least one of start/end coordinates, duct_type_id, diameter, width, or height must be provided.").ToJson();
 
-            var duct = doc.GetElement(new ElementId(p.ElementId)) as Duct;
+            var duct = doc.GetElement(ElementIdCompat.FromValue(p.ElementId)) as Duct;
             if (duct is null)
                 return CommandResponse.Error(cmd.TaskId, $"Element {p.ElementId} is not a duct.").ToJson();
 
@@ -77,9 +77,9 @@ namespace RevitCliBridge.Handlers.Mechanical
             {
                 tx.ConfigureFailureHandling();
 
-                if (p.DuctTypeId.HasValue && p.DuctTypeId.Value > 0 && p.DuctTypeId.Value != duct.DuctType?.Id.IntegerValue)
+                if (p.DuctTypeId.HasValue && p.DuctTypeId.Value > 0 && p.DuctTypeId.Value != ElementIdCompat.ValueOf(duct.DuctType?.Id))
                 {
-                    var newType = doc.GetElement(new ElementId(p.DuctTypeId.Value)) as DuctType;
+                    var newType = doc.GetElement(ElementIdCompat.FromValue(p.DuctTypeId.Value)) as DuctType;
                     if (newType is null)
                         return CommandResponse.Error(cmd.TaskId, $"Element {p.DuctTypeId.Value} is not a duct type.").ToJson();
                     duct.ChangeTypeId(newType.Id);

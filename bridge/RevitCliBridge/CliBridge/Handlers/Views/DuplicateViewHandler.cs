@@ -35,7 +35,7 @@ namespace RevitCliBridge.Handlers.Views
             if (!viewId.HasValue)
                 return CommandResponse.Error(cmd.TaskId, "Missing required parameter: view_id.").ToJson();
 
-            var sourceView = doc.GetElement(new ElementId(viewId.Value)) as View;
+            var sourceView = doc.GetElement(ElementIdCompat.FromValue(viewId.Value)) as View;
             if (sourceView is null)
                 return CommandResponse.Error(cmd.TaskId, $"Element with ID {viewId.Value} is not a view.").ToJson();
 
@@ -81,7 +81,7 @@ namespace RevitCliBridge.Handlers.Views
 
                     if (templateId.HasValue && templateId.Value > 0)
                     {
-                        if (doc.GetElement(new ElementId(templateId.Value)) is View tpl && tpl.IsTemplate)
+                        if (doc.GetElement(ElementIdCompat.FromValue(templateId.Value)) is View tpl && tpl.IsTemplate)
                             newView.ViewTemplateId = tpl.Id;
                     }
                 }
@@ -104,7 +104,7 @@ namespace RevitCliBridge.Handlers.Views
 
             var result = new
             {
-                new_view_id = newView.Id.IntegerValue,
+                new_view_id = ElementIdCompat.ValueOf(newView.Id),
                 name = newView.Name,
                 mode = modeStr,
                 activated = activate

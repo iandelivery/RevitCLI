@@ -64,7 +64,7 @@ namespace RevitCliBridge.Handlers
         /// from every call site:
         /// <code>
         /// var wall = Wall.Create(doc, line, levelId, false);
-        /// var result = tx.Commit(() => new { element_id = wall.Id.IntegerValue });
+        /// var result = tx.Commit(() => new { element_id = ElementIdCompat.ValueOf(wall.Id) });
         /// </code>
         /// </summary>
         public TResult Commit<TResult>(Func<TResult> resultSnapshot)

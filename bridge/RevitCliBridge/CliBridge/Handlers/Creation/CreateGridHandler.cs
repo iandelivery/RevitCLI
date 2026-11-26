@@ -69,7 +69,7 @@ namespace RevitCliBridge.Handlers.Creation
 
                 var result = new
                 {
-                    element_id = grid.Id.IntegerValue,
+                    element_id = ElementIdCompat.ValueOf(grid.Id),
                     name = grid.Name,
                     start_x = startX,
                     start_y = startY,
