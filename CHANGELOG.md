@@ -7,6 +7,35 @@ commits — feat/fix only). Do not edit released sections. Historical
 releases before v1.12.0 live on the
 [GitHub Releases page](https://github.com/iandelivery/RevitCLI/releases).
 
+## v2.0.2 (2026-11-26)
+
+- **Revit 2023 and 2024** — the bridge builds for both versions (ports
+  5051-5059 and 5061-5069), and the client's `configure setup` and
+  instance discovery accept them.
+- **`create_wall --height` is applied** — the handler sets the wall height
+  inside the transaction and echoes the value read back from the wall. An
+  omitted `--height` keeps the wall type height; the schema no longer
+  promises a 3000 default.
+- **`undo --count` is honored** — the handler reads `count` (`steps` is
+  still accepted) and reports `steps_posted` / `steps_requested` instead
+  of `steps_executed`. Revit accepts one queued undo per call, so
+  `undo --count 2` posts one and the message says so; repeat the command.
+- **Units survive a rewritten command name** — `wall_create`,
+  `elements.create_wall` and `wall_create@v1` convert and echo the same
+  `units` as `create_wall`.
+- **`--dry-run` before the command name is a usage error** — the client
+  used to drop the flag and run the command for real; it now exits 1
+  before any bridge call.
+- **`list --json` omits the API key** — the key stays in the registry file
+  for authentication and no longer appears in the JSON output.
+- **Schema cache cannot strand a stale list** — the client saves the
+  cache list before its ETag and sends a stored ETag only when the list
+  file exists, so a failed write no longer pins a stale list behind
+  endless 304s.
+- **Task outcome cannot flip after it ends** — terminal transitions are
+  atomic; a timed-out task no longer becomes completed after its command
+  committed, and a completed task is not overwritten as timed out.
+
 ## v2.0.1 (2026-11-22)
 
 - **`get_units` answers without a document** — a cold-start agent (no RVT
