@@ -5,10 +5,10 @@ description: Drive the RevitCliBridge add-in (bridge/) — build, deploy, C# tes
 
 # Verify RevitCliBridge (the bridge)
 
-> **Sync**: fully regenerated 2026-11-23 from a source interview of main
-> `11e58b3` (bridge fact sheet: CliHttpServer, SseExecuteHandler,
-> UnitsContext/UnitContracts, AuthPolicy, config, startup chain, build.ps1,
-> Tests). No facts inherited from prior skill versions.
+> **Sync**: maintained 2026-11-26 against main `6822bf2` (after PR #119/#120 added
+> Revit 2023/2024 and the `ElementIdCompat` facade). Every feature file was re-read from
+> source and driven live on a disposable Revit 2019 (`dist\verify-evidence\maintain-20261126\`).
+> Originally generated 2026-11-23 from main `11e58b3`.
 
 The app under test is the C# add-in in `bridge\`: an HTTP server
 (HttpListener via http.sys, loopback-only) running inside Revit, executing
@@ -19,34 +19,39 @@ any HTTP caller.
 ## Ground truth (from source)
 
 - **Routes**: `POST /api/execute` (JSON sync / `async:true` pending /
-  SSE when `Accept: text/event-stream`; 400 missing command, 429 queue
-  full, 413 body too large, 500 sync-failed); `GET /api/task[/{id}]`
-  (result only when terminal; 404 past retention — completed 900 s,
-  failed/timeout 3600 s); `/api/status`; `/api/metrics`; `/api/commands`
-  (ETag = `"{bridgeVersion}:{count}:{sha256}"`, 304 revalidation);
-  `/api/commands/{name}` (200/304/404); `/api/catalog`; `/api/llms.txt`;
-  `/api/documents`; `/api/identity`; `/api/auth/status`; `/api/raw-mode`
-  (GET/POST). **Auth**: Bearer on everything except `/api/health`,
-  `/api/identity`, `/api/auth/status`; the key is auto-generated and
-  persisted by `EnsureApiKey` whenever `api_key` is null — auth is
-  effectively always on; the key also lands in the instance registry file
-  for client discovery.
+  SSE when `Accept: text/event-stream`; 400 missing command, **429 queue full on the
+  sync JSON path only — the SSE path enqueues unconditionally**, 413 body too large, 500
+  sync-failed); `GET /api/task` (last 50) and `GET /api/task/{id}` (result only when
+  terminal; 404 past retention — completed 900 s, failed/timeout 3600 s, both **lazily**
+  cleaned on the next command, not at wall-clock expiry); `/api/status`; `/api/metrics`;
+  `/api/commands` (ETag = `"{bridgeVersion}:{count}:{base64url-sha256}"`, 304
+  revalidation); `/api/commands/{name}` (200/304/404; its ETag is
+  `"{bridgeVersion}:{hash}"` with no count); `/api/catalog`; `/api/llms.txt`;
+  `/api/documents`; `/api/identity`; `/api/auth/status`; `/api/raw-mode` (GET/POST).
+  **Auth**: Bearer on everything except `/api/health`, `/api/identity`,
+  `/api/auth/status`; the key is auto-generated and persisted by `EnsureApiKey` whenever
+  `api_key` is null — auth is effectively always on; the key also lands in the instance
+  registry file for client discovery. **Auth runs before routing**: an unknown `/api/*`
+  path without a key answers 401, not 404.
 - **SSE frames**: `accepted {task_id,status,command}` → `progress
   {task_id,progress,message}` (0 at start) → `heartbeat {}` every 15 s →
-  `completed|failed {task_id,status,result}` (final frame repeats the raw
-  ResultJson). Task states: Pending → Running → Completed|Failed|Timeout.
-- **Dedup**: a repeated `X-Request-Id` on `/api/execute` replays the live
-  task's status as plain JSON (200), logged `request_dedup`; the window
-  ends at retention cleanup.
+  `completed|failed {task_id,status,result}` (the final frame repeats as a second
+  `completed`/`failed` event carrying the raw ResultJson). Task states: Pending → Running →
+  Completed|Failed|Timeout. **Sync (no SSE Accept) timeouts answer HTTP 200 with the error
+  JSON**; 500 is only for `Status == Failed`.
+- **Dedup**: a repeated `X-Request-Id` on `/api/execute` replays the task snapshot as plain
+  JSON (200), for any retained task, terminal included; logged `request_dedup`.
 - **Units contract**: kinds length/area/volume/angle (+raw passthrough);
   canonical mm/m2/m3/deg; allowed length mm,cm,m,ft,in / area m2,mm2,ft2 /
   volume m3,mm3,ft3,l / angle deg,rad. Request `units` = map or
   `"project"` (needs a document). Inputs convert to internal feet and are
-  NEVER rounded; outputs convert back and round to 3 decimals; every
-  response (success AND error) carries a top-level `units` echo — only a
-  `units` PARSE failure skips it. Schema `unit_kind` declares inputs;
-  `ResponseFieldKinds` rewrites output fields. `get_units` answers
-  document-less with `project: null`.
+  NEVER rounded; outputs convert back and round to 3 decimals; a top-level
+  `units` echo is stamped by `UnitsContext.Finish` — which runs only for
+  handlers that **return** a `CommandResponse` (success or error). No echo
+  on: a `units` parse failure, `"project"` without a document, dry-run
+  rejection, unknown command, a handler that throws, timeout, queue-full.
+  Schema `unit_kind` declares inputs; `ResponseFieldKinds` rewrites output
+  fields. `get_units` answers document-less with `project: null`.
 - **Command families** (see `features/`): Documents 7, Creation 10,
   Query 17, Views 15 (incl. the sheet-viewport six), Piping/Mechanical/
   Electrical 31, Modification 10, Parameters 3, Structural 4, Batch 2,
@@ -55,7 +60,11 @@ any HTTP caller.
 - **Versioning**: `{RevitYear}.{Major}.{Minor}.{Patch}` from the latest
   `v*` tag at build (`build.ps1` passes `-p:Major/Minor/Patch`); port per
   version 5000+(v-2018)*10+1, allocated from a 10-port range (2019:
-  5011-5019, 2020: 5021-5029, 2021: 5031-5039, 2022: 5041-5049).
+  5011-5019, 2020: 5021-5029, 2021: 5031-5039, 2022: 5041-5049, 2023:
+  5051-5059, 2024: 5061-5069). `build.ps1` defaults to all six versions.
+  Version-dependent `#if`s (`ElementIdCompat`, `ParameterUnits`,
+  `UnitsContext`) name the **legacy** versions and leave the modern API in
+  the `#else`, so a new `Rnn` symbol takes the modern branch by default.
 - **Registry/log**: instance file `revit-{year}-{pid}.json` (with
   `api_key`) under `REVIT_CLI_DATA_DIR` → `%LOCALAPPDATA%\revit-cli\
   instances` → `~\.revit-cli\instances` → `%APPDATA%\revit-cli\instances`;
@@ -116,7 +125,27 @@ powershell -File "$REPO\.trae\skills\verify-revit-cli-bridge\helpers\dialog-swee
 Copy-Item "D:\Program Files\Autodesk\Revit 2019\Samples\rac_basic_sample_project.rvt" "$SCRATCH\model.rvt"
 & $cli --pid <NEWPID> doc_open --path "$SCRATCH\model.rvt"
 #    doc_open can pop the Template dialog AGAIN — sweep after it, too.
+#    Poll WITHOUT setting REVIT_CLI_DATA_DIR: explorer-launched Revit has no
+#    such env, so the bridge registers under %LOCALAPPDATA%\revit-cli\instances
+#    and a client pointed at a scratch data dir sees nothing.
 ```
+
+**Stale-key trap (hit 2026-11-24 and 2026-11-26).** The Go client resolves the API key
+memory → `%LOCALAPPDATA%\revit-cli\servers\apikey_localhost_<port>.txt` → the instance
+registry (`auth.go:98-126`). A key file left by an earlier dead session shadows the new
+bridge's key: every protected command answers 401 and the client prints "The API key was
+rejected", while `/api/health` and `/api/identity` (no auth) still work and `commands` may
+even succeed from the stale schema cache. Before the first drive, check that file; if it
+exists for our port and its mtime predates the Revit launch, delete it (the agent's
+sandbox refuses deletes under `%LOCALAPPDATA%` — run the delete through a scheduled task:
+`schtasks /create /tn <name> /tr "pwsh -File <script>" /sc once /st 23:59 /f`, `/run`,
+`/delete /f`). The next client call re-creates it from the registry.
+
+**Passing JSON on the wire.** From pwsh, `\"` inside a single-quoted `-d` or `-j` string
+reaches the program as a literal backslash (400 "Invalid JSON: Invalid property identifier
+character: \\"). Write the body to a file and pass `"--data-binary@$file"` as one token
+(`"@file"` on its own is splatted to nothing and the server waits for a body). Give SSE
+probes `--max-time`.
 
 ## Doctor
 
@@ -171,12 +200,16 @@ by element-level re-query; capture both sides (transcript + log).
 ```powershell
 Copy-Item "$env:LOCALAPPDATA\RevitCliBridge\Logs\cli_bridge_$(Get-Date -Format yyyy-MM-dd).log" "$EV\bridge-log.txt"
 Stop-Process -Id <NEWPID> -Force                                   # only the PID we launched
+Start-Sleep 5                                                       # Revit may re-write its file on exit
 Remove-Item "$env:LOCALAPPDATA\revit-cli\instances\revit-2019-<NEWPID>.json" -ErrorAction SilentlyContinue
 Remove-Item -Recurse -Force $SCRATCH -ErrorAction SilentlyContinue
 Get-ChildItem $EV                                                  # evidence survives
+Get-ChildItem "$env:LOCALAPPDATA\revit-cli\instances"              # only the user's own instances remain
 ```
 
-Never run `configure teardown`; the deployed DLL stays installed.
+Never run `configure teardown`; the deployed DLL stays installed. Under the agent
+sandbox `Remove-Item` under `%LOCALAPPDATA%` is refused silently — use the scheduled-task
+route from Launch and confirm with the last line.
 
 ## Helpers
 

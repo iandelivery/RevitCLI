@@ -5,11 +5,11 @@ description: Drive the revit-cli Go client (client/skills/revit-cli/revit-cli.ex
 
 # Verify revit-cli (the Go client)
 
-> **Sync**: fully regenerated 2026-11-23 from a source interview of main
-> `11e58b3` (client fact sheet: main.go, builtin/, discovery/, instance/,
-> sseclient.go, auth/, build.ps1). No facts inherited from prior skill
-> versions; the harness (`helpers/mock_bridge.py`) was rewritten to the
-> bridge's route/SSE/units protocol as read from the bridge source.
+> **Sync**: maintained 2026-11-26 against main `6822bf2` (after PR #117 fixed the
+> schema-cache write order and #120 added Revit 2023/2024). Every feature file was
+> re-read from source and driven against the mock (`dist\verify-evidence\maintain-20261126\client\`).
+> Originally generated 2026-11-23 from main `11e58b3`; the harness
+> (`helpers/mock_bridge.py`) follows the bridge's route/SSE/units protocol.
 
 The app under test is the Go CLI client `client\skills\revit-cli\revit-cli.exe`
 (built by `client\build.ps1`, version stamped from `git describe`). It is a
@@ -23,21 +23,37 @@ resolution failure); `2` bridge unreachable / auth rejected; `3` timeout
 (`"Revit API execution timed out."`); `4` command failed (any other
 `failed`/error response).
 
+**Where 401 lands**: only the schema/SSE path (`dispatchDynamic`, `ping`,
+dynamic commands) maps auth rejection to **2** with `configure setup`
+guidance (`main.go:326`). The builtins `health`, `status`, `raw-mode`,
+`commands`, `schema`, `task` go through `httpGet` → `exitCodeFromStatus`,
+which maps any non-2xx to **1** with no guidance (`builtin/system.go:46-51`).
+Dead port: ping 2, health/status 1.
+
 **Global flags** (`cmd/revit-cli/main.go:71-131`, manual parsing, both
 `--flag value` and `--flag=value`): `--url` (highest precedence) > `--pid` >
-`--revit` > single auto-discovered instance > exit-1 guidance table
+`--revit` (range 2019-2099, `instance/discovery.go:206-212`) > single
+auto-discovered instance > exit-1 guidance table
 (`internal/instance/discovery.go:112-155`). `--timeout` seconds (default 120,
 min 1). `--no-wait` (bare token; sends `async:true`, drops SSE Accept,
-prints `task_id:` and exits 0). `--request-id` (sent as `X-Request-Id`;
-empty → auto-generated per invocation). `--units` repeatable: `project`
-sentinel or `kind=unit` pairs; mixing both or malformed → exit 1 AFTER URL
-resolution + schema fetch, BEFORE any execute request (`main.go:210-236,
-249-254`).
+prints `task_id:` on **stdout** and exits 0). `--request-id` (sent as
+`X-Request-Id`; empty → auto-generated per invocation). `--units`
+repeatable: `project` sentinel or `kind=unit` pairs; only the `kind=unit`
+**shape** is checked client-side (malformed → exit 1 after URL resolution
+and the schema fetch, before any execute); an unknown kind/unit such as
+`length=yard` is sent to the bridge and comes back as exit 4.
+
+**API key precedence** (`internal/client/auth/auth.go:98-126`): in-memory →
+`<data-dir>\servers\apikey_<host>_<port>.txt` → the instance registry. The
+registry is the **last** resort: a stale disk key shadows the correct
+registry key and every protected command answers 401.
 
 **Isolation**: everything the client persists goes under `REVIT_CLI_DATA_DIR`
 when set — instance registry scan (`instances\revit-*.json`), schema cache
-(`cache\[servers\]schema-cache*.json` + `schema-etag*.txt`), auth keys
-(`servers\apikey_*.txt`). Always point it at a scratch dir.
+(`cache\servers\schema-cache*.json` + `schema-etag*.txt`), auth keys
+(`servers\apikey_*.txt`), `skill-installs.json`, `bin\`. Always point it at a
+scratch dir. (`skill show`/`install --list` and the default install scope
+still read the real `~` and cwd — see `features/configure-and-skill.md`.)
 
 ## Launch
 
@@ -65,15 +81,21 @@ python "<repo>\.trae\skills\verify-revit-cli\helpers\mock_bridge.py" `
 ```
 
 Mock ports default to the first free port in **25911-25919** (outside the
-real bridge ranges 5011-5049, so a mock can never be mistaken for Revit).
+real bridge ranges 5011-5069, so a mock can never be mistaken for Revit).
 The mock also writes a registry file `revit-2022-<pid>.json` so
 auto-discovery works. Parse the port from the listening line or the registry
-file — never assume.
+file — never assume. The mock binds **127.0.0.1 only** — keep `--url` drives
+on `http://127.0.0.1:<port>`; `localhost` only works when the dialer falls
+back from `[::1]` to IPv4.
 
 **Mock lifetime rule**: a mock started inside a short-lived shell command
-dies with that command. Always launch it as a background/long-running
-command (in Trae: Shell tool with `run_in_background`), and kill it via its
-pidfile in Cleanup — never by process name.
+dies with that command (seen again 2026-11-26: every drive exit 2 with
+"connectex: No connection could be made"). Always launch it as a
+background/long-running command (in Trae: Shell tool with `run_in_background`),
+and kill it via its pidfile in Cleanup — never by process name. After a
+dead-mock session, delete the registry files it left behind before the
+next launch (a stale `revit-2020-4.json` makes the next `ping` a
+multi-instance exit 1).
 
 ## Doctor
 
@@ -106,6 +128,16 @@ function Run([string]$name, [string[]]$cliArgs) {
 }
 ```
 
+When a drive's **stdout must be parsed as JSON** (to lift an `element_id`,
+a port, a level id), capture stdout alone and send stderr to a file —
+`2>&1 | Out-String` renders stderr's `Progress:` lines into the same string
+and `ConvertFrom-Json` fails:
+
+```powershell
+$out = (& $cli @args 2> "$EV\$name.err" | Out-String)
+$j   = $out.Substring($out.IndexOf('{')) | ConvertFrom-Json
+```
+
 The strongest oracle: the mock's `completed` result **echoes the exact
 request payload** — parameters, top-level `units`, `dry_run`, `request_id` —
 and `bridge.log` records one line per HTTP request (method, path, body
@@ -114,16 +146,21 @@ fields, X-Request-Id). Cross-check transcripts against the log.
 Cover the mapped features (one drive each minimum, see `features/`):
 
 1. `features/connection-and-exit-codes.md` — ping/health/status + the full
-   exit-code matrix incl. dead-port behavior (ping=2, health=1).
-2. `features/instance-discovery.md` — registry discovery, list enrichment,
-   dead-PID cleanup, selector precedence, multi-instance guard.
+   exit-code matrix incl. dead-port behavior (ping=2, health/status=1),
+   `--timeout 0` → 1, `--revit 2100` → 1.
+2. `features/instance-discovery.md` — registry discovery, list enrichment
+   (table on **stdout**), dead-PID cleanup, selector precedence,
+   multi-instance guard.
 3. `features/schema-discovery.md` — commands/catalog/schema, cache TTL,
-   ETag/304, stale fallback, dynamic `--help` with unit kinds, did-you-mean.
+   ETag/304, stale fallback, dynamic `--help` (does a `GET
+   /api/commands/<name>` first), did-you-mean.
 4. `features/dynamic-commands.md` — flag parsing, required validation,
-   dry-run, `--units` injection and pre-connect rejection, SSE execution,
-   `--no-wait` + `task -ti`, `--request-id` dedup, failure exit codes.
-5. `features/configure-and-skill.md` — the read-only paths only
-   (`configure check/port`, `skill show`, `skill install --list`).
+   dry-run, `--units` injection (shape-checked client-side, values
+   bridge-side), SSE execution, `--no-wait` + `task -ti`, `--request-id`
+   dedup, failure exit codes.
+5. `features/configure-and-skill.md` — the read-only paths
+   (`configure check/port`, `skill show`, `skill install --list`) plus one
+   `skill install --target <scratch>` / `uninstall` round-trip.
 
 Against a **real** bridge, the same drives work with `--pid`/`--revit`
 instead of `--url`; only run document-mutating commands with `--dry-run`
