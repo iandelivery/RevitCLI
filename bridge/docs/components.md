@@ -86,8 +86,12 @@ re-entrancy-guarded). Third-party DLLs in `CliBridgePlugins/` are loaded by
 matching rules so they're unit-testable:
 
 1. **Exact match** — input is a registered name.
-2. **Domain path suffix** — `"elements.walls.create"` → `"walls.create"` → `"create"`.
+2. **Domain path suffix** — `"elements.create_wall"` → `"create_wall"`.
 3. **Underscore reversal** — `"wall_create"` → `"create_wall"` (two segments).
+
+`Execute` writes the resolved name back into `QueuedCommand.Command`. It
+does not build a new `QueuedCommand`, because `UnitsContext.Prepare` has
+already set `Units` and `ResolvedUnits` on the original object.
 
 **Versioned routing**: each handler is registered under `{name}@{version}`.
 The default version (`v1`) is *also* registered under the bare `{name}` so

@@ -1,7 +1,6 @@
 using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
 using RevitCliBridge.Abstractions;
-using System;
 using System.Collections.Generic;
 
 namespace RevitCliBridge.Handlers.General
@@ -14,7 +13,7 @@ namespace RevitCliBridge.Handlers.General
 
         public override CommandParamSchema[] Parameters => new[]
         {
-            new CommandParamSchema { Name = "count", Type = "int", Required = false, Description = "Number of transactions to undo", Default = 1 }
+            new CommandParamSchema { Name = "count", Type = "int", Required = false, Description = "Number of undo commands to post (1 to 20; Revit accepts one queued undo at a time, so repeat the command)", Default = 1 }
         };
 
         public override string[] Examples => new[]
@@ -26,42 +25,39 @@ namespace RevitCliBridge.Handlers.General
         protected override string Execute(UIApplication app, Document doc, Dictionary<string, object> parameters, QueuedCommand cmd)
         {
 
-            int? steps = HandlerUtilities.GetIntOrNull(parameters, "steps") ?? 1;
+            int? steps = HandlerUtilities.GetIntOrNull(parameters, "count")
+                ?? HandlerUtilities.GetIntOrNull(parameters, "steps")
+                ?? 1;
 
             if (steps.Value < 1 || steps.Value > 20)
                 return CommandResponse.Error(cmd.TaskId, "Steps must be between 1 and 20.").ToJson();
 
             int successCount = 0;
 
-            try
+            for (int i = 0; i < steps.Value; i++)
             {
-                for (int i = 0; i < steps.Value; i++)
+                var undoCommandId = RevitCommandId.LookupPostableCommandId(PostableCommand.Undo);
+                if (!app.CanPostCommand(undoCommandId))
+                    break;
+                try
                 {
-                    var undoCommandId = RevitCommandId.LookupPostableCommandId(PostableCommand.Undo);
-                    if (app.CanPostCommand(undoCommandId))
-                    {
-                        app.PostCommand(undoCommandId);
-                        successCount++;
-                    }
-                    else
-                    {
-                        break;
-                    }
+                    app.PostCommand(undoCommandId);
+                    successCount++;
                 }
-            }
-            catch (Exception ex)
-            {
-                return CommandResponse.Error(cmd.TaskId, $"Undo failed: {ex.Message}").ToJson();
+                catch
+                {
+                    break;
+                }
             }
 
             var result = new
             {
                 steps_requested = steps.Value,
-                steps_executed = successCount
+                steps_posted = successCount
             };
 
             return CommandResponse.Success(cmd.TaskId, result,
-                $"Undo executed: {successCount} step(s).").ToJson();
+                $"Undo posted: {successCount} of {steps.Value} step(s). Revit accepts one queued undo at a time; repeat the command to undo more steps.").ToJson();
         }
     }
 }

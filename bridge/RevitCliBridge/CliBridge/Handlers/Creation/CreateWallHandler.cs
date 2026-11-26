@@ -31,7 +31,7 @@ namespace RevitCliBridge.Handlers.Creation
             new CommandParamSchema { Name = "end_x", Type = "double", Required = true, UnitKind = UnitKinds.Length, Description = "End X coordinate (request length unit, default mm)" },
             new CommandParamSchema { Name = "end_y", Type = "double", Required = true, UnitKind = UnitKinds.Length, Description = "End Y coordinate (request length unit, default mm)" },
             new CommandParamSchema { Name = "level_id", Type = "int", Required = true, Description = "Level element ID to place the wall on" },
-            new CommandParamSchema { Name = "height", Type = "double", Required = false, UnitKind = UnitKinds.Length, Description = "Wall height (request length unit, default mm)", Default = 3000 }
+            new CommandParamSchema { Name = "height", Type = "double", Required = false, UnitKind = UnitKinds.Length, Description = "Wall height (request length unit; omit for the wall type height)" }
         };
 
         public override string[] Examples => new[]
@@ -58,6 +58,15 @@ namespace RevitCliBridge.Handlers.Creation
                     ElementIdCompat.FromValue(p.LevelId),
                     false);
 
+                if (p.Height is > 0)
+                {
+                    var heightParam = wall.get_Parameter(BuiltInParameter.WALL_USER_HEIGHT_PARAM);
+                    if (heightParam != null && !heightParam.IsReadOnly)
+                    {
+                        heightParam.Set(p.Height.Value);
+                    }
+                }
+
                 var result = t.Commit(() => new
                 {
                     element_id = ElementIdCompat.ValueOf(wall.Id),
@@ -67,7 +76,7 @@ namespace RevitCliBridge.Handlers.Creation
                     end_x = p.EndX,
                     end_y = p.EndY,
                     level_id = p.LevelId,
-                    height = p.Height
+                    height = wall.get_Parameter(BuiltInParameter.WALL_USER_HEIGHT_PARAM)?.AsDouble() ?? 0
                 });
 
                 return CommandResponse.SuccessWithResolvedFailures(cmd.TaskId, result,
@@ -99,7 +108,7 @@ namespace RevitCliBridge.Handlers.Creation
         [Param("level_id", Required = true)]
         public int LevelId { get; set; }
 
-        [Param("height", Default = 3000.0)]
-        public double Height { get; set; }
+        [Param("height")]
+        public double? Height { get; set; }
     }
 }

@@ -144,14 +144,7 @@ namespace RevitCliBridge
             var resolvedCommand = ResolveCommandName(queuedCommand.Command);
             if (resolvedCommand != queuedCommand.Command)
             {
-                queuedCommand = new QueuedCommand
-                {
-                    TaskId = queuedCommand.TaskId,
-                    Command = resolvedCommand,
-                    Parameters = queuedCommand.Parameters,
-                    DryRun = queuedCommand.DryRun,
-                    RequestId = queuedCommand.RequestId
-                };
+                queuedCommand.Command = resolvedCommand;
             }
 
             if (!_handlers.TryGetValue(queuedCommand.Command, out var handler))
