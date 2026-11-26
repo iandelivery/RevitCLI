@@ -140,7 +140,7 @@ cd C:\path\to\revit-cli-opensource
 
 The script performs four phases, mirroring the CI release pipeline:
 
-1. **Build the bridge** for every supported Revit version (2019, 2020, 2021, 2022). Output lands in `bridge/dist/Revit20XX/`, including a per-version `.config/cli_bridge_setting.json` with the correct port (5011, 5021, 5031, 5041).
+1. **Build the bridge** for every supported Revit version (2019, 2020, 2021, 2022, 2023, 2024). Output lands in `bridge/dist/Revit20XX/`, including a per-version `.config/cli_bridge_setting.json` with the correct port (5011, 5021, 5031, 5041, 5051, 5061).
 2. **Build the Go client** (`go vet` + `go build`) and inject the version string via `-ldflags "-X main.Version=…"`.
 3. **Generate API documentation** from the `RevitCliBridge.Abstractions` XML doc comments into `bridge/docs/api/` via the `XMLDoc2Markdown` dotnet tool (restored automatically from `.config/dotnet-tools.json`).
 4. **Package** the artifacts into the repo-root `dist/` folder:
@@ -403,7 +403,7 @@ Run without flags in a terminal for an interactive multi-select. For `skill show
 - **Instance discovery** — `--revit`, `--pid`, and `list` commands for targeting specific instances
 - **llms.txt API reference** — AI agents can discover raw Revit API elements and use `execute_raw` as fallback
 - **Plugin system** — third-party command handlers via `IBridgeCommand` interface
-- **Multi-version support** — Revit 2019, 2020, 2021, 2022
+- **Multi-version support** — Revit 2019, 2020, 2021, 2022, 2023, 2024
 - **Dry-run mode** — preview operations without modifying the document
 - **Automated setup** — `configure setup` installs the bridge across all detected Revit versions
 - **AI agent skill management** — `skill install` registers the bundled `SKILL.md` with Claude Code, Cursor, Trae, CodeBuddy, Kimi and other coding agents
