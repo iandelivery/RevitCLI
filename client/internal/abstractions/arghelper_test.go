@@ -62,6 +62,52 @@ func TestFirstPositional_NoneFound(t *testing.T) {
 	}
 }
 
+func TestFirstPositionalAt_ReturnsIndexAndRest(t *testing.T) {
+	args := []string{"--revit", "2019", "create_wall", "--dry-run"}
+	idx, name, rest := FirstPositionalAt(args)
+	if idx != 2 {
+		t.Fatalf("expected index 2, got %d", idx)
+	}
+	if name != "create_wall" {
+		t.Fatalf("expected 'create_wall', got %q", name)
+	}
+	if len(rest) != 1 || rest[0] != "--dry-run" {
+		t.Fatalf("expected rest ['--dry-run'], got %v", rest)
+	}
+}
+
+func TestFirstPositionalAt_NoneFound(t *testing.T) {
+	idx, name, rest := FirstPositionalAt([]string{"--revit", "2019"})
+	if idx != -1 || name != "" || rest != nil {
+		t.Fatalf("expected (-1, \"\", nil), got (%d, %q, %v)", idx, name, rest)
+	}
+}
+
+func TestHasLeadingFlag_DetectsFlagBeforeCommand(t *testing.T) {
+	args := []string{"--dry-run", "create_wall"}
+	if !HasLeadingFlag(args, 1, "--dry-run") {
+		t.Fatal("expected HasLeadingFlag=true for leading --dry-run")
+	}
+}
+
+func TestHasLeadingFlag_SkipsGlobalFlagValues(t *testing.T) {
+	args := []string{"--request-id", "--dry-run", "create_wall"}
+	if HasLeadingFlag(args, 2, "--dry-run") {
+		t.Fatal("--dry-run here is the value of --request-id, not a flag")
+	}
+	args = []string{"--url=http://localhost:5011", "--dry-run", "create_wall"}
+	if !HasLeadingFlag(args, 2, "--dry-run") {
+		t.Fatal("expected HasLeadingFlag=true with inline global flag")
+	}
+}
+
+func TestHasLeadingFlag_FalseAfterCommand(t *testing.T) {
+	args := []string{"create_wall", "--dry-run"}
+	if HasLeadingFlag(args, 0, "--dry-run") {
+		t.Fatal("expected HasLeadingFlag=false when index is 0")
+	}
+}
+
 func TestFindArg_FindsShortAlias(t *testing.T) {
 	args := []string{"-n", "wall"}
 	val, ok := FindArg(args, "--name", "-n")

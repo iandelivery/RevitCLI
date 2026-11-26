@@ -19,7 +19,7 @@ Instance registry files are stored under `%AppData%\revit-cli\instances\`, one J
 | Command | Description |
 |---------|-------------|
 | `ping` | Test connection to Revit |
-| `list` | List running Revit instances |
+| `list` | List running Revit instances. `--json` omits the API key |
 | `llms [--save <path>]` | Show Revit API reference (llms.txt), optionally save to file |
 | `status` | Show bridge server status |
 | `health` | Health check |
@@ -54,6 +54,8 @@ This conversion applies ONLY to high-level commands; raw scripts via `execute_ra
 Non-built-in commands are auto-discovered from the bridge schema endpoint (`GET /api/commands`). The schema is cached locally (30-min TTL) under `%AppData%\revit-cli\` with ETag-based conditional requests and stale-cache fallback for offline resilience. Use `commands --refresh` to force a re-fetch.
 
 Every dynamic command accepts the output flags `--fields`, `--fmt`, and `--jq`. The **bridge** executes them; the client forwards arguments untouched, so there is no client-side filtering step.
+
+Commands with `supports_dry_run` also accept `--dry-run` after the command name. `--dry-run` before the command name is a usage error: the client prints `Error: --dry-run must come after the command name`, exits 1, and does not run the command.
 
 ## API Reference (llms.txt) and Raw Execution
 
