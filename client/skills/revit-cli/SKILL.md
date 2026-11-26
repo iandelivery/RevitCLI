@@ -95,6 +95,7 @@ Global flags (usable on any command):
 - `--no-wait` — submit the command, print `task_id: <id>`, and exit 0 immediately. Poll later with `revit-cli.exe task -ti <id>`. Use this when the calling harness kills processes at its own limit.
 - `--request-id <id>` — stable retry key. If the bridge already holds a task with the same ID, it returns that task instead of running the command again. Pass the same value on every retry of the same logical request.
 - `--units <kind=unit | project>` — request units for the invocation; repeatable (`--units length=ft --units angle=rad`) or `--units project` to follow the document's display units. See Units below.
+- `--dry-run` is not a global flag. Put it after the command name. Before the command name, the client exits 1 and does not run the command.
 
 A timed-out task may still have committed its Revit transaction, because the Revit API cannot be canceled mid-call. Treat exit code 3 as "outcome unknown": check the model with a query command before retrying, or retry with the same `--request-id` so the bridge deduplicates instead of creating a second element.
 
