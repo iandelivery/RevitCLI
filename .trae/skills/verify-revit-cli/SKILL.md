@@ -5,11 +5,11 @@ description: Drive the revit-cli Go client (client/skills/revit-cli/revit-cli.ex
 
 # Verify revit-cli (the Go client)
 
-> **Sync**: fully regenerated 2026-11-23 from a source interview of main
-> `11e58b3` (client fact sheet: main.go, builtin/, discovery/, instance/,
-> sseclient.go, auth/, build.ps1). No facts inherited from prior skill
-> versions; the harness (`helpers/mock_bridge.py`) was rewritten to the
-> bridge's route/SSE/units protocol as read from the bridge source.
+> **Sync**: regenerated 2026-11-23 from main `11e58b3`; re-synced
+> 2026-11-26 against main `280899b` (PR #122: leading `--dry-run` is a
+> usage error with zero HTTP; `list --json` omits `api_key`). Every
+> feature file was re-read from source and re-driven live against the
+> mock bridge in that pass.
 
 The app under test is the Go CLI client `client\skills\revit-cli\revit-cli.exe`
 (built by `client\build.ps1`, version stamped from `git describe`). It is a
@@ -108,8 +108,14 @@ function Run([string]$name, [string[]]$cliArgs) {
 
 The strongest oracle: the mock's `completed` result **echoes the exact
 request payload** — parameters, top-level `units`, `dry_run`, `request_id` —
-and `bridge.log` records one line per HTTP request (method, path, body
-fields, X-Request-Id). Cross-check transcripts against the log.
+and `bridge.log` records **two lines per HTTP request** (one with the
+status, one without). Count requests as `(lines_after - lines_before) / 2`.
+Cross-check transcripts against the log.
+
+`Run` returns `,@($out, $code)`; when a caller captures that into a
+variable the output is an array and a regex over it sees `Length : 12`
+rather than the JSON — read the transcript file back (`Get-Content
+"$EV\$name.txt" -Raw`) when extracting ids or asserting on text.
 
 Cover the mapped features (one drive each minimum, see `features/`):
 
@@ -183,9 +189,11 @@ Run this after every failed iteration too.
   allowed-list errors, `dry_run` echo without `element_id`.
 
   Command schemas served: `ping`, `create_wall` (unit_kind length params +
-  height default 3000), `get_units` (serves the project/canonical/allowed
-  matrices), `elements`, `delete_elements` — plus whatever `--fail-command`
-  / `--slow-command` name you pass.
+  height default 3000 — the live bridge no longer declares that default;
+  the mock keeps it as a defaults-injection oracle), `get_units`
+  (supports_dry_run false — the dry-run-unsupported case), `elements`,
+  `delete_elements` — plus whatever `--fail-command` / `--slow-command`
+  name you pass. Binds `127.0.0.1` only: use `--url http://127.0.0.1:$PORT`.
 
 ## Known environment traps
 
@@ -193,6 +201,13 @@ Run this after every failed iteration too.
   outer shell — every script with variables goes in a `.ps1` file.
 - A function that both `Write-Output`s diagnostics and returns a value
   pollutes the return — use `Write-Host` for progress lines.
+- A `Run` that returns `,@($out,$code)` wraps stderr records as
+  `RemoteException` objects; `ForEach-Object { "$_" }` before writing the
+  transcript, and read the file back for assertions (see Drive).
+- In a `.ps1`, `\"` inside a `-j`/`-d` JSON value reaches the exe as a
+  literal backslash (`Invalid JSON` / 400). Write the JSON to a file and
+  pass `(Get-Content $file -Raw)` as ONE token; `-f` formatting doubles
+  the braces (`{{`/`}}`).
 - The schema cache TTL is 30 min: a second `commands` within TTL issues no
-  request (prove via log line count), `--refresh` forces revalidation (304
-  when the ETag matches).
+  request (prove via the two-lines-per-request log delta), `--refresh`
+  forces revalidation (304 when the ETag matches).
