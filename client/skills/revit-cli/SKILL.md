@@ -51,7 +51,7 @@ Related sub-commands: `skill show` (installation status), `skill update` (re-syn
 ## Prerequisites
 
 - **Revit** must be running with the CLI Bridge add-in enabled (Ribbon toggle button; AI Mode auto-starts by default)
-- The bridge server auto-selects a port based on Revit version (e.g. Revit 2022 → port 5041+)
+- The bridge server auto-selects a port based on Revit version (e.g. Revit 2024 → port 5061+)
 - Verify connection with `revit-cli.exe ping`; list running instances with `revit-cli.exe list`
 - Target against a specific instance with `--revit <version>`, `--pid <pid>`, or `--url <url>`
 

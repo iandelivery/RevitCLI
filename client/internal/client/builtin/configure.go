@@ -296,7 +296,7 @@ func configurePort(args []string) int {
 	return 0
 }
 
-var supportedRevitVersions = []int{2019, 2020, 2021, 2022}
+var supportedRevitVersions = []int{2019, 2020, 2021, 2022, 2023, 2024}
 
 func isSupportedVersion(v int) bool {
 	for _, sv := range supportedRevitVersions {

@@ -4,8 +4,8 @@ A Revit add-in that runs an HTTP server inside Revit, exposing Revit API operati
 
 ## Requirements
 
-- **Revit 2019, 2020, 2021, or 2022**
-- **.NET Framework 4.7** (Revit 2019/2020) or **4.8** (Revit 2021/2022)
+- **Revit 2019, 2020, 2021, 2022, 2023, or 2024**
+- **.NET Framework 4.7** (Revit 2019/2020) or **4.8** (Revit 2021/2022/2023/2024)
 - **Visual Studio 2022** with .NET desktop workload
 
 ## Build
