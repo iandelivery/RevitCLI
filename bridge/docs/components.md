@@ -89,6 +89,10 @@ matching rules so they're unit-testable:
 2. **Domain path suffix** — `"elements.walls.create"` → `"walls.create"` → `"create"`.
 3. **Underscore reversal** — `"wall_create"` → `"create_wall"` (two segments).
 
+`Execute` writes the resolved name back into `QueuedCommand.Command`. It
+does not build a new `QueuedCommand`, because `UnitsContext.Prepare` has
+already set `Units` and `ResolvedUnits` on the original object.
+
 **Versioned routing**: each handler is registered under `{name}@{version}`.
 The default version (`v1`) is *also* registered under the bare `{name}` so
 legacy callers are unaffected. The resolver strips any `@version` suffix

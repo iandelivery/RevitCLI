@@ -28,6 +28,9 @@ its `units` envelope field.
 - A request chooses units with the top-level `units` field: a kind-to-unit
   map, or the string `project` to follow the active document's decimal
   display units (`get_units` reports them).
+- Name resolution keeps the units. A domain path such as
+  `elements.walls.create` and the underscore-reversed form such as
+  `wall_create` convert and echo the same `units` as the registered name.
 - Handlers declare `unit_kind` on schema parameters (converted inputs) and
   `ResponseFieldKinds` (rewritten outputs), or use `ParameterUnits` when the
   spec belongs to the element's parameter. Handlers stay unit-blind and emit
@@ -62,7 +65,7 @@ resolve to `create_wall@v2`.
 
 | Category | Command | Modifies Model |
 |------|------|:------------:|
-| **General** | `ping`, `undo` | No |
+| **General** | `ping`, `undo` | undo: Yes |
 | **Documents** | `document_info`, `doc_list`, `doc_open`, `doc_close`, `doc_save`, `doc_save_as`, `doc_sync` | save/save_as/sync: Yes |
 | **Query** | `get_links`, `get_elements`, `get_element_by_id`, `get_element_locations`, `get_element_boxes`, `get_element_types`, `get_family_symbols`, `get_family_symbol`, `get_symbol_instances`, `get_levels`, `get_parameters`, `get_units`, `get_views`, `get_sheets`, `get_sheet_viewports`, `check_sheet_bounds`, `check_viewport_overlaps`, `get_rooms`, `get_selected_elements`, `search_elements` | No |
 | **Creation** | `create_wall`, `create_walls`, `create_door`, `create_window`, `create_grid`, `create_family_instance`, `create_view`, `create_dimensions`, `create_sheet`, `create_room` | Yes |
