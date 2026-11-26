@@ -92,7 +92,7 @@ CLI 客户端会把命令 schema（通过 `GET /api/commands` 获取）在本地
 ### 方式 1 — 下载 release
 
 1. 从 [Releases](../../releases) 页面下载最新的 `revit-cli-<version>.zip`。
-2. 解压到任意目录（例如 `C:\revit-cli\`）。压缩包内含 `revit-cli.exe` 客户端、供 AI 代理使用的 `SKILL.md`，以及包含全部 4 个 Revit 版本桥接器的 `bridge/` 文件夹。如需把 skill 注册到你的 AI 编程 Agent，参见[配合 AI 编程 Agent 使用](#配合-ai-编程-agent-使用)。
+2. 解压到任意目录（例如 `C:\revit-cli\`）。压缩包内含 `revit-cli.exe` 客户端、供 AI 代理使用的 `SKILL.md`，以及包含全部 6 个 Revit 版本桥接器的 `bridge/` 文件夹。如需把 skill 注册到你的 AI 编程 Agent，参见[配合 AI 编程 Agent 使用](#配合-ai-编程-agent-使用)。
 3. 为本机所有 Revit 安装桥接器：
    ```powershell
    .\revit-cli.exe configure setup
@@ -137,7 +137,7 @@ cd C:\path\to\revit-cli-opensource
 
 脚本按四个阶段运行，完全对应 CI 发布流水线：
 
-1. **编译 Bridge**：依次构建所有受支持的 Revit 版本（2019、2020、2021、2022）。产物输出到 `bridge/dist/Revit20XX/`，并为每个版本生成包含正确端口（5011、5021、5031、5041）的 `.config/cli_bridge_setting.json`。
+1. **编译 Bridge**：依次构建所有受支持的 Revit 版本（2019、2020、2021、2022、2023、2024）。产物输出到 `bridge/dist/Revit20XX/`，并为每个版本生成包含正确端口（5011、5021、5031、5041、5051、5061）的 `.config/cli_bridge_setting.json`。
 2. **编译 Go 客户端**：`go vet` + `go build`，并通过 `-ldflags "-X main.Version=…"` 注入版本号。
 3. **生成 API 文档**：使用 [XMLDoc2Markdown](https://github.com/charlesdevandiere/xmldoc2markdown) 把 `RevitCliBridge.Abstractions` 的 XML 文档注释转成 Markdown，输出到 `bridge/docs/api/`。工具通过 `dotnet tool restore` 自动从 `.config/dotnet-tools.json` 还原，无需手动安装。
 4. **打包**：在仓库根目录的 `dist/` 下生成发布产物：
@@ -410,6 +410,8 @@ revit-cli.exe skill uninstall --target <dir>   # 自定义 skills 根目录
 | 2020 | 5021 | 5021-5029 |
 | 2021 | 5031 | 5031-5039 |
 | 2022 | 5041 | 5041-5049 |
+| 2023 | 5051 | 5051-5059 |
+| 2024 | 5061 | 5061-5069 |
 
 端口 5000 保留为传统回退端口。如果版本范围内的所有端口都被占用，桥接器将回退到配置的 `port` 值或操作系统分配的临时端口。
 

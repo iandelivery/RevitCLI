@@ -28,7 +28,7 @@ fallback, and type-safe argument parsing.
 ## Requirements
 
 - **Go 1.26+** — for building
-- **Revit** — with the CLI Bridge add-in installed and running
+- **Revit** (2019–2024) — with the CLI Bridge add-in installed and running
 
 ## Build
 

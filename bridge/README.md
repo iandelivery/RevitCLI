@@ -11,7 +11,7 @@ A Revit add-in that runs an HTTP server inside Revit, exposing Revit API operati
 ## Build
 
 1. Open `RevitCliBridge.sln` in Visual Studio
-2. Select the configuration matching your Revit version (e.g. `Release R22` for Revit 2022)
+2. Select the configuration matching your Revit version (e.g. `Release R22` for Revit 2022, `Release R24` for Revit 2024)
 3. Build the solution
 
 The output DLLs will be in `RevitCliBridge/bin/Release R22/` (or corresponding version).
@@ -120,6 +120,8 @@ When `auto_port` is enabled (default), the bridge automatically selects an avail
 | 2020 | 5021 | 5021-5029 |
 | 2021 | 5031 | 5031-5039 |
 | 2022 | 5041 | 5041-5049 |
+| 2023 | 5051 | 5051-5059 |
+| 2024 | 5061 | 5061-5069 |
 
 This allows multiple Revit instances (including different versions) to run simultaneously without port conflicts. Port 5000 is reserved as a legacy fallback.
 

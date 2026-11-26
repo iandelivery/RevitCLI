@@ -418,6 +418,8 @@ When `auto_port` is enabled (default), each Revit version gets a dedicated port 
 | 2020 | 5021 | 5021-5029 |
 | 2021 | 5031 | 5031-5039 |
 | 2022 | 5041 | 5041-5049 |
+| 2023 | 5051 | 5051-5059 |
+| 2024 | 5061 | 5061-5069 |
 
 Port 5000 is reserved as a legacy fallback. If all ports in a version's range are occupied, the bridge falls back to the configured `port` value or an ephemeral OS-assigned port.
 
