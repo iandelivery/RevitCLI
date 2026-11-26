@@ -44,14 +44,22 @@ func TestEnrichInstancesAndDisplay(t *testing.T) {
 	unauthPort := portFromURL(t, unauthorized.URL)
 
 	instances := []instance.InstanceInfo{
-		{Pid: 1, Version: 2022, Port: healthyPort},
-		{Pid: 2, Version: 2019, Port: slowPort},
+		{Pid: 1, Version: 2022, Port: healthyPort, ApiKey: "secret-key"},
+		{Pid: 2, Version: 2019, Port: slowPort, ApiKey: "secret-key"},
 		{Pid: 3, Version: 2021, Port: unauthPort},
 	}
 
 	enriched := enrichInstances(context.Background(), instances)
 	if len(enriched) != 3 {
 		t.Fatalf("len(enriched) = %d, want 3", len(enriched))
+	}
+
+	encoded, err := json.Marshal(enriched)
+	if err != nil {
+		t.Fatalf("marshal enriched: %v", err)
+	}
+	if strings.Contains(string(encoded), "secret-key") || strings.Contains(string(encoded), "api_key") {
+		t.Fatalf("enriched JSON leaks the API key: %s", encoded)
 	}
 
 	byPid := map[int]enrichedInstance{}

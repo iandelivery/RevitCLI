@@ -60,6 +60,7 @@ func fetchDocuments(ctx context.Context, client *http.Client, baseURL string) (*
 func enrichInstances(parent context.Context, instances []instance.InstanceInfo) []enrichedInstance {
 	enriched := make([]enrichedInstance, len(instances))
 	for i, inst := range instances {
+		inst.ApiKey = ""
 		enriched[i] = enrichedInstance{InstanceInfo: inst}
 	}
 
