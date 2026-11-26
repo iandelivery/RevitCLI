@@ -56,7 +56,8 @@ any HTTP caller.
 - **Versioning**: `{RevitYear}.{Major}.{Minor}.{Patch}` from the latest
   `v*` tag at build (`build.ps1` passes `-p:Major/Minor/Patch`); port per
   version 5000+(v-2018)*10+1, allocated from a 10-port range (2019:
-  5011-5019, 2020: 5021-5029, 2021: 5031-5039, 2022: 5041-5049).
+  5011-5019, 2020: 5021-5029, 2021: 5031-5039, 2022: 5041-5049, 2023:
+  5051-5059, 2024: 5061-5069).
 - **Registry/log**: instance file `revit-{year}-{pid}.json` (with
   `api_key`) under `REVIT_CLI_DATA_DIR` → `%LOCALAPPDATA%\revit-cli\
   instances` → `~\.revit-cli\instances` → `%APPDATA%\revit-cli\instances`;

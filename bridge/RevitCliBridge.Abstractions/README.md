@@ -18,11 +18,11 @@ Plugin SDK for [RevitCliBridge](https://github.com/iandelivery/RevitCLI) — imp
 | `ICommandRegistry` | Abstraction over the bridge's command registry, for tests that verify registration logic. |
 | `IBridgePlugin` | *Reserved* for structured plugin lifecycle hooks. The current bridge loader auto-discovers `IBridgeCommand` only and does not invoke this interface yet. |
 
-Target framework: **netstandard2.0** — no Revit API reference required, compatible with every Revit version the bridge supports (2019–2022).
+Target framework: **netstandard2.0** — no Revit API reference required, compatible with every Revit version the bridge supports (2019–2024).
 
 ## Install
 
-The package uses plain semantic versioning. It is **Revit-version independent** — the same package works with every supported Revit version (2019–2022):
+The package uses plain semantic versioning. It is **Revit-version independent** — the same package works with every supported Revit version (2019–2024):
 
 ```
 dotnet add package RevitCliBridge.Abstractions --version 2.1.0
