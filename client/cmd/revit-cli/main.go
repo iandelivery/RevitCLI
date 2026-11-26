@@ -267,9 +267,14 @@ func dispatchDynamic(args []string) int {
 	opts := parseGlobalOptions(args)
 	baseURL := instance.ResolveURL(opts.url, opts.pid, opts.revit)
 
-	cmdName, cmdArgs := abstractions.FirstPositional(args)
+	cmdIndex, cmdName, cmdArgs := abstractions.FirstPositionalAt(args)
 	if cmdName == "" {
 		return 0
+	}
+
+	if abstractions.HasLeadingFlag(args, cmdIndex, "--dry-run") {
+		fmt.Fprintln(os.Stderr, "Error: --dry-run must come after the command name")
+		return client.ExitUsage
 	}
 
 	httpClient := &http.Client{Timeout: 0}

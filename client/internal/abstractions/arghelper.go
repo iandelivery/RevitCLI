@@ -75,14 +75,10 @@ func IsGlobalValueFlag(arg string) bool {
 	return false
 }
 
-// FirstPositional returns the first positional argument in args and the
-// remaining arguments after it. It skips the global value flags listed in
-// GlobalValueFlags (in both "--flag value" and "--flag=value" forms), other
-// leading flags such as --no-wait, and their values, so built-in handlers
-// that dispatch on a sub-command or command name work regardless of where
-// the user placed the global flags (e.g. "revit-cli --revit 2019 schema
-// create_wall").
-func FirstPositional(args []string) (string, []string) {
+// FirstPositionalAt returns the index of the first positional argument in
+// args, the argument itself, and the remaining arguments after it. It applies
+// the same skipping rules as FirstPositional.
+func FirstPositionalAt(args []string) (int, string, []string) {
 	for i := 0; i < len(args); i++ {
 		a := args[i]
 		if IsGlobalValueFlag(a) {
@@ -94,9 +90,41 @@ func FirstPositional(args []string) (string, []string) {
 		if strings.HasPrefix(a, "-") {
 			continue
 		}
-		return a, args[i+1:]
+		return i, a, args[i+1:]
 	}
-	return "", nil
+	return -1, "", nil
+}
+
+// HasLeadingFlag reports whether flag appears among the tokens before
+// args[index] that are not consumed as a global value flag's value. Tokens
+// after a global value flag are treated as that flag's value and skipped,
+// matching the scanning rules of FirstPositionalAt.
+func HasLeadingFlag(args []string, index int, flag string) bool {
+	for i := 0; i < index; i++ {
+		a := args[i]
+		if IsGlobalValueFlag(a) {
+			if !strings.Contains(a, "=") {
+				i++
+			}
+			continue
+		}
+		if a == flag {
+			return true
+		}
+	}
+	return false
+}
+
+// FirstPositional returns the first positional argument in args and the
+// remaining arguments after it. It skips the global value flags listed in
+// GlobalValueFlags (in both "--flag value" and "--flag=value" forms), other
+// leading flags such as --no-wait, and their values, so built-in handlers
+// that dispatch on a sub-command or command name work regardless of where
+// the user placed the global flags (e.g. "revit-cli --revit 2019 schema
+// create_wall").
+func FirstPositional(args []string) (string, []string) {
+	_, name, rest := FirstPositionalAt(args)
+	return name, rest
 }
 
 // GetInt returns the integer value following any of the given flags, or
