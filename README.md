@@ -3,7 +3,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Go Version](https://img.shields.io/badge/go-%3E%3D1.26-blue.svg)](https://go.dev/)
 
-A command-line interface toolkit that enables AI agents and automation scripts to drive Autodesk Revit through an HTTP API.
+A command-line interface toolkit that enables AI agents and automation scripts to drive Autodesk Revit through an HTTP API. Supports **Revit 2019, 2020, 2021, 2022, 2023, and 2024**.
 
 ## Architecture
 
