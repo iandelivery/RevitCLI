@@ -1,6 +1,6 @@
 # Revit CLI Bridge
 
-一个命令行接口工具包，使 AI Agent和自动化脚本能够通过 HTTP API 驱动 Autodesk Revit。
+一个命令行接口工具包，使 AI Agent和自动化脚本能够通过 HTTP API 驱动 Autodesk Revit。支持 **Revit 2019、2020、2021、2022、2023、2024**。
 
 ## 架构
 
@@ -395,7 +395,7 @@ revit-cli.exe skill uninstall --target <dir>   # 自定义 skills 根目录
 - **实例发现** — `--revit`、`--pid` 和 `list` 命令用于定位特定实例
 - **llms.txt API 参考** — AI 代理可发现原始 Revit API 元素，使用 `execute_raw` 作为回退
 - **插件系统** — 通过 `IBridgeCommand` 接口支持第三方命令处理器
-- **多版本支持** — Revit 2019、2020、2021、2022
+- **多版本支持** — Revit 2019、2020、2021、2022、2023、2024
 - **试运行模式** — 预览操作而不修改文档
 - **自动安装** — `configure setup` 可在所有检测到的 Revit 版本中安装桥接器
 - **AI Agent skill 管理** — `skill install` 把内置 `SKILL.md` 注册到 Claude Code、Cursor、Trae、CodeBuddy、Kimi 等编程 Agent
